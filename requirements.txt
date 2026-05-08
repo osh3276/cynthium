@@ -1,0 +1,6 @@
+
+pyside6
+rasterio
+numpy
+pyvistaqt
+pyvista[colormaps]
