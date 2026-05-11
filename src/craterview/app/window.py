@@ -61,7 +61,7 @@ class Window(QMainWindow):
 		self._sidebar.map_selected.connect(self._load_site)
 
 	def _load_site(self, path: str):
-		self._view_container.load(path)
+		self._view_container.load(path, "elevation", "2025-01-01T00:00:00")
 		self.statusBar().showMessage(f"Site loaded: {path}")
 
 	def _open_file_dialog(self):

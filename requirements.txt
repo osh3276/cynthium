@@ -5,3 +5,4 @@ numpy
 pyvistaqt
 pyvista[colormaps]
 vtk
+spiceypy

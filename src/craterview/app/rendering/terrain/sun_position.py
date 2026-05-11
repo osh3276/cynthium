@@ -1,38 +1,33 @@
-from astropy.coordinates import get_body_barycentric, SkyCoord, MCMF
-from astropy.time import Time
-import astropy.units as u
+from pathlib import Path
+
+import spiceypy as spice
 import numpy as np
 
+BASE_DIR = Path(__file__).resolve().parent
 
-def sun_position_from_moon(lat, lon, time: Time):
+for kernel in [
+	"naif0012.tls",
+	"de430.bsp",
+	"moon_pa_de440_200625.bpc",
+	"moon_de440_250416.tf",
+	"pck00011.tpc",
+]:
+	spice.furnsh(str(BASE_DIR / kernel))
+
+
+def sun_position_from_moon(lat, lon, time):
 	"""
-	lat, lon: selenographic coordinates in degrees
-	time: astropy Time object
-	returns: azimuth, elevation in degrees
-	"""
-	# Get Sun position in MCMF (accounts for lunar libration)
-	sun_gcrs = get_body_barycentric("sun", time) - get_body_barycentric("moon", time)
+    lat, lon: selenographic degrees
+    et: SPICE ephemeris time (use spice.utc2et)
+    """
+	et = spice.utc2et(time)
+	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
+	sv = np.array(state)
+	sv /= np.linalg.norm(sv)
 
-	sun_mcmf = SkyCoord(
-		x=sun_gcrs.xyz[0],
-		y=sun_gcrs.xyz[1],
-		z=sun_gcrs.xyz[2],
-		frame="gcrs",
-		obstime=time
-	).transform_to(MCMF(obstime=time))
-
-	# Local horizontal frame at the surface point
 	lat_rad = np.radians(lat)
 	lon_rad = np.radians(lon)
 
-	sv = np.array([
-		sun_mcmf.cartesian.x.to(u.km).value,
-		sun_mcmf.cartesian.y.to(u.km).value,
-		sun_mcmf.cartesian.z.to(u.km).value,
-	])
-	sv /= np.linalg.norm(sv)
-
-	# Local frame basis vectors
 	up = np.array([np.cos(lat_rad) * np.cos(lon_rad),
 	               np.cos(lat_rad) * np.sin(lon_rad),
 	               np.sin(lat_rad)])
@@ -40,7 +35,7 @@ def sun_position_from_moon(lat, lon, time: Time):
 	east /= np.linalg.norm(east)
 	north = np.cross(up, east)
 
-	el = np.degrees(np.arcsin(np.dot(sv, up)))
-	az = np.degrees(np.arctan2(np.dot(sv, east), np.dot(sv, north))) % 360
+	elevation = np.degrees(np.arcsin(np.dot(sv, up)))
+	azimuth = np.degrees(np.arctan2(np.dot(sv, east), np.dot(sv, north))) % 360
 
-	return az, el
+	return azimuth, elevation

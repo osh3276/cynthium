@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter
 from PySide6.QtCore import Qt
 
@@ -21,7 +23,8 @@ class ViewContainer(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(splitter)
 
-    def load(self, path: str):
+    def load(self, path: str, map_type: str = "elevation",
+			 date: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")):
         data, meta = load_geotif(path)
-        self.raster_view.load(data)
-        self.terrain_view.load(path)
+        self.raster_view.load(data, map_type)
+        self.terrain_view.load(path, date)
