@@ -1,0 +1,105 @@
+from pathlib import Path
+
+# --- Paths ---
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DATA_DIR = PROJECT_ROOT / "data"
+
+RASTER_LAYERS = {
+    "realistic": DATA_DIR / "realistic.tif",
+    "elevation": DATA_DIR / "elevation.TIF",
+    "illumination": DATA_DIR / "illumination.tif",
+    "meteor_flux": DATA_DIR / "meteor_flux.tif",
+    "ldem": DATA_DIR / "LDEM_80S_40MPP_ADJ.tiff",
+    # add layers here as you acquire them
+}
+
+# --- Lunar CRS ---
+# Lunar south pole stereographic (LOLA native projection)
+# Not in EPSG registry; defined manually via proj string.
+LUNAR_CRS_PROJ = (
+    "+proj=stere +lat_0=-90 +lon_0=0 +k=1 "
+    "+R=1737400 +units=m +no_defs"
+)
+# Lunar geographic latitude/longitude on the Moon
+FRONTEND_CRS = "+proj=longlat +R=1737400 +no_defs +type=crs"
+
+# --- Rover parameters ---
+ROVER_MAX_SLOPE_DEG = 20.0      # hard impassable threshold
+ROVER_WARN_SLOPE_DEG = 15.0     # soft warning threshold
+ROVER_MASS_KG = 150.0
+LUNAR_GRAVITY = 1.62            # m/s^2
+LUNAR_REGOLITH_FRICTION = 0.1   # rolling resistance coefficient on regolith, not used for now
+
+# --- Site presets ---
+
+# coordinates not finalized
+
+SUF = "_5mpp_surf"
+SITE_PRESET_PATHS = {
+    "Haworth": DATA_DIR / f'Haworth{SUF}.tif',
+    "Shoemaker": DATA_DIR / f'Shoemaker{SUF}.tif',
+    "Amundsen rim": DATA_DIR / f'DM1{SUF}.tif',
+    "Nobile rim 2": DATA_DIR / f'DM2{SUF}.tif',
+    "Shackleton Rim B": DATA_DIR / f'LM1{SUF}.tif',
+    "Shoemaker Rim A": DATA_DIR / f'LM2{SUF}.tif',
+    "Shoemaker Rim B": DATA_DIR / f'LM3{SUF}.tif',
+    "Shoemaker Rim C": DATA_DIR / f'LM4{SUF}.tif',
+    "Shoemaker Rim D": DATA_DIR / f'LM5{SUF}.tif',
+    "Shoemaker Rim E": DATA_DIR / f'LM6{SUF}.tif',
+    "Faustini Rim A": DATA_DIR / f'LM7{SUF}.tif',
+    "Shoemaker Rim F": DATA_DIR / f'LM8{SUF}.tif',
+    "Cabeus exterior wall 1": DATA_DIR / f'NPA{SUF}.tif',
+    "Amundsen 1": DATA_DIR / f'NPB{SUF}.tif',
+    "Idel'son L crater 1": DATA_DIR / f'NPC{SUF}.tif',
+    "Malapert crater 1": DATA_DIR / f'NPD{SUF}.tif',
+    "Connecting ridge": DATA_DIR / f'Site01{SUF}.tif',
+    "Shackleton rim": DATA_DIR / f'Site04{SUF}.tif',
+    "Nobile rim 1": DATA_DIR / f'Site06{SUF}.tif',
+    "Peak near Shackleton": DATA_DIR / f'Site07{SUF}.tif',
+    "de Gerlache rim": DATA_DIR / f'Site11{SUF}.tif',
+    "Leibnitz beta plateau": DATA_DIR / f'Site20{SUF}.tif',
+    "Leibnitz beta plateau, extended": DATA_DIR / f'Site20v2{SUF}.tif',
+    "Malapert massif": DATA_DIR / f'Site23{SUF}.tif',
+    "de Gerlache-Kocher massif": DATA_DIR / f'Site42{SUF}.tif',
+}
+
+# - Site01: Connecting ridge x
+# - Site04: Shackleton rim
+# - Site06: Nobile rim 1
+# - Site07: Peak near Shackleton
+# - Site11: de Gerlache rim
+# - Site20: Leibnitz beta plateau
+# - Site20v2: Leibnitz beta plateau, extended boundaries
+# - Site23: Malapert massif
+# - Site42: de Gerlache-Kocher massif
+# - Haworth
+# - Shoemaker
+# - DM1: Amundsen rim
+# - DM2: Nobile rim 2
+# - SL2: de Gerlache rim
+# - SL3: Connecting ridge extension
+# - NPA: Cabeus exterior wall 1
+# - NPB: Amundsen 1
+# - NPC: Idel'son L crater 1
+# - NPD: Malapert crater 1
+# - LM1: Shackleton Rim B
+# - LM2: Shoemaker Rim A
+# - LM3: Shoemaker Rim B
+# - LM4: Shoemaker Rim C
+# - LM5: Shoemaker Rim D
+# - LM6: Shoemaker Rim E
+# - LM7: Faustini Rim A
+# - LM8: Shoemaker Rim F
+
+# --- Traverse sampling ---
+SAMPLE_RESOLUTION_M = 30.0      # match LOLA native resolution
+N_MIN = 100
+N_MAX = 20000000
+
+# --- Pathfinding cost weights ---
+ALPHA_SLOPE = 1.0               # weight for slope cost
+BETA_SHADOW = 0.5               # weight for shadow/illumination cost
+
+# --- API ---
+API_PREFIX = "/api/v1"
+CORS_ORIGINS = ["http://localhost:5173"]  # add prod frontend URL here

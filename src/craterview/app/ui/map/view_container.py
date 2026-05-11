@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt
 
 from .terrain_view import TerrainView
 from .map_view import MapView
-from craterview.app.io.raster.reader import load_geotif
+from craterview.app.io.reader import load_geotif
 
 class ViewContainer(QWidget):
     def __init__(self, parent=None):

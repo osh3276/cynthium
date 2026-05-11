@@ -3,6 +3,11 @@ import pyqtgraph as pg
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from matplotlib.colors import LightSource
 
+from enum import Enum
+
+class MapType(Enum):
+    HILLSHADE = "hillshade"
+    ELEVATION = "elevation"
 
 class MapView(QWidget):
 	def __init__(self, parent=None):
@@ -24,8 +29,14 @@ class MapView(QWidget):
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.addWidget(self._view)
 
-	def load(self, data: np.ndarray):
-		ls = LightSource(azdeg=315, altdeg=45)
-		hillshade = ls.hillshade(data, vert_exag=1.0)
-		hillshade_uint8 = (hillshade * 255).astype(np.uint8)
-		self._img.setImage(hillshade_uint8.T)
+	def load(self, data: np.ndarray, map_type: MapType = MapType.ELEVATION):
+		match map_type:
+			case MapType.HILLSHADE:
+				ls = LightSource(azdeg=315, altdeg=45)
+				rendered = ls.hillshade(data, vert_exag=1.0)
+				rendered = (rendered * 255).astype(np.uint8)
+			case MapType.ELEVATION:
+				lo, hi = data.min(), data.max()
+				rendered = ((data - lo) / (hi - lo) * 255).astype(np.uint8)
+
+		self._img.setImage(rendered.T)
