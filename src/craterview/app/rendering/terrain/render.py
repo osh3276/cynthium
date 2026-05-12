@@ -2,17 +2,18 @@ import pyvista
 import numpy as np
 from pyvista import PolyData
 
-from craterview.app.rendering.terrain.sun_position import sun_position_from_moon
+from craterview.app.engine.illumination.sun_position import sun_position
 
 
 class TerrainRenderer(PolyData):
-	def __init__(self, data: np.ndarray, spacing: tuple = (5, 5, 1)):
+	def __init__(self, data: np.ndarray, origin: tuple = (0, 0, 0), spacing: tuple = (5, 5, 1)):
 		grid = pyvista.ImageData()
 		grid.dimensions = (data.shape[1], data.shape[0], 1)
+		grid.origin = origin
+		grid.spacing = spacing
 		grid.point_data["Elevation"] = data.flatten(order="F").astype(np.float32)
-		grid.spacing = (5, 5, 1)
 
-		warped = grid.warp_by_scalar("Elevation").extract_surface()
+		warped = grid.warp_by_scalar("Elevation").extract_surface(algorithm="dataset_surface")
 		super().__init__(warped)
 		self.compute_normals(
 			cell_normals=False,
@@ -20,8 +21,8 @@ class TerrainRenderer(PolyData):
 			inplace=True
 		)
 
-	def compute_hillshade(self, utctime: str):
-		az, el = sun_position_from_moon(-89, 0, utctime)
+	def compute_hillshade(self, utctime: str, center_longlat: tuple = (-89, 0)):
+		az, el = sun_position(center_longlat[1], center_longlat[0], utctime)
 
 		az = np.radians(az)
 		el = np.radians(el)

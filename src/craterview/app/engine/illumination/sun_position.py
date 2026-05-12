@@ -3,19 +3,18 @@ from pathlib import Path
 import spiceypy as spice
 import numpy as np
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[2] / "planetary" / "moon_spice_kernels"
 
 for kernel in [
-	"naif0012.tls",				# leap-second conversion
-	"de430.bsp",				# planetary/lunar ephemeris
-	"moon_pa_de440_200625.bpc",	# lunar orientation/dotation
-	"moon_de440_250416.tf",		# lunar reference frame definitions
-	"pck00011.tpc",				# planetary constants
+	"naif0012.tls",  # leap-second conversion
+	"de430.bsp",  # planetary/lunar ephemeris
+	"moon_pa_de440_200625.bpc",  # lunar orientation/dotation
+	"moon_de440_250416.tf",  # lunar reference frame definitions
+	"pck00011.tpc",  # planetary constants
 ]:
 	spice.furnsh(str(BASE_DIR / kernel))
 
-
-def sun_position_from_moon(lat, lon, time):
+def sun_position(lat, lon, time):
 	"""
     lat, lon: selenographic degrees
     et: SPICE ephemeris time (use spice.utc2et)

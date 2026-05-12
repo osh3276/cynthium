@@ -6,3 +6,4 @@ pyvistaqt
 pyvista[colormaps]
 vtk
 spiceypy
+pyproj

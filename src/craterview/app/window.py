@@ -1,12 +1,15 @@
-import pyvista
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QMainWindow, QWidget, QFileDialog
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QWidget, QFileDialog
 
 from .ui.map.view_container import ViewContainer
 from .ui.map.map_view import MapView
 from .ui.map.terrain_view import TerrainView
-from .ui.panels.sidebar import AppSidebar
+from craterview.app.ui.panels.sidebar.container import AppSidebar
 from .ui.panels.menubar import AppMenuBar
+
+from craterview.app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class Window(QMainWindow):
 
@@ -44,9 +47,10 @@ class Window(QMainWindow):
 
 		self.statusBar().showMessage("Ready")
 		self._connect_signals()
+		logger.info("Window initialized")
 
 	def on_button_clicked(self):
-		print("Button clicked")
+		logger.info("Button clicked")
 
 	def resizeEvent(self, event):
 		super().resizeEvent(event)

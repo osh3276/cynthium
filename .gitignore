@@ -21,7 +21,6 @@ env/
 ENV/
 
 # data maps (too large...)
-data/
 
 # Test / coverage
 .pytest_cache/

@@ -1,49 +1,26 @@
-import PySide6
-from PySide6.QtWidgets import QToolButton, QPushButton, QLabel, QLineEdit, QComboBox, QWidget, QFrame, QHBoxLayout, \
+from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QWidget, QHBoxLayout, \
 	QTextEdit
 from PySide6.QtWidgets import QVBoxLayout
 
-from craterview.app.config import SITE_PRESET_PATHS, MAP_TYPES
+from craterview.app.engine.raster.point_conversion import xy_to_longlat
+from craterview.app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _on_map_type_changed(map_type: str):
-	print(f"Map type changed: {map_type}")
+	logger.info(f"Map type changed: {map_type}")
 
 
-class AppSidebar(QWidget):
-	map_selected = PySide6.QtCore.Signal(str)
-
+class PlanningPanel(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.map_selected.emit(str(SITE_PRESET_PATHS["Haworth"]))
 		self._build()
 
 	def _build(self):
 		layout = QVBoxLayout(self)
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.setSpacing(4)
-
-		self.setMinimumWidth(180)
-		preset_label = QLabel("Map types:")
-		layout.addWidget(preset_label)
-
-		type_chooser = QComboBox()
-		type_chooser.addItems(MAP_TYPES)
-		type_chooser.currentTextChanged.connect(_on_map_type_changed)
-		layout.addWidget(type_chooser)
-
-		preset_label = QLabel("Preset maps:")
-		layout.addWidget(preset_label)
-
-		preset_chooser = QComboBox()
-		preset_chooser.addItems(SITE_PRESET_PATHS.keys())
-		preset_chooser.currentTextChanged.connect(self._on_path_changed)
-		layout.addWidget(preset_chooser)
-
-		separator = QFrame()
-		separator.setFrameShape(QFrame.HLine)
-		separator.setFrameShadow(QFrame.Shadow.Sunken)
-		layout.addWidget(separator)
 
 		layout.addWidget(QLabel("Planning"))
 
@@ -90,10 +67,20 @@ class AppSidebar(QWidget):
 
 		layout.addStretch(1)
 
-	def _on_path_changed(self, site_name: str):
-		print(f"Site selected: {site_name}")
-		site_path = SITE_PRESET_PATHS[site_name]
-		self.map_selected.emit(str(site_path))
-
 	def _on_add_waypoint(self):
-		self.waypoints_text.append(self.coord_field.text())
+		coordinates = self.coord_field.text().split(",")
+		coordinates[0] = coordinates[0].strip()
+		coordinates[1] = coordinates[1].strip()
+		waypoint_num = len(self.waypoints_text.toPlainText().splitlines()) + 1
+
+		if len(coordinates) != 2:
+			logger.error("Invalid coordinate format")
+			# TODO: popup an error dialog
+			return
+
+		longlat = xy_to_longlat(float(coordinates[0]), float(coordinates[1]))
+
+		display_text = f"({waypoint_num}). ({coordinates[0]}, {coordinates[1]})m, ({longlat[0]:.3f}°N, {longlat[1]:.3f}°E)\n"
+		logger.info(display_text)
+
+		self.waypoints_text.append(display_text)
