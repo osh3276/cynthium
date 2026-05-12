@@ -4,8 +4,10 @@ from pyvistaqt import QtInteractor
 
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
 from craterview.app.io.reader import load_geotif
-from craterview.app.rendering.terrain.render import TerrainRenderer
+from craterview.app.rendering.terrain.render import TerrainRenderer, arrow_mesh
+from craterview.app.utils.logger import get_logger
 
+logger = get_logger(__name__)
 
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 	def __init__(self):
@@ -37,6 +39,10 @@ class TerrainView(QtInteractor):
 	def __init__(self, parent=None):
 		super().__init__(parent=parent)
 		self.interactor.SetInteractorStyle(CustomInteractorStyle())
+		self._terrain_mesh = None
+		self._waypoint_points = []
+		self._waypoint_actors = []
+		self._path_actor = None
 
 	# set the default to today
 	def load(self, path: str, utctime: str):
@@ -74,6 +80,7 @@ class TerrainView(QtInteractor):
 			spacing = (abs(transform.a), abs(transform.e), 1)
 
 		mesh = TerrainRenderer(data, origin=origin, spacing=spacing)
+		self._terrain_mesh = mesh
 
 		center_x = origin[0] + (data.shape[1] * spacing[0]) / 2
 		center_y = origin[1] + (data.shape[0] * spacing[1]) / 2
@@ -92,6 +99,72 @@ class TerrainView(QtInteractor):
 		self.reset_camera()
 
 		self.setStyleSheet("border: 1px solid #cccccc;")
+
+	def add_waypoint(self, x: float, y: float):
+		"""
+		Renders a waypoint on the surface of the terrain mesh at (x, y).
+		"""
+		if self._terrain_mesh is None:
+			return
+
+		# Find the Z coordinate on the mesh surface.
+		# We can use a ray trace or sample the mesh.
+		# Since it's a warped grid, we can also try to find the nearest point.
+		
+		# Define a line from (x, y, max_z) to (x, y, min_z)
+		bounds = self._terrain_mesh.bounds
+		start = [x, y, bounds[5] + 1000]
+		stop = [x, y, bounds[4] - 1000]
+		
+		points, ind = self._terrain_mesh.ray_trace(start, stop)
+		
+		if len(points) > 0:
+			# Use the first intersection point
+			point = points[0]
+			# Add a small offset to ensure it's above the surface
+			point[2] += 5 
+			
+			sphere = vtk.vtkSphereSource()
+			sphere.SetCenter(point)
+			sphere.SetRadius(50)
+			sphere.Update()
+			
+			actor = self.add_mesh(sphere.GetOutput(), color="red", label="Waypoint")
+			# arrow = arrow_mesh(point)
+			# self.add_mesh(arrow, color="red", label="Waypoint")
+
+			self._waypoint_points.append(point)
+			self._waypoint_actors.append(actor)
+			self._update_path()
+		else:
+			# If ray trace fails (e.g. outside bounds), try to just use mesh bounds for Z and log
+			logger.error("Failed to find waypoint on terrain mesh")
+			pass
+
+	def remove_waypoint(self, index: int):
+		"""
+		Removes a waypoint from the terrain at the given index.
+		"""
+		if 0 <= index < len(self._waypoint_actors):
+			actor = self._waypoint_actors.pop(index)
+			self.remove_actor(actor)
+			self._waypoint_points.pop(index)
+			self._update_path()
+
+	def _update_path(self):
+		"""
+		Updates the 3D path connecting the waypoints.
+		"""
+		if self._path_actor is not None:
+			self.remove_actor(self._path_actor)
+			self._path_actor = None
+
+		if len(self._waypoint_points) < 2:
+			return
+
+		import pyvista
+		path = pyvista.MultipleLines(points=np.array(self._waypoint_points))
+		self._path_actor = self.add_mesh(path, color="yellow", line_width=3, label="Path")
 
 	def mouseDoubleClickEvent(self, event):
 		pass

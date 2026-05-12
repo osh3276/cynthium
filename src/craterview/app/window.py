@@ -63,6 +63,8 @@ class Window(QMainWindow):
 		self._menubar.action_open.triggered.connect(self._open_file_dialog)
 		self._menubar.action_exit.triggered.connect(self.close)
 		self._sidebar.map_selected.connect(self._load_site)
+		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
+		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
 
 	def _load_site(self, path: str):
 		self._view_container.load(path, "elevation", "2025-01-01T00:00:00")

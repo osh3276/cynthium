@@ -30,3 +30,11 @@ class ViewContainer(QWidget):
 		data, meta = load_geotif(path)
 		self.raster_view.load(data, meta, map_type)
 		self.terrain_view.load(path, date)
+
+	def add_waypoint(self, x: float, y: float):
+		self.raster_view.add_waypoint(x, y)
+		self.terrain_view.add_waypoint(x, y)
+
+	def remove_waypoint(self, index: int):
+		self.raster_view.remove_waypoint(index)
+		self.terrain_view.remove_waypoint(index)

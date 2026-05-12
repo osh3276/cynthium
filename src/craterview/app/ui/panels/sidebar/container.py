@@ -16,6 +16,8 @@ def _on_map_type_changed(map_type: str):
 
 class AppSidebar(QWidget):
 	map_selected = PySide6.QtCore.Signal(str)
+	waypoint_added = PySide6.QtCore.Signal(float, float)
+	waypoint_removed = PySide6.QtCore.Signal(int)
 
 	def __init__(self):
 		super().__init__()
@@ -35,6 +37,8 @@ class AppSidebar(QWidget):
 		layout.addWidget(separator)
 
 		planning_section = PlanningPanel()
+		planning_section.waypoint_added.connect(self.waypoint_added.emit)
+		planning_section.waypoint_removed.connect(self.waypoint_removed.emit)
 		layout.addWidget(planning_section)
 
 		layout.addStretch(1)

@@ -18,6 +18,13 @@ class MapView(QWidget):
 		self._img = pg.ImageItem()
 		self._plot.addItem(self._img)
 
+		self._waypoints = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 0, 0, 255))
+		self._plot.addItem(self._waypoints)
+
+		self._path_line = pg.PlotDataItem(pen=pg.mkPen('y', width=2))
+		self._plot.addItem(self._path_line)
+		self._waypoint_list = []
+
 		self.setStyleSheet("border-right: 1px solid #cccccc;")
 
 		layout = QVBoxLayout(self)
@@ -49,3 +56,22 @@ class MapView(QWidget):
 			tr.translate(transform.c, transform.f + (data.shape[0] * transform.e))
 			tr.scale(transform.a, abs(transform.e))
 			self._img.setTransform(tr)
+
+	def add_waypoint(self, x: float, y: float):
+		self._waypoint_list.append((x, y))
+		self._update_graph()
+
+	def remove_waypoint(self, index: int):
+		if 0 <= index < len(self._waypoint_list):
+			self._waypoint_list.pop(index)
+			self._update_graph()
+
+	def _update_graph(self):
+		self._waypoints.setData(pos=np.array(self._waypoint_list) if self._waypoint_list else np.empty((0, 2)))
+		
+		if len(self._waypoint_list) > 1:
+			xs = [p[0] for p in self._waypoint_list]
+			ys = [p[1] for p in self._waypoint_list]
+			self._path_line.setData(xs, ys)
+		else:
+			self._path_line.setData([], [])
