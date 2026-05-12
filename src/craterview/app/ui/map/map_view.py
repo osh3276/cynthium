@@ -15,7 +15,6 @@ class MapView(QWidget):
 		self._view.setBackground("w")
 		self._plot = self._view.addPlot()
 		self._plot.setAspectLocked(True)
-		self._plot.invertY(True)
 		self._img = pg.ImageItem()
 		self._plot.addItem(self._img)
 
@@ -35,7 +34,7 @@ class MapView(QWidget):
 				lo, hi = data.min(), data.max()
 				rendered = ((data - lo) / (hi - lo) * 255).astype(np.uint8)
 
-		self._img.setImage(rendered.T)
+		self._img.setImage(np.flipud(rendered).T)
 
 		if meta:
 			transform = meta["transform"]
@@ -47,6 +46,6 @@ class MapView(QWidget):
 			# We use a QTransform to handle both scale and position.
 			# This is more robust than setPos + setScale if we have negative scaling.
 			tr = pg.QtGui.QTransform()
-			tr.translate(transform.c, transform.f)
-			tr.scale(transform.a, transform.e)
+			tr.translate(transform.c, transform.f + (data.shape[0] * transform.e))
+			tr.scale(transform.a, abs(transform.e))
 			self._img.setTransform(tr)

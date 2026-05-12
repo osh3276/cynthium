@@ -54,6 +54,7 @@ class TerrainView(QtInteractor):
 		:param meta: Metadata from GeoTIFF including transform and resolution.
 		:return: None
 		"""
+		self.clear()
 		origin = (0, 0, 0)
 		spacing = (5, 5, 1)
 
@@ -61,9 +62,15 @@ class TerrainView(QtInteractor):
 			# rasterio transform: (a, b, c, d, e, f)
 			# x = a * col + b * row + c
 			# y = d * col + e * row + f
-			# For North-up: b=0, d=0. a=res_x, e=-res_y (usually)
+			# For North-up: b=0, d=0. a=res_x, e=-res_y (usually, e < 0)
 			transform = meta["transform"]
-			origin = (transform.c, transform.f, 0)
+			# PyVista ImageData origin is the bottom-left corner.
+			# GeoTIFF transform (c, f) is the top-left corner.
+			# The bottom-left in world coordinates is:
+			# x_bl = c
+			# y_bl = f + (height * e)  (where e is negative)
+			height = data.shape[0]
+			origin = (transform.c, transform.f + (height * transform.e), 0)
 			spacing = (abs(transform.a), abs(transform.e), 1)
 
 		mesh = TerrainRenderer(data, origin=origin, spacing=spacing)

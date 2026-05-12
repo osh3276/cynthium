@@ -11,7 +11,7 @@ class TerrainRenderer(PolyData):
 		grid.dimensions = (data.shape[1], data.shape[0], 1)
 		grid.origin = origin
 		grid.spacing = spacing
-		grid.point_data["Elevation"] = data.flatten(order="F").astype(np.float32)
+		grid.point_data["Elevation"] = np.flipud(data).flatten(order="C").astype(np.float32)
 
 		warped = grid.warp_by_scalar("Elevation").extract_surface(algorithm="dataset_surface")
 		super().__init__(warped)

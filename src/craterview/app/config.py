@@ -69,6 +69,7 @@ SITE_PRESET_PATHS = {
     "Nobile rim 1": DATA_DIR / f'Site06{SUF}.tif',
     "Peak near Shackleton": DATA_DIR / f'Site07{SUF}.tif',
     "de Gerlache rim": DATA_DIR / f'Site11{SUF}.tif',
+	"de Gerlache rim 2": DATA_DIR / f'SL2{SUF}.tif',
     "Leibnitz beta plateau": DATA_DIR / f'Site20{SUF}.tif',
     "Leibnitz beta plateau, extended": DATA_DIR / f'Site20v2{SUF}.tif',
     "Malapert massif": DATA_DIR / f'Site23{SUF}.tif',
