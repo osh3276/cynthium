@@ -2,7 +2,7 @@ from pathlib import Path
 
 # --- Paths ---
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR = PROJECT_ROOT / "data" / "elevation"
 
 RASTER_LAYERS = {
     "realistic": DATA_DIR / "realistic.tif",
@@ -13,9 +13,19 @@ RASTER_LAYERS = {
     # add layers here as you acquire them
 }
 
+MAP_TYPES = {
+	"Hillshade",
+	"Elevation",
+	"Solar Illumination",
+	"Meteor Flux",
+	"Average Temperature",
+	"Slope"
+}
+
 # --- Lunar CRS ---
 # Lunar south pole stereographic (LOLA native projection)
 # Not in EPSG registry; defined manually via proj string.
+# TODO: Verify this is the same as Jack's
 LUNAR_CRS_PROJ = (
     "+proj=stere +lat_0=-90 +lon_0=0 +k=1 "
     "+R=1737400 +units=m +no_defs"
@@ -63,43 +73,6 @@ SITE_PRESET_PATHS = {
     "de Gerlache-Kocher massif": DATA_DIR / f'Site42{SUF}.tif',
 }
 
-# - Site01: Connecting ridge x
-# - Site04: Shackleton rim
-# - Site06: Nobile rim 1
-# - Site07: Peak near Shackleton
-# - Site11: de Gerlache rim
-# - Site20: Leibnitz beta plateau
-# - Site20v2: Leibnitz beta plateau, extended boundaries
-# - Site23: Malapert massif
-# - Site42: de Gerlache-Kocher massif
-# - Haworth
-# - Shoemaker
-# - DM1: Amundsen rim
-# - DM2: Nobile rim 2
-# - SL2: de Gerlache rim
-# - SL3: Connecting ridge extension
-# - NPA: Cabeus exterior wall 1
-# - NPB: Amundsen 1
-# - NPC: Idel'son L crater 1
-# - NPD: Malapert crater 1
-# - LM1: Shackleton Rim B
-# - LM2: Shoemaker Rim A
-# - LM3: Shoemaker Rim B
-# - LM4: Shoemaker Rim C
-# - LM5: Shoemaker Rim D
-# - LM6: Shoemaker Rim E
-# - LM7: Faustini Rim A
-# - LM8: Shoemaker Rim F
-
-# --- Traverse sampling ---
-SAMPLE_RESOLUTION_M = 30.0      # match LOLA native resolution
-N_MIN = 100
-N_MAX = 20000000
-
 # --- Pathfinding cost weights ---
 ALPHA_SLOPE = 1.0               # weight for slope cost
 BETA_SHADOW = 0.5               # weight for shadow/illumination cost
-
-# --- API ---
-API_PREFIX = "/api/v1"
-CORS_ORIGINS = ["http://localhost:5173"]  # add prod frontend URL here

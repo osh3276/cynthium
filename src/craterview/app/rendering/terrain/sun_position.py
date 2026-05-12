@@ -6,11 +6,11 @@ import numpy as np
 BASE_DIR = Path(__file__).resolve().parent
 
 for kernel in [
-	"naif0012.tls",
-	"de430.bsp",
-	"moon_pa_de440_200625.bpc",
-	"moon_de440_250416.tf",
-	"pck00011.tpc",
+	"naif0012.tls",				# leap-second conversion
+	"de430.bsp",				# planetary/lunar ephemeris
+	"moon_pa_de440_200625.bpc",	# lunar orientation/dotation
+	"moon_de440_250416.tf",		# lunar reference frame definitions
+	"pck00011.tpc",				# planetary constants
 ]:
 	spice.furnsh(str(BASE_DIR / kernel))
 
@@ -21,6 +21,7 @@ def sun_position_from_moon(lat, lon, time):
     et: SPICE ephemeris time (use spice.utc2et)
     """
 	et = spice.utc2et(time)
+
 	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
 	sv = np.array(state)
 	sv /= np.linalg.norm(sv)
