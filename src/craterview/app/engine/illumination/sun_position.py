@@ -16,26 +16,30 @@ for kernel in [
 
 def sun_position(lat, lon, time):
 	"""
-    lat, lon: selenographic degrees
-    et: SPICE ephemeris time (use spice.utc2et)
-    """
+	lat, lon: selenographic degrees
+	et: SPICE ephemeris time (use spice.utc2et)
+	"""
 	et = spice.utc2et(time)
 
+	# Get the position of the sun relative to the moon
 	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
-	sv = np.array(state)
-	sv /= np.linalg.norm(sv)
+	sun_pos = np.array(state)
+	sun_pos /= np.linalg.norm(sun_pos)
 
+	# Convert latitude and longitude to radians
 	lat_rad = np.radians(lat)
 	lon_rad = np.radians(lon)
 
+	# Calculate the local up, east, and north vectors
 	up = np.array([np.cos(lat_rad) * np.cos(lon_rad),
-	               np.cos(lat_rad) * np.sin(lon_rad),
-	               np.sin(lat_rad)])
+				   np.cos(lat_rad) * np.sin(lon_rad),
+				   np.sin(lat_rad)])
 	east = np.cross(np.array([0, 0, 1]), up)
 	east /= np.linalg.norm(east)
 	north = np.cross(up, east)
 
-	elevation = np.degrees(np.arcsin(np.dot(sv, up)))
-	azimuth = np.degrees(np.arctan2(np.dot(sv, east), np.dot(sv, north))) % 360
+	# Calculate the local azimuth and elevation
+	elevation = np.degrees(np.arcsin(np.dot(sun_pos, up)))
+	azimuth = np.degrees(np.arctan2(np.dot(sun_pos, east), np.dot(sun_pos, north))) % 360
 
 	return azimuth, elevation

@@ -7,12 +7,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = PROJECT_ROOT / "data" / "elevation"
 
 RASTER_LAYERS = {
-    "realistic": DATA_DIR / "realistic.tif",
-    "elevation": DATA_DIR / "elevation.TIF",
-    "illumination": DATA_DIR / "illumination.tif",
-    "meteor_flux": DATA_DIR / "meteor_flux.tif",
-    "ldem": DATA_DIR / "LDEM_80S_40MPP_ADJ.tiff",
-    # add layers here as you acquire them
+	"realistic": DATA_DIR / "realistic.tif",
+	"elevation": DATA_DIR / "elevation.TIF",
+	"illumination": DATA_DIR / "illumination.tif",
+	"meteor_flux": DATA_DIR / "meteor_flux.tif",
+	"ldem": DATA_DIR / "LDEM_80S_40MPP_ADJ.tiff",
+	# add layers here as you acquire them
 }
 
 MAP_TYPES = {
@@ -29,17 +29,17 @@ MAP_TYPES = {
 # Not in EPSG registry; defined manually via proj string.
 # TODO: Verify this is the same as Jack's
 LUNAR_CRS_PROJ = (
-    "+proj=stere +lat_0=-90 +lon_0=0 +k=1 "
-    "+R=1737400 +units=m +no_defs"
+	"+proj=stere +lat_0=-90 +lon_0=0 +k=1 "
+	"+R=1737400 +units=m +no_defs"
 )
 # Lunar geographic latitude/longitude on the Moon
 FRONTEND_CRS = "+proj=longlat +R=1737400 +no_defs +type=crs"
 
 # --- Rover parameters ---
-ROVER_MAX_SLOPE_DEG = 20.0      # hard impassable threshold
-ROVER_WARN_SLOPE_DEG = 15.0     # soft warning threshold
+ROVER_MAX_SLOPE_DEG = 20.0	  # hard impassable threshold
+ROVER_WARN_SLOPE_DEG = 15.0	 # soft warning threshold
 ROVER_MASS_KG = 150.0
-LUNAR_GRAVITY = 1.62            # m/s^2
+LUNAR_GRAVITY = 1.62			# m/s^2
 LUNAR_REGOLITH_FRICTION = 0.1   # rolling resistance coefficient on regolith, not used for now
 
 # --- Site presets ---
@@ -48,7 +48,7 @@ LUNAR_REGOLITH_FRICTION = 0.1   # rolling resistance coefficient on regolith, no
 
 SUF = "_5mpp_surf"
 SITE_PRESET_PATHS = {
-    "Haworth": DATA_DIR / f'Haworth{SUF}.tif',
+	"Haworth": DATA_DIR / f'Haworth{SUF}.tif',
     "Shoemaker": DATA_DIR / f'Shoemaker{SUF}.tif',
     "Amundsen rim": DATA_DIR / f'DM1{SUF}.tif',
     "Nobile rim 2": DATA_DIR / f'DM2{SUF}.tif',

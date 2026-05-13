@@ -22,8 +22,8 @@ def arrow_mesh(tip_point, length=100.0, shaft_radius=50, tip_radius=100):
 	direction = np.array([0, 0, -1])  # downward direction
 	start_point = tip_point - direction * length  # start above the tip
 	arrow = pyvista.Arrow(start=start_point, direction=direction,
-	                      scale=length, shaft_radius=shaft_radius,
-	                      tip_radius=tip_radius)
+						  scale=length, shaft_radius=shaft_radius,
+						  tip_radius=tip_radius)
 	return arrow
 
 

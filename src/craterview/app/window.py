@@ -10,6 +10,7 @@ from .ui.panels.menubar import AppMenuBar
 
 from craterview.app.utils.logger import get_logger
 from craterview.app.engine.simulation.stats import calculate_path_stats
+from craterview.app.config import SITE_PRESET_PATHS
 
 logger = get_logger(__name__)
 
@@ -49,6 +50,7 @@ class Window(QMainWindow):
 
 		self.statusBar().showMessage("Ready")
 		self._connect_signals()
+		
 		logger.info("Window initialized")
 
 	def on_button_clicked(self):
@@ -64,7 +66,7 @@ class Window(QMainWindow):
 	def _connect_signals(self):
 		self._menubar.action_open.triggered.connect(self._open_file_dialog)
 		self._menubar.action_exit.triggered.connect(self.close)
-		self._sidebar.map_selected.connect(self._load_site)
+		self._sidebar.map_generation_requested.connect(self._load_site_with_datetime)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
 		self._sidebar.simulation_started.connect(self._on_start_simulation)
@@ -88,8 +90,12 @@ class Window(QMainWindow):
 		self._sidebar.set_results(message)
 
 	def _load_site(self, path: str):
-		self._view_container.load(path, "elevation", "2025-01-01T00:00:00")
+		self._view_container.load(path, "elevation")
 		self.statusBar().showMessage(f"Site loaded: {path}")
+
+	def _load_site_with_datetime(self, path: str, datetime_str: str):
+		self._view_container.load(path, "elevation", datetime_str)
+		self.statusBar().showMessage(f"Site loaded: {path} at {datetime_str}")
 
 	def _open_file_dialog(self):
 		path, _ = QFileDialog.getOpenFileName(

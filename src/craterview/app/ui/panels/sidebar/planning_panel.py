@@ -29,28 +29,6 @@ class PlanningPanel(QWidget):
 
 		layout.addWidget(QLabel("Planning"))
 
-		# Create a horizontal layout for date and time
-		datetime_layout = QHBoxLayout()
-
-		# Date section
-		date_container = QVBoxLayout()
-		date_container.addWidget(QLabel("Date"))
-		date_field = QLineEdit()
-		date_field.setPlaceholderText("yyyy-mm-dd")
-		date_container.addWidget(date_field)
-		datetime_layout.addLayout(date_container)
-
-		# Time section
-		time_container = QVBoxLayout()
-		time_container.addWidget(QLabel("Time"))
-		time_field = QLineEdit()
-		time_field.setPlaceholderText("hh:mm:ss")
-		time_container.addWidget(time_field)
-		datetime_layout.addLayout(time_container)
-
-		# Add the horizontal layout to the main layout
-		layout.addLayout(datetime_layout)
-
 		coord_label = QLabel("Coordinate:")
 		layout.addWidget(coord_label)
 

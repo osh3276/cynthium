@@ -16,6 +16,7 @@ def _on_map_type_changed(map_type: str):
 
 class AppSidebar(QWidget):
 	map_selected = PySide6.QtCore.Signal(str)
+	map_generation_requested = PySide6.QtCore.Signal(str, str)
 	waypoint_added = PySide6.QtCore.Signal(float, float)
 	waypoint_removed = PySide6.QtCore.Signal(int)
 	simulation_started = PySide6.QtCore.Signal()
@@ -23,13 +24,15 @@ class AppSidebar(QWidget):
 	def __init__(self):
 		super().__init__()
 		self._build()
-		self.map_selected.emit(str(SITE_PRESET_PATHS["Haworth"]))
 
 	def _build(self):
 		layout = QVBoxLayout(self)
 
+		map_selection_label = QLabel("Map Selection")
+		layout.addWidget(map_selection_label)
+
 		map_selection_panel = MapSelectionPanel()
-		map_selection_panel.map_selected.connect(self.map_selected.emit)
+		map_selection_panel.map_generation_requested.connect(self.map_generation_requested.emit)
 		layout.addWidget(map_selection_panel)
 
 		separator = QFrame()

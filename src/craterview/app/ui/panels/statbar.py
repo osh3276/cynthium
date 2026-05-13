@@ -1,18 +1,18 @@
 
 class AppStatBar():
-    def __init__(self, parent=None):
-        super().__init__("Main Toolbar", parent)
-        self._build()
+	def __init__(self, parent=None):
+		super().__init__("Main Toolbar", parent)
+		self._build()
 
-    def _build(self):
-        self.setMovable(False)
+	def _build(self):
+		self.setMovable(False)
 
-        self.home_button = QToolButton()
-        self.home_button.setText("Home")
-        self.addWidget(self.home_button)
+		self.home_button = QToolButton()
+		self.home_button.setText("Home")
+		self.addWidget(self.home_button)
 
-        self.refresh_button = QToolButton()
-        self.refresh_button.setText("Refresh")
+		self.refresh_button = QToolButton()
+	    self.refresh_button.setText("Refresh")
         self.addWidget(self.refresh_button)
 
         self.addSeparator()
