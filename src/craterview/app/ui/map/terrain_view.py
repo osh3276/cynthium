@@ -1,7 +1,7 @@
 import numpy as np
+import pyvista
 import vtk
 from pyvistaqt import QtInteractor
-import pyvista
 
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
 from craterview.app.io.reader import load_geotif
@@ -62,8 +62,9 @@ class TerrainView(QtInteractor):
 		:return: None
 		"""
 		self.clear()
-		origin = (0, 0, 0)
-		spacing = (5, 5, 1)
+		self._data = data
+		self._origin = (0, 0, 0)
+		self._spacing = (5, 5, 1)
 
 		if meta:
 			# rasterio transform: (a, b, c, d, e, f)
@@ -77,14 +78,14 @@ class TerrainView(QtInteractor):
 			# x_bl = c
 			# y_bl = f + (height * e)  (where e is negative)
 			height = data.shape[0]
-			origin = (transform.c, transform.f + (height * transform.e), 0)
-			spacing = (abs(transform.a), abs(transform.e), 1)
+			self._origin = (transform.c, transform.f + (height * transform.e), 0)
+			self._spacing = (abs(transform.a), abs(transform.e), 1)
 
-		mesh = TerrainRenderer(data, origin=origin, spacing=spacing)
+		mesh = TerrainRenderer(data, origin=self._origin, spacing=self._spacing)
 		self._terrain_mesh = mesh
 
-		center_x = origin[0] + (data.shape[1] * spacing[0]) / 2
-		center_y = origin[1] + (data.shape[0] * spacing[1]) / 2
+		center_x = self._origin[0] + (data.shape[1] * self._spacing[0]) / 2
+		center_y = self._origin[1] + (data.shape[0] * self._spacing[1]) / 2
 		center_longlat = xy_to_longlat(center_x, center_y)
 
 		mesh.compute_hillshade(utctime, center_longlat=center_longlat)
@@ -105,47 +106,40 @@ class TerrainView(QtInteractor):
 		"""
 		Renders a waypoint on the surface of the terrain mesh at (x, y).
 		"""
-		if self._terrain_mesh is None:
+		if self._terrain_mesh is None or self._data is None:
 			return
 
 		logger.info(f"add_waypoint called for ({x}, {y})")
-		# Find the Z coordinate on the mesh surface.
-		# We can use a ray trace or sample the mesh.
-		# Since it's a warped grid, we can also try to find the nearest point.
-		
-		# Define a line from (x, y, max_z) to (x, y, min_z)
-		bounds = self._terrain_mesh.bounds
-		start = [x, y, bounds[5] + 1000]
-		stop = [x, y, bounds[4] - 1000]
-		logger.info(f"Ray trace start: {start}, stop: {stop}")
-		
-		points, ind = self._terrain_mesh.ray_trace(start, stop)
-		logger.info(f"Ray trace points: {points}")
-		
-		if len(points) > 0:
-			# Use the first intersection point
-			point = points[0]
-			# Add a small offset to ensure it's above the surface
-			point[2] += 5 
-			
+
+		# Calculate grid indices from world coordinates
+		# origin is bottom-left (c, f + height*e, 0)
+		col = int((x - self._origin[0]) / self._spacing[0])
+		row = int((y - self._origin[1]) / self._spacing[1])
+
+		if 0 <= row < self._data.shape[0] and 0 <= col < self._data.shape[1]:
+			# Sample elevation
+			# Data in TerrainRenderer is flipped with np.flipud(data) for the mesh
+			# but we can just use the original data and index it appropriately.
+			# GeoTIFF data is usually North-up (row 0 is top).
+			# PyVista/VTK origin is bottom-left.
+			# So row 0 in VTK corresponds to the last row in data.
+			z = self._data[self._data.shape[0] - 1 - row, col]
+			point = [x, y, z + 5]
+
 			sphere = vtk.vtkSphereSource()
 			sphere.SetCenter(point)
 			sphere.SetRadius(50)
 			sphere.Update()
-			
+
 			actor = self.add_mesh(sphere.GetOutput(), color="red", label="Waypoint")
 			logger.info(f"Added sphere: {actor}")
-			# arrow = arrow_mesh(point)
-			# self.add_mesh(arrow, color="red", label="Waypoint")
 
 			self._waypoint_points.append(point)
 			self._waypoint_actors.append(actor)
 			self._update_path()
 			logger.info(f"Added waypoint at {point}")
 		else:
-			# If ray trace fails (e.g. outside bounds), try to just use mesh bounds for Z and log
-			logger.error("Failed to find waypoint on terrain mesh")
-			pass
+			logger.error("Failed to find waypoint on terrain mesh (out of bounds)")
 
 	def remove_waypoint(self, index: int):
 		"""
