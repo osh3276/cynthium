@@ -1,6 +1,7 @@
 import numpy as np
 import vtk
 from pyvistaqt import QtInteractor
+import pyvista
 
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
 from craterview.app.io.reader import load_geotif
@@ -107,6 +108,7 @@ class TerrainView(QtInteractor):
 		if self._terrain_mesh is None:
 			return
 
+		logger.info(f"add_waypoint called for ({x}, {y})")
 		# Find the Z coordinate on the mesh surface.
 		# We can use a ray trace or sample the mesh.
 		# Since it's a warped grid, we can also try to find the nearest point.
@@ -115,8 +117,10 @@ class TerrainView(QtInteractor):
 		bounds = self._terrain_mesh.bounds
 		start = [x, y, bounds[5] + 1000]
 		stop = [x, y, bounds[4] - 1000]
+		logger.info(f"Ray trace start: {start}, stop: {stop}")
 		
 		points, ind = self._terrain_mesh.ray_trace(start, stop)
+		logger.info(f"Ray trace points: {points}")
 		
 		if len(points) > 0:
 			# Use the first intersection point
@@ -130,12 +134,14 @@ class TerrainView(QtInteractor):
 			sphere.Update()
 			
 			actor = self.add_mesh(sphere.GetOutput(), color="red", label="Waypoint")
+			logger.info(f"Added sphere: {actor}")
 			# arrow = arrow_mesh(point)
 			# self.add_mesh(arrow, color="red", label="Waypoint")
 
 			self._waypoint_points.append(point)
 			self._waypoint_actors.append(actor)
 			self._update_path()
+			logger.info(f"Added waypoint at {point}")
 		else:
 			# If ray trace fails (e.g. outside bounds), try to just use mesh bounds for Z and log
 			logger.error("Failed to find waypoint on terrain mesh")
@@ -151,6 +157,12 @@ class TerrainView(QtInteractor):
 			self._waypoint_points.pop(index)
 			self._update_path()
 
+	def get_waypoint_3d_points(self):
+		"""
+		Returns the list of 3D points for all waypoints.
+		"""
+		return self._waypoint_points
+
 	def _update_path(self):
 		"""
 		Updates the 3D path connecting the waypoints.
@@ -162,7 +174,6 @@ class TerrainView(QtInteractor):
 		if len(self._waypoint_points) < 2:
 			return
 
-		import pyvista
 		path = pyvista.MultipleLines(points=np.array(self._waypoint_points))
 		self._path_actor = self.add_mesh(path, color="yellow", line_width=3, label="Path")
 

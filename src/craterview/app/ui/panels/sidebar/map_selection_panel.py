@@ -34,7 +34,7 @@ class MapSelectionPanel(QWidget):
 		layout.addWidget(preset_label)
 
 		preset_chooser = QComboBox()
-		preset_chooser.addItems(SITE_PRESET_PATHS.keys())
+		preset_chooser.addItems(sorted(SITE_PRESET_PATHS.keys()))
 		preset_chooser.currentTextChanged.connect(self._on_path_changed)
 		layout.addWidget(preset_chooser)
 

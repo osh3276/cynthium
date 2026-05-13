@@ -1,3 +1,4 @@
+import numpy as np
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QWidget, QFileDialog
 
@@ -8,6 +9,7 @@ from craterview.app.ui.panels.sidebar.container import AppSidebar
 from .ui.panels.menubar import AppMenuBar
 
 from craterview.app.utils.logger import get_logger
+from craterview.app.engine.simulation.stats import calculate_path_stats
 
 logger = get_logger(__name__)
 
@@ -65,6 +67,25 @@ class Window(QMainWindow):
 		self._sidebar.map_selected.connect(self._load_site)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
+		self._sidebar.simulation_started.connect(self._on_start_simulation)
+
+	def _on_start_simulation(self):
+		points = self._view_container.get_waypoint_3d_points()
+		if len(points) < 2:
+			self._sidebar.set_results("Please add at least two waypoints.")
+			return
+
+		map_data, map_meta = self._view_container.get_current_map_data()
+		transform = map_meta.get("transform") if map_meta else None
+
+		stats = calculate_path_stats(np.array(points), map_data, transform)
+
+		message = (
+			f"Total Distance: {stats['total_distance']:.2f} m\n"
+			f"Total Climb Distance: {stats['total_climb_amount']:.2f} m\n"
+			f"Net Elevation Change: {stats['net_elevation_change']:.2f} m"
+		)
+		self._sidebar.set_results(message)
 
 	def _load_site(self, path: str):
 		self._view_container.load(path, "elevation", "2025-01-01T00:00:00")

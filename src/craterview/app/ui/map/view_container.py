@@ -28,8 +28,13 @@ class ViewContainer(QWidget):
 	def load(self, path: str, map_type: str = "elevation",
 			 date: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")):
 		data, meta = load_geotif(path)
+		self._current_data = data
+		self._current_meta = meta
 		self.raster_view.load(data, meta, map_type)
 		self.terrain_view.load(path, date)
+
+	def get_current_map_data(self):
+		return self._current_data, self._current_meta
 
 	def add_waypoint(self, x: float, y: float):
 		self.raster_view.add_waypoint(x, y)
@@ -38,3 +43,6 @@ class ViewContainer(QWidget):
 	def remove_waypoint(self, index: int):
 		self.raster_view.remove_waypoint(index)
 		self.terrain_view.remove_waypoint(index)
+
+	def get_waypoint_3d_points(self):
+		return self.terrain_view.get_waypoint_3d_points()

@@ -1,6 +1,6 @@
 import PySide6
-from PySide6.QtWidgets import QVBoxLayout
-from PySide6.QtWidgets import QWidget, QFrame
+from PySide6.QtWidgets import QVBoxLayout, QPushButton, QTextEdit
+from PySide6.QtWidgets import QWidget, QFrame, QLabel
 
 from craterview.app.utils.logger import get_logger
 from craterview.app.config import SITE_PRESET_PATHS
@@ -18,6 +18,7 @@ class AppSidebar(QWidget):
 	map_selected = PySide6.QtCore.Signal(str)
 	waypoint_added = PySide6.QtCore.Signal(float, float)
 	waypoint_removed = PySide6.QtCore.Signal(int)
+	simulation_started = PySide6.QtCore.Signal()
 
 	def __init__(self):
 		super().__init__()
@@ -41,4 +42,17 @@ class AppSidebar(QWidget):
 		planning_section.waypoint_removed.connect(self.waypoint_removed.emit)
 		layout.addWidget(planning_section)
 
+		start_simulation_button = QPushButton("Start simulation")
+		start_simulation_button.clicked.connect(self.simulation_started.emit)
+		layout.addWidget(start_simulation_button)
+
+		layout.addWidget(QLabel("Simulation Results:"))
+		self.results_text = QTextEdit()
+		self.results_text.setReadOnly(True)
+		self.results_text.setMaximumHeight(100)
+		layout.addWidget(self.results_text)
+
 		layout.addStretch(1)
+
+	def set_results(self, text: str):
+		self.results_text.setText(text)
