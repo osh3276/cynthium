@@ -59,6 +59,70 @@ def test_calculate_path_stats_integrated_climb_and_descend():
     assert stats["total_elevation_gain"] == 10.0
     assert stats["net_elevation_change"] == 0.0
 
+def test_calculate_path_stats_with_slope():
+    # Test directional slope calculation (rise over run)
+    elevation_map = np.zeros((10, 10))
+    # row 0: 0m, row 1: 1m, row 2: 3m
+    elevation_map[0, :] = 0
+    elevation_map[1, :] = 1
+    elevation_map[2, :] = 3
+    
+    # transform: resolution is 1m
+    transform = Affine.translation(0, 0) * Affine.scale(1, -1)
+    
+    # Path from (0,0) to (0,-2)
+    # Sample 0: (0,0) -> row 0, elev 0
+    # Sample 1: (0,-1) -> row 1, elev 1
+    # Sample 2: (0,-2) -> row 2, elev 3
+    waypoints = np.array([
+        [0, 0, 0],
+        [0, -2, 0]
+    ])
+    
+    stats = calculate_path_stats(waypoints, elevation_map, transform)
+    
+    # Segment 1: (0,0,0) to (0,-1,1)
+    # horizontal distance = 1.0, vertical distance = 1.0
+    # slope = atan2(1, 1) = 45 degrees
+    
+    # Segment 2: (0,-1,1) to (0,-2,3)
+    # horizontal distance = 1.0, vertical distance = 2.0
+    # slope = atan2(2, 1) = 63.4349 degrees
+    
+    expected_slope1 = np.degrees(np.arctan2(1.0, 1.0))
+    expected_slope2 = np.degrees(np.arctan2(2.0, 1.0))
+    expected_avg = (expected_slope1 + expected_slope2) / 2
+    
+    assert approx(stats["average_slope"]) == expected_avg
+    assert approx(stats["max_slope"]) == expected_slope2
+    assert approx(stats["min_slope"]) == expected_slope1
+
+def test_calculate_path_stats_with_downhill():
+    # Test directional slope with downhill (negative slope)
+    elevation_map = np.zeros((10, 10))
+    # row 0: 10m, row 1: 5m, row 2: 0m
+    elevation_map[0, :] = 10
+    elevation_map[1, :] = 5
+    elevation_map[2, :] = 0
+    
+    transform = Affine.translation(0, 0) * Affine.scale(1, -1)
+    
+    waypoints = np.array([
+        [0, 0, 0],
+        [0, -2, 0]
+    ])
+    
+    stats = calculate_path_stats(waypoints, elevation_map, transform)
+    
+    # Segment 1: elev 10 to 5 -> diff -5, run 1. slope = atan2(-5, 1) = -78.69 deg
+    # Segment 2: elev 5 to 0 -> diff -5, run 1. slope = atan2(-5, 1) = -78.69 deg
+    
+    expected_slope = np.degrees(np.arctan2(-5.0, 1.0))
+    
+    assert approx(stats["average_slope"]) == expected_slope
+    assert approx(stats["max_slope"]) == expected_slope
+    assert approx(stats["min_slope"]) == expected_slope
+
 def test_calculate_path_stats_empty():
     points = np.empty((0, 3))
     stats = calculate_path_stats(points)
@@ -108,6 +172,10 @@ def test_calculate_path_stats_complex():
     assert stats["net_elevation_change"] == 15.0
 
 if __name__ == "__main__":
+    test_calculate_path_stats_integrated()
+    test_calculate_path_stats_integrated_climb_and_descend()
+    test_calculate_path_stats_with_slope()
+    test_calculate_path_stats_with_downhill()
     test_calculate_path_stats_empty()
     test_calculate_path_stats_single_point()
     test_calculate_path_stats_simple_climb()

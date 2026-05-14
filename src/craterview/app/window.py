@@ -1,6 +1,6 @@
 import numpy as np
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QWidget, QFileDialog
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QWidget, QFileDialog, QApplication
 
 from .ui.map.view_container import ViewContainer
 from .ui.map.map_view import MapView
@@ -10,7 +10,6 @@ from .ui.panels.menubar import AppMenuBar
 
 from craterview.app.utils.logger import get_logger
 from craterview.app.engine.simulation.stats import calculate_path_stats
-from craterview.app.config import SITE_PRESET_PATHS
 
 logger = get_logger(__name__)
 
@@ -72,28 +71,41 @@ class Window(QMainWindow):
 		self._sidebar.simulation_started.connect(self._on_start_simulation)
 
 	def _on_start_simulation(self):
+		self.statusBar().showMessage("Running simulation...")
+		# Process events to ensure status bar updates
+		QApplication.processEvents()
+
 		points = self._view_container.get_waypoint_3d_points()
 		if len(points) < 2:
 			self._sidebar.set_results("Please add at least two waypoints.")
+			self.statusBar().showMessage("Ready")
 			return
 
-		map_data, map_meta = self._view_container.get_current_map_data()
+		map_data, map_meta, slope_data = self._view_container.get_current_map_data()
 		transform = map_meta.get("transform") if map_meta else None
 
-		stats = calculate_path_stats(np.array(points), map_data, transform)
+		stats = calculate_path_stats(np.array(points), map_data, transform, slope_data)
 
 		message = (
 			f"Total Distance: {stats['total_distance']:.2f} m\n"
-			f"Total Climb Distance: {stats['total_climb_amount']:.2f} m\n"
-			f"Net Elevation Change: {stats['net_elevation_change']:.2f} m"
+			f"Total Climb Distance: {stats['total_elevation_gain']:.2f} m\n"
+			f"Net Elevation Change: {stats['net_elevation_change']:.2f} m\n"
+			f"Average Slope: {stats['average_slope']:.2f}°\n"
+			f"Max Slope: {stats['max_slope']:.2f}°\n"
+			f"Min Slope: {stats['min_slope']:.2f}°"
 		)
 		self._sidebar.set_results(message)
+		self.statusBar().showMessage("Simulation complete")
 
 	def _load_site(self, path: str):
+		self.statusBar().showMessage(f"Loading {path}...")
+		QApplication.processEvents()
 		self._view_container.load(path, "elevation")
 		self.statusBar().showMessage(f"Site loaded: {path}")
 
 	def _load_site_with_datetime(self, path: str, datetime_str: str):
+		self.statusBar().showMessage(f"Loading {path} at {datetime_str}...")
+		QApplication.processEvents()
 		self._view_container.load(path, "elevation", datetime_str)
 		self.statusBar().showMessage(f"Site loaded: {path} at {datetime_str}")
 

@@ -5,6 +5,7 @@ DEBUG = True
 # --- Paths ---
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = PROJECT_ROOT / "data" / "elevation"
+SLOPE_DIR = PROJECT_ROOT / "data" / "slope"
 
 RASTER_LAYERS = {
 	"realistic": DATA_DIR / "realistic.tif",
@@ -75,6 +76,19 @@ SITE_PRESET_PATHS = {
     "Malapert massif": DATA_DIR / f'Site23{SUF}.tif',
     "de Gerlache-Kocher massif": DATA_DIR / f'Site42{SUF}.tif',
 }
+
+def get_slope_path(elevation_path: str | Path) -> Path:
+	"""
+	Given a path to an elevation map, returns the path to the corresponding slope map.
+	Assumes naming convention: SiteName_5mpp_surf.tif -> SiteName_5mpp_slp.tif
+	"""
+	p = Path(elevation_path)
+	name = p.stem
+	if name.endswith("_surf"):
+		slope_name = name.replace("_surf", "_slp") + ".tif"
+	else:
+		slope_name = name + "_slp.tif" # Fallback
+	return SLOPE_DIR / slope_name
 
 # --- Pathfinding cost weights ---
 ALPHA_SLOPE = 1.0               # weight for slope cost

@@ -1,6 +1,7 @@
 import PySide6
-from PySide6.QtWidgets import QLabel, QComboBox, QWidget, QLineEdit, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QLabel, QComboBox, QWidget, QLineEdit, QPushButton, QHBoxLayout, QMessageBox
 from PySide6.QtWidgets import QVBoxLayout
+from datetime import datetime
 
 from craterview.app.utils.logger import get_logger
 from craterview.app.config import SITE_PRESET_PATHS, MAP_TYPES
@@ -54,7 +55,6 @@ class MapSelectionPanel(QWidget):
 		date_container = QVBoxLayout()
 		date_container.addWidget(QLabel("Date"))
 		self.date_field = QLineEdit()
-		self.date_field.setText("yyyy-mm-dd")
 		self.date_field.setPlaceholderText("yyyy-mm-dd")
 		date_container.addWidget(self.date_field)
 		datetime_layout.addLayout(date_container)
@@ -63,7 +63,6 @@ class MapSelectionPanel(QWidget):
 		time_container = QVBoxLayout()
 		time_container.addWidget(QLabel("Time"))
 		self.time_field = QLineEdit()
-		self.time_field.setText("hh:mm:ss")
 		self.time_field.setPlaceholderText("hh:mm:ss")
 		time_container.addWidget(self.time_field)
 		datetime_layout.addLayout(time_container)
@@ -80,6 +79,7 @@ class MapSelectionPanel(QWidget):
 		site_name = self.preset_chooser.currentText()
 		if site_name == "Select a map":
 			logger.warning("No site selected")
+			QMessageBox.critical(self, "Error", "No map has been selected.")
 			return
 		
 		site_path = str(SITE_PRESET_PATHS[site_name])
@@ -88,6 +88,14 @@ class MapSelectionPanel(QWidget):
 
 		# Simple ISO format construction
 		datetime_str = f"{date_str}T{time_str}"
+
+		# Validate date and time
+		try:
+			datetime.fromisoformat(datetime_str)
+		except ValueError:
+			logger.error(f"Invalid date/time format: {datetime_str}")
+			QMessageBox.critical(self, "Error", f"Invalid date or time format: {datetime_str}\nPlease use yyyy-mm-dd and hh:mm:ss")
+			return
 
 		if site_path == self._last_path and datetime_str == self._last_datetime:
 			logger.info("No changes in settings, ignoring generate request.")

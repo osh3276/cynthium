@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from .terrain_view import TerrainView
 from .map_view import MapView
 from craterview.app.io.reader import load_geotif
+from craterview.app.config import get_slope_path
 
 class ViewContainer(QWidget):
 	def __init__(self, parent=None):
@@ -30,11 +31,19 @@ class ViewContainer(QWidget):
 		data, meta = load_geotif(path)
 		self._current_data = data
 		self._current_meta = meta
+
+		# Load slope map if available
+		slope_path = get_slope_path(path)
+		if slope_path.exists():
+			self._current_slope_data, _ = load_geotif(str(slope_path))
+		else:
+			self._current_slope_data = None
+
 		self.raster_view.load(data, meta, map_type)
 		self.terrain_view.load(path, date)
 
 	def get_current_map_data(self):
-		return self._current_data, self._current_meta
+		return self._current_data, self._current_meta, self._current_slope_data
 
 	def add_waypoint(self, x: float, y: float):
 		self.raster_view.add_waypoint(x, y)
