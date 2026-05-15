@@ -1,7 +1,13 @@
-import PySide6
-from PySide6.QtWidgets import QPushButton, QLabel, QLineEdit, QWidget, QHBoxLayout, \
-	QTextEdit
-from PySide6.QtWidgets import QVBoxLayout
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+	QHBoxLayout,
+	QLabel,
+	QLineEdit,
+	QPushButton,
+	QTextEdit,
+	QVBoxLayout,
+	QWidget,
+)
 
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
 from craterview.app.utils.logger import get_logger
@@ -14,8 +20,8 @@ def _on_map_type_changed(map_type: str):
 
 
 class PlanningPanel(QWidget):
-	waypoint_added = PySide6.QtCore.Signal(float, float)
-	waypoint_removed = PySide6.QtCore.Signal(int)
+	waypoint_added = Signal(float, float)
+	waypoint_removed = Signal(int)
 
 	def __init__(self):
 		super().__init__()
@@ -103,5 +109,7 @@ class PlanningPanel(QWidget):
 	def _refresh_waypoints_display(self):
 		self.waypoints_text.clear()
 		for i, (x, y, longlat) in enumerate(self._waypoint_data):
-			display_text = f"({i + 1}). ({x}, {y})m, ({longlat[0]:.3f}°N, {longlat[1]:.3f}°E)\n"
+			display_text = (
+				f"({i + 1}). ({x}, {y})m, ({longlat[0]:.3f}°N, {longlat[1]:.3f}°E)\n"
+			)
 			self.waypoints_text.append(display_text)

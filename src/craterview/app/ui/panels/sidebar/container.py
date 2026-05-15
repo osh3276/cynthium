@@ -1,25 +1,23 @@
-import PySide6
-from PySide6.QtWidgets import QVBoxLayout, QPushButton, QTextEdit
-from PySide6.QtWidgets import QWidget, QFrame, QLabel
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+	QFrame,
+	QLabel,
+	QPushButton,
+	QTextEdit,
+	QVBoxLayout,
+	QWidget,
+)
 
-from craterview.app.utils.logger import get_logger
-from craterview.app.config import SITE_PRESET_PATHS
-
-logger = get_logger(__name__)
 from craterview.app.ui.panels.sidebar.map_selection_panel import MapSelectionPanel
 from craterview.app.ui.panels.sidebar.planning_panel import PlanningPanel
 
 
-def _on_map_type_changed(map_type: str):
-	logger.info(f"Map type changed: {map_type}")
-
-
 class AppSidebar(QWidget):
-	map_selected = PySide6.QtCore.Signal(str)
-	map_generation_requested = PySide6.QtCore.Signal(str, str)
-	waypoint_added = PySide6.QtCore.Signal(float, float)
-	waypoint_removed = PySide6.QtCore.Signal(int)
-	simulation_started = PySide6.QtCore.Signal()
+	map_selected = Signal(str)
+	map_generation_requested = Signal(str, str, str)
+	waypoint_added = Signal(float, float)
+	waypoint_removed = Signal(int)
+	simulation_started = Signal()
 
 	def __init__(self):
 		super().__init__()
@@ -32,11 +30,13 @@ class AppSidebar(QWidget):
 		layout.addWidget(map_selection_label)
 
 		map_selection_panel = MapSelectionPanel()
-		map_selection_panel.map_generation_requested.connect(self.map_generation_requested.emit)
+		map_selection_panel.map_generation_requested.connect(
+			self.map_generation_requested.emit
+		)
 		layout.addWidget(map_selection_panel)
 
 		separator = QFrame()
-		separator.setFrameShape(QFrame.HLine)
+		separator.setFrameShape(QFrame.Shape.HLine)
 		separator.setFrameShadow(QFrame.Shadow.Sunken)
 		layout.addWidget(separator)
 
@@ -52,7 +52,7 @@ class AppSidebar(QWidget):
 		layout.addWidget(QLabel("Simulation Results:"))
 		self.results_text = QTextEdit()
 		self.results_text.setReadOnly(True)
-		self.results_text.setMaximumHeight(100)
+		self.results_text.setMaximumHeight(180)
 		layout.addWidget(self.results_text)
 
 		layout.addStretch(1)

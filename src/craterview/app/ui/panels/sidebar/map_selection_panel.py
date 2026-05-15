@@ -1,21 +1,32 @@
-import PySide6
-from PySide6.QtWidgets import QLabel, QComboBox, QWidget, QLineEdit, QPushButton, QHBoxLayout, QMessageBox
-from PySide6.QtWidgets import QVBoxLayout
 from datetime import datetime
 
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+	QComboBox,
+	QHBoxLayout,
+	QLabel,
+	QLineEdit,
+	QMessageBox,
+	QPushButton,
+	QVBoxLayout,
+	QWidget,
+)
+
+from craterview.app.config import MAP_TYPES, SITE_PRESET_PATHS
 from craterview.app.utils.logger import get_logger
-from craterview.app.config import SITE_PRESET_PATHS, MAP_TYPES
 
 logger = get_logger(__name__)
 
 
 class MapSelectionPanel(QWidget):
-	map_generation_requested = PySide6.QtCore.Signal(str, str)
+	map_generation_requested = Signal(str, str, str)
 
 	def __init__(self):
 		super().__init__()
-		self._last_path = str(SITE_PRESET_PATHS["Haworth"])
-		self._last_datetime = "2026-05-13T16:50:00"
+		self._last_path = None
+		self._last_datetime = None
+		self._last_map_type = None
+		self._default_map_type = "Elevation"
 		self._build()
 
 	def _build(self):
@@ -24,17 +35,17 @@ class MapSelectionPanel(QWidget):
 		layout.setSpacing(4)
 
 		self.setMinimumWidth(180)
-		
+
 		# Map types row
 		type_layout = QHBoxLayout()
-		type_label = QLabel("Map types:")
+		type_label = QLabel("Map type:")
 		type_layout.addWidget(type_label)
 
-		type_chooser = QComboBox()
-		type_chooser.addItem("Select a map")
-		type_chooser.addItems(MAP_TYPES)
-		type_chooser.currentTextChanged.connect(self._on_map_type_changed)
-		type_layout.addWidget(type_chooser)
+		self.type_chooser = QComboBox()
+		self.type_chooser.addItems(MAP_TYPES)
+		self.type_chooser.setCurrentText(self._default_map_type)
+		self.type_chooser.currentTextChanged.connect(self._on_map_type_changed)
+		type_layout.addWidget(self.type_chooser)
 		layout.addLayout(type_layout)
 
 		# Preset maps row
@@ -56,6 +67,7 @@ class MapSelectionPanel(QWidget):
 		date_container.addWidget(QLabel("Date"))
 		self.date_field = QLineEdit()
 		self.date_field.setPlaceholderText("yyyy-mm-dd")
+		self.date_field.setText("2026-05-13")
 		date_container.addWidget(self.date_field)
 		datetime_layout.addLayout(date_container)
 
@@ -64,6 +76,7 @@ class MapSelectionPanel(QWidget):
 		time_container.addWidget(QLabel("Time"))
 		self.time_field = QLineEdit()
 		self.time_field.setPlaceholderText("hh:mm:ss")
+		self.time_field.setText("16:50:00")
 		time_container.addWidget(self.time_field)
 		datetime_layout.addLayout(time_container)
 
@@ -81,8 +94,9 @@ class MapSelectionPanel(QWidget):
 			logger.warning("No site selected")
 			QMessageBox.critical(self, "Error", "No map has been selected.")
 			return
-		
+
 		site_path = str(SITE_PRESET_PATHS[site_name])
+		map_type = self.type_chooser.currentText()
 		date_str = self.date_field.text().strip()
 		time_str = self.time_field.text().strip()
 
@@ -94,21 +108,26 @@ class MapSelectionPanel(QWidget):
 			datetime.fromisoformat(datetime_str)
 		except ValueError:
 			logger.error(f"Invalid date/time format: {datetime_str}")
-			QMessageBox.critical(self, "Error", f"Invalid date or time format: {datetime_str}\nPlease use yyyy-mm-dd and hh:mm:ss")
+			QMessageBox.critical(
+				self,
+				"Error",
+				f"Invalid date or time format: {datetime_str}\nPlease use yyyy-mm-dd and hh:mm:ss",
+			)
 			return
 
-		if site_path == self._last_path and datetime_str == self._last_datetime:
+		if (
+			site_path == self._last_path
+			and datetime_str == self._last_datetime
+			and map_type == self._last_map_type
+		):
 			logger.info("No changes in settings, ignoring generate request.")
 			return
 
-		logger.info(f"Generating map for {site_name} at {datetime_str}")
+		logger.info(f"Generating {map_type} map for {site_name} at {datetime_str}")
 		self._last_path = site_path
 		self._last_datetime = datetime_str
-		self.map_generation_requested.emit(site_path, datetime_str)
-
-	def _on_path_changed(self, site_name: str):
-		# No longer used for immediate updates
-		pass
+		self._last_map_type = map_type
+		self.map_generation_requested.emit(site_path, datetime_str, map_type)
 
 	def _on_map_type_changed(self, map_type: str):
-		logger.info(f"Map type changed: {map_type}")
+		logger.info(f"Map type changed: {map_type}; waiting for Generate Map")

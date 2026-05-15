@@ -5,10 +5,13 @@ from pyvistaqt import QtInteractor
 
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
 from craterview.app.io.reader import load_geotif
-from craterview.app.rendering.terrain.render import TerrainRenderer, arrow_mesh
+from craterview.app.rendering.terrain.render import TerrainRenderer
 from craterview.app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+PATH_ELEVATION_OFFSET_METERS = 5.0
+
 
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 	def __init__(self):
@@ -55,7 +58,7 @@ class TerrainView(QtInteractor):
 		Renders a digital elevation model (DEM) from the input data.
 
 		:param data: A 2D numpy array containing elevation values. Each value in the
-			array represents the elevation of a specific point in the terrain.
+						array represents the elevation of a specific point in the terrain.
 		:type data: numpy.ndarray
 		:param utctime: UTC time string for sun position calculation.
 		:param meta: Metadata from GeoTIFF including transform and resolution.
@@ -89,7 +92,13 @@ class TerrainView(QtInteractor):
 		center_longlat = xy_to_longlat(center_x, center_y)
 
 		mesh.compute_hillshade(utctime, center_longlat=center_longlat)
-		self.add_mesh(mesh, scalars="Hillshade", cmap="gray", lighting=False, show_scalar_bar=False)
+		self.add_mesh(
+			mesh,
+			scalars="Hillshade",
+			cmap="gray",
+			lighting=False,
+			show_scalar_bar=False,
+		)
 		self.add_bounding_box()
 
 		self.show_grid(
@@ -111,21 +120,8 @@ class TerrainView(QtInteractor):
 
 		logger.info(f"add_waypoint called for ({x}, {y})")
 
-		# Calculate grid indices from world coordinates
-		# origin is bottom-left (c, f + height*e, 0)
-		col = int((x - self._origin[0]) / self._spacing[0])
-		row = int((y - self._origin[1]) / self._spacing[1])
-
-		if 0 <= row < self._data.shape[0] and 0 <= col < self._data.shape[1]:
-			# Sample elevation
-			# Data in TerrainRenderer is flipped with np.flipud(data) for the mesh
-			# but we can just use the original data and index it appropriately.
-			# GeoTIFF data is usually North-up (row 0 is top).
-			# PyVista/VTK origin is bottom-left.
-			# So row 0 in VTK corresponds to the last row in data.
-			z = self._data[self._data.shape[0] - 1 - row, col]
-			point = [x, y, z + 5]
-
+		point = self._sample_surface_point(x, y, PATH_ELEVATION_OFFSET_METERS)
+		if point is not None:
 			sphere = vtk.vtkSphereSource()
 			sphere.SetCenter(point)
 			sphere.SetRadius(50)
@@ -168,8 +164,87 @@ class TerrainView(QtInteractor):
 		if len(self._waypoint_points) < 2:
 			return
 
-		path = pyvista.MultipleLines(points=np.array(self._waypoint_points))
-		self._path_actor = self.add_mesh(path, color="yellow", line_width=3, label="Path")
+		path_points = self._sample_path_surface_points()
+		if len(path_points) < 2:
+			return
+
+		path = pyvista.MultipleLines(points=np.array(path_points))
+		self._path_actor = self.add_mesh(
+			path, color="yellow", line_width=3, label="Path"
+		)
+
+	def _sample_path_surface_points(self) -> list[list[float]]:
+		path_points = []
+		resolution = min(self._spacing[0], self._spacing[1])
+
+		for index in range(len(self._waypoint_points) - 1):
+			start = np.array(self._waypoint_points[index][:2], dtype=float)
+			end = np.array(self._waypoint_points[index + 1][:2], dtype=float)
+			distance = float(np.linalg.norm(end - start))
+			sample_count = max(1, int(np.ceil(distance / resolution)))
+
+			for sample_index in range(sample_count + 1):
+				if index > 0 and sample_index == 0:
+					continue
+
+				fraction = sample_index / sample_count
+				x, y = start + fraction * (end - start)
+				point = self._sample_surface_point(
+					float(x),
+					float(y),
+					PATH_ELEVATION_OFFSET_METERS,
+				)
+				if point is not None:
+					path_points.append(point)
+
+		return path_points
+
+	def _sample_surface_point(
+		self,
+		x: float,
+		y: float,
+		z_offset: float = 0.0,
+	) -> list[float] | None:
+		if self._data is None:
+			return None
+
+		col = (x - self._origin[0]) / self._spacing[0]
+		row_from_bottom = (y - self._origin[1]) / self._spacing[1]
+		data_row = (self._data.shape[0] - 1) - row_from_bottom
+
+		if (
+			col < 0
+			or data_row < 0
+			or col > self._data.shape[1] - 1
+			or data_row > self._data.shape[0] - 1
+		):
+			return None
+
+		z = self._sample_elevation_bilinear(data_row, col)
+		if not np.isfinite(z):
+			return None
+
+		return [x, y, float(z + z_offset)]
+
+	def _sample_elevation_bilinear(self, row: float, col: float) -> float:
+		row0 = int(np.floor(row))
+		col0 = int(np.floor(col))
+		row1 = min(row0 + 1, self._data.shape[0] - 1)
+		col1 = min(col0 + 1, self._data.shape[1] - 1)
+		row_weight = row - row0
+		col_weight = col - col0
+
+		z00 = self._data[row0, col0]
+		z01 = self._data[row0, col1]
+		z10 = self._data[row1, col0]
+		z11 = self._data[row1, col1]
+		values = np.array([z00, z01, z10, z11], dtype=float)
+		if not np.all(np.isfinite(values)):
+			return float(np.nanmean(values))
+
+		z0 = z00 * (1 - col_weight) + z01 * col_weight
+		z1 = z10 * (1 - col_weight) + z11 * col_weight
+		return float(z0 * (1 - row_weight) + z1 * row_weight)
 
 	def mouseDoubleClickEvent(self, event):
 		pass
