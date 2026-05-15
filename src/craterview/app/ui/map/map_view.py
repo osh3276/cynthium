@@ -29,13 +29,15 @@ class MapView(QWidget):
 		self._colorbar.setImageItem(self._img, insert_in=self._plot)
 		self._view.addItem(self._colorbar)
 
-		self._waypoints = pg.ScatterPlotItem(
-			size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 0, 0, 255)
-		)
-		self._plot.addItem(self._waypoints)
-
 		self._path_line = pg.PlotDataItem(pen=pg.mkPen("y", width=2))
+		self._path_line.setZValue(10)
 		self._plot.addItem(self._path_line)
+
+		self._waypoints = pg.ScatterPlotItem(
+			size=10, pen=pg.mkPen(None), brush=pg.mkBrush(0, 0, 0, 255)
+		)
+		self._waypoints.setZValue(20)
+		self._plot.addItem(self._waypoints)
 		self._waypoint_list = []
 
 		self.setStyleSheet("border-right: 1px solid #cccccc;")
