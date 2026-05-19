@@ -1,16 +1,20 @@
 from datetime import datetime, timezone
 
-import numpy as np
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
 	QApplication,
 	QFileDialog,
 	QHBoxLayout,
 	QMainWindow,
+	QMessageBox,
 	QWidget,
 )
 
-from craterview.app.engine.simulation.stats import calculate_path_stats
+from craterview.app.io.export.simulation_csv import write_simulation_csv
+from craterview.app.services.simulation_service import (
+	calculate_simulation_stats,
+	format_simulation_stats,
+)
 from craterview.app.ui.panels.sidebar.container import AppSidebar
 from craterview.app.utils.logger import get_logger
 
@@ -39,6 +43,8 @@ class Window(QMainWindow):
 			"%Y-%m-%dT%H:%M:%S"
 		)
 		self._current_map_type = "Elevation"
+		self._last_simulation_stats = None
+		self._last_simulation_points = None
 
 		# self.addToolBar(create_toolbar(self))
 
@@ -77,6 +83,9 @@ class Window(QMainWindow):
 
 	def _connect_signals(self):
 		self._menubar.action_open.triggered.connect(self._open_file_dialog)
+		self._menubar.action_export_simulation_data.triggered.connect(
+			self._export_simulation_data
+		)
 		self._menubar.action_exit.triggered.connect(self.close)
 		self._sidebar.map_generation_requested.connect(self._load_site_with_datetime)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
@@ -94,49 +103,64 @@ class Window(QMainWindow):
 			self.statusBar().showMessage("Ready")
 			return
 
-		(
-			map_data,
-			map_meta,
-			slope_data,
-			temperature_data,
-			temperature_meta,
-			illumination_data,
-			illumination_meta,
-		) = self._view_container.get_current_map_data()
-		transform = map_meta.get("transform") if map_meta else None
-		temperature_transform = (
-			temperature_meta.get("transform") if temperature_meta else None
+		stats, points_array = calculate_simulation_stats(
+			points,
+			self._view_container.get_current_map_data(),
 		)
-		illumination_transform = (
-			illumination_meta.get("transform") if illumination_meta else None
-		)
-
-		stats = calculate_path_stats(
-			np.array(points),
-			map_data,
-			transform,
-			slope_data,
-			temperature_data,
-			temperature_transform,
-			illumination_data,
-			illumination_transform,
-		)
-
-		message = (
-			f"Total Displacement: {stats['total_displacement']:.2f} m\n"
-			f"Total Distance Travelled: {stats['total_distance_travelled']:.2f} m\n"
-			f"Total Climb Distance: {stats['total_elevation_gain']:.2f} m\n"
-			f"Net Elevation Change: {stats['net_elevation_change']:.2f} m\n"
-			f"Average Slope: {stats['average_slope']:.2f}°\n"
-			f"Max Slope: {stats['max_slope']:.2f}°\n"
-			f"Min Slope: {stats['min_slope']:.2f}°\n"
-			f"Max Temp (avg.): {stats['max_temperature']:.2f} K\n"
-			f"Min Temp (avg.): {stats['min_temperature']:.2f} K\n"
-			f"Average Temp (avg.): {stats['average_temperature']:.2f} K\n"
-			f"Illumination (yearly avg.): {stats['percent_illumination']:.2f}%"
-		)
+		message = format_simulation_stats(stats)
+		self._last_simulation_stats = stats
+		self._last_simulation_points = points_array
 		self._sidebar.set_results(message)
 		self.statusBar().showMessage("Simulation complete")
+
+	def _export_simulation_data(self):
+		if self._last_simulation_stats is None or self._last_simulation_points is None:
+			QMessageBox.warning(
+				self,
+				"No Simulation Data",
+				"Run a simulation before exporting simulation data.",
+			)
+			return
+
+		default_name = "simulation_data.csv"
+		if self._current_path:
+			default_name = f"{self._current_path.split('/')[-1]}_simulation_data.csv"
+
+		path, _ = QFileDialog.getSaveFileName(
+			self,
+			"Export Simulation Data",
+			default_name,
+			"CSV files (*.csv);;All files (*)",
+		)
+		if not path:
+			return
+
+		if not path.lower().endswith(".csv"):
+			path = f"{path}.csv"
+
+		metadata = {
+			"site_path": self._current_path or "",
+			"datetime": self._current_datetime,
+			"map_type": self._current_map_type,
+		}
+
+		try:
+			write_simulation_csv(
+				path,
+				metadata,
+				self._last_simulation_stats,
+				self._last_simulation_points,
+			)
+		except OSError as exc:
+			logger.error(f"Failed to export simulation data: {exc}")
+			QMessageBox.critical(
+				self,
+				"Export Failed",
+				f"Failed to export simulation data:\n{exc}",
+			)
+			return
+
+		self.statusBar().showMessage(f"Simulation data exported: {path}")
 
 	def _open_file_dialog(self):
 		path, _ = QFileDialog.getOpenFileName(

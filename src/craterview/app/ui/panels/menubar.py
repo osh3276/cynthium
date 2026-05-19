@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QToolButton, QMenuBar
+from PySide6.QtWidgets import QMenuBar
 
 
 class AppMenuBar(QMenuBar):
@@ -8,17 +8,19 @@ class AppMenuBar(QMenuBar):
 
 	def _build(self):
 		file_menu = self.addMenu("File")
-		edit_menu = self.addMenu("Edit")
-		view_menu = self.addMenu("View")
-		help_menu = self.addMenu("Help")
-
+		self.addMenu("Edit")
+		self.addMenu("View")
+		self.addMenu("Help")
 
 		self.action_open = file_menu.addAction("Open")
 		self.action_open.setShortcut("Ctrl+O")
-		file_menu.addAction(self.action_open)
 
-		self.addSeparator()
+		self.action_export_simulation_data = file_menu.addAction(
+			"Export Simulation Data"
+		)
+		self.action_export_simulation_data.setShortcut("Ctrl+E")
+
+		file_menu.addSeparator()
 
 		self.action_exit = file_menu.addAction("Exit")
 		self.action_exit.setShortcut("Ctrl+Q")
-		file_menu.addAction(self.action_exit)

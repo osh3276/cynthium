@@ -14,6 +14,8 @@ class MapView(QWidget):
 		self._view.setBackground("w")
 		self._plot = self._view.addPlot()  # type: ignore[attr-defined]
 		self._plot.setAspectLocked(True)
+		self._plot.setLabel("bottom", "Easting", units="m")
+		self._plot.setLabel("left", "Northing", units="m")
 		self._img = pg.ImageItem()
 		self._plot.addItem(self._img)
 
@@ -55,12 +57,14 @@ class MapView(QWidget):
 			ls = LightSource(azdeg=315, altdeg=45)
 			rendered = (ls.hillshade(data, vert_exag=1.0) * 255).astype(np.uint8)
 			self._img.setColorMap(self._gray_cmap)
+			self._set_colorbar_label(map_type)
 			self._colorbar.setVisible(False)
 		else:
 			rendered = data.astype(np.float32)
 			self._img.setColorMap(self._cmap)
 			self._colorbar.setColorMap(self._cmap)
 			self._set_colorbar_levels(rendered)
+			self._set_colorbar_label(map_type)
 			self._colorbar.setVisible(True)
 
 		self._img.setImage(np.flipud(rendered).T, autoLevels=False)
@@ -78,6 +82,18 @@ class MapView(QWidget):
 			tr.translate(transform.c, transform.f + (data.shape[0] * transform.e))
 			tr.scale(transform.a, abs(transform.e))
 			self._img.setTransform(tr)
+
+	def _set_colorbar_label(self, map_type: str):
+		labels = {
+			"elevation": "Elevation (m)",
+			"hillshade": "Hillshade (unitless)",
+			"slope": "Slope (deg)",
+			"solar_illumination": "Solar Illumination (W/m²)",
+			"meteor_flux": "Meteor Flux (J/yr*m²)",
+			"average_temperature": "Average Temperature (K)",
+		}
+		map_key = map_type.lower().replace(" ", "_")
+		self._colorbar.setLabel("right", labels.get(map_key, map_type))
 
 	def _set_colorbar_levels(self, data: np.ndarray):
 		finite_values = data[np.isfinite(data)]
