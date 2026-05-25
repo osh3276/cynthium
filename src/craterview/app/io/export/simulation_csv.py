@@ -15,6 +15,10 @@ SIMULATION_STAT_EXPORT_KEYS = [
 	("min_temp_avg_k", "min_temperature"),
 	("average_temp_avg_k", "average_temperature"),
 	("illumination_yearly_avg_percent", "percent_illumination"),
+	("average_velocity_mps", "average_velocity_mps"),
+	("min_velocity_mps", "min_velocity_mps"),
+	("max_velocity_mps", "max_velocity_mps"),
+	("max_climbable_slope_deg", "max_climbable_slope_deg"),
 ]
 
 
@@ -24,6 +28,19 @@ def write_simulation_csv(
 	stats: dict[str, float],
 	points: np.ndarray | None,
 ):
+	"""
+	Writes the simulation csv.
+
+	:param path: Path to the file.
+	:type path: str | Path
+	:param metadata: Parameter value.
+	:type metadata: dict[str, str]
+	:param stats: Simulation statistics.
+	:type stats: dict[str, float]
+	:param points: Point data.
+	:type points: np.ndarray | None
+	:return: The resulting value.
+	"""
 	with open(path, "w", newline="") as csv_file:
 		writer = csv.writer(csv_file)
 		writer.writerow(["metadata_key", "metadata_value"])

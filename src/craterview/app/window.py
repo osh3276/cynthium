@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
-from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
 	QApplication,
 	QFileDialog,
@@ -32,12 +32,15 @@ class Window(QMainWindow):
 	_raster_view: MapView
 
 	def __init__(self):
+		"""
+		Initializes the Window instance.
+
+		:return: None
+		"""
 		super().__init__()
 		self.setWindowTitle("CraterView")
 		self.setGeometry(100, 100, 1600, 900)
-		self._resize_timer = QTimer()
-		self._resize_timer.setSingleShot(True)
-		self._resize_timer.timeout.connect(self._on_resize_done)
+
 		self._current_path = None
 		self._current_datetime = datetime.now(timezone.utc).strftime(
 			"%Y-%m-%dT%H:%M:%S"
@@ -72,16 +75,21 @@ class Window(QMainWindow):
 		logger.info("Window initialized")
 
 	def on_button_clicked(self):
+		"""
+		Handles button clicked.
+
+		:return: None
+		"""
 		logger.info("Button clicked")
 
-	def resizeEvent(self, event):
-		super().resizeEvent(event)
-		self._resize_timer.start(1500)  # ms delay
 
-	def _on_resize_done(self):
-		self._view_container.terrain_view.render()
 
 	def _connect_signals(self):
+		"""
+		Performs connect signals.
+
+		:return: The resulting value.
+		"""
 		self._menubar.action_open.triggered.connect(self._open_file_dialog)
 		self._menubar.action_export_simulation_data.triggered.connect(
 			self._export_simulation_data
@@ -93,6 +101,11 @@ class Window(QMainWindow):
 		self._sidebar.simulation_started.connect(self._on_start_simulation)
 
 	def _on_start_simulation(self):
+		"""
+		Handles start simulation.
+
+		:return: None
+		"""
 		self.statusBar().showMessage("Running simulation...")
 		# Process events to ensure status bar updates
 		QApplication.processEvents()
@@ -103,9 +116,17 @@ class Window(QMainWindow):
 			self.statusBar().showMessage("Ready")
 			return
 
+		try:
+			rover = self._sidebar.get_rover_settings()
+		except ValueError as exc:
+			self._sidebar.set_results(str(exc))
+			self.statusBar().showMessage("Ready")
+			return
+
 		stats, points_array = calculate_simulation_stats(
 			points,
 			self._view_container.get_current_map_data(),
+			rover=rover,
 		)
 		message = format_simulation_stats(stats)
 		self._last_simulation_stats = stats
@@ -114,6 +135,11 @@ class Window(QMainWindow):
 		self.statusBar().showMessage("Simulation complete")
 
 	def _export_simulation_data(self):
+		"""
+		Performs export simulation data.
+
+		:return: The resulting value.
+		"""
 		if self._last_simulation_stats is None or self._last_simulation_points is None:
 			QMessageBox.warning(
 				self,
@@ -163,6 +189,11 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Simulation data exported: {path}")
 
 	def _open_file_dialog(self):
+		"""
+		Performs open file dialog.
+
+		:return: The resulting value.
+		"""
 		path, _ = QFileDialog.getOpenFileName(
 			self,
 			"Open GeoTIFF",
@@ -175,13 +206,52 @@ class Window(QMainWindow):
 			)
 
 	def _load_site(self, path: str):
+		"""
+		Performs load site.
+
+		:param path: Path to the file.
+		:type path: str
+		:return: The resulting value.
+		"""
 		self._load_site_with_datetime(
 			path, self._current_datetime, self._current_map_type
 		)
 
+	def _normalize_path(self, path: str) -> str:
+		"""Normalize paths so string comparisons are stable."""
+		try:
+			return str(Path(path).expanduser().resolve())
+		except Exception:
+			return str(Path(path).expanduser())
+
+	def _normalize_datetime_str(self, datetime_str: str) -> str:
+		"""Normalize datetime strings to YYYY-mm-ddTHH:MM:SS (no tz)."""
+		try:
+			dt = datetime.fromisoformat(datetime_str)
+		except ValueError:
+			return datetime_str
+		if dt.tzinfo is not None:
+			dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+		dt = dt.replace(microsecond=0)
+		return dt.strftime("%Y-%m-%dT%H:%M:%S")
+
 	def _load_site_with_datetime(
 		self, path: str, datetime_str: str, map_type: str = "Elevation"
 	):
+		"""
+		Performs load site with datetime.
+
+		:param path: Path to the file.
+		:type path: str
+		:param datetime_str: Parameter value.
+		:type datetime_str: str
+		:param map_type: Map type identifier.
+		:type map_type: str
+		:return: The resulting value.
+		"""
+		path = self._normalize_path(path)
+		datetime_str = self._normalize_datetime_str(datetime_str)
+
 		only_map_type_changed = (
 			self._current_path == path
 			and self._current_datetime == datetime_str
@@ -206,7 +276,17 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Loaded {map_type} map: {path} at {datetime_str}")
 
 	def _on_refresh(self):
+		"""
+		Handles refresh.
+
+		:return: None
+		"""
 		pass
 
 	def get_view_container(self):
+		"""
+		Returns the view container.
+
+		:return: The resulting value.
+		"""
 		return self._view_container

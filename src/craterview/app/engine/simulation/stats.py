@@ -1,5 +1,9 @@
 import numpy as np
 
+from craterview.app.engine.simulation.path_sampling import (
+	get_pixel_resolution_m,
+	sample_path_elevations,
+)
 from craterview.app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -76,6 +80,24 @@ def _calculate_integrated_stats(
 	illumination_map: np.ndarray | None = None,
 	illumination_transform=None,
 ) -> dict[str, float]:
+	"""
+	Calculates the integrated stats.
+
+	:param waypoints: Parameter value.
+	:type waypoints: np.ndarray
+	:param elevation_map: Parameter value.
+	:type elevation_map: np.ndarray
+	:param transform: Raster transform.
+	:param slope_map: Parameter value.
+	:type slope_map: np.ndarray | None
+	:param temperature_map: Parameter value.
+	:type temperature_map: np.ndarray | None
+	:param temperature_transform: Parameter value.
+	:param illumination_map: Parameter value.
+	:type illumination_map: np.ndarray | None
+	:param illumination_transform: Parameter value.
+	:return: The resulting value.
+	"""
 	sampled_points, _ = _sample_path_data(waypoints, elevation_map, transform, None)
 	stats = _calculate_stats_from_points(sampled_points)
 	stats["average_resolution"] = _get_pixel_resolution(transform)
@@ -122,6 +144,21 @@ def _add_context_stats(
 	illumination_map: np.ndarray | None,
 	illumination_transform,
 ):
+	"""
+	Adds the context stats.
+
+	:param stats: Simulation statistics.
+	:type stats: dict[str, float]
+	:param points_xy: Parameter value.
+	:type points_xy: np.ndarray
+	:param temperature_map: Parameter value.
+	:type temperature_map: np.ndarray | None
+	:param temperature_transform: Parameter value.
+	:param illumination_map: Parameter value.
+	:type illumination_map: np.ndarray | None
+	:param illumination_transform: Parameter value.
+	:return: None
+	"""
 	temperature_values = _sample_raster_values(
 		points_xy,
 		temperature_map,
@@ -155,6 +192,16 @@ def _sample_raster_values(
 	raster: np.ndarray | None,
 	transform,
 ) -> np.ndarray:
+	"""
+	Samples the raster values.
+
+	:param points_xy: Parameter value.
+	:type points_xy: np.ndarray
+	:param raster: Parameter value.
+	:type raster: np.ndarray | None
+	:param transform: Raster transform.
+	:return: The resulting value.
+	"""
 	if raster is None or transform is None or points_xy.size == 0:
 		return np.array([], dtype=np.float32)
 
@@ -173,6 +220,13 @@ def _sample_raster_values(
 
 
 def _calculate_stats_from_points(points: np.ndarray) -> dict[str, float]:
+	"""
+	Calculates the stats from points.
+
+	:param points: Point data.
+	:type points: np.ndarray
+	:return: The resulting value.
+	"""
 	diffs = np.diff(points, axis=0)
 	step_distances = np.linalg.norm(diffs, axis=1)
 	z_diffs = diffs[:, 2]
@@ -195,48 +249,28 @@ def _sample_path_data(
 	transform,
 	slope_map: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray | None]:
-	inverse_transform = ~transform
-	pixel_resolution = _get_pixel_resolution(transform)
-	sampled_points = []
+	"""
+	Samples the path data.
 
+	:param waypoints: Parameter value.
+	:type waypoints: np.ndarray
+	:param elevation_map: Parameter value.
+	:type elevation_map: np.ndarray
+	:param transform: Raster transform.
+	:param slope_map: Parameter value.
+	:type slope_map: np.ndarray | None
+	:return: The resulting value.
+	"""
+	pixel_resolution = get_pixel_resolution_m(transform)
 	logger.info(f"Pixel resolution: {pixel_resolution} metres per pixel")
 
-	for index in range(len(waypoints) - 1):
-		start_point = waypoints[index]
-		end_point = waypoints[index + 1]
-		segment_sample_count = _calculate_segment_sample_count(
-			start_point,
-			end_point,
-			pixel_resolution,
-		)
-
-		logger.info(f"Number of samples in segment {index}: {segment_sample_count}")
-
-		for sample_index in range(segment_sample_count + 1):
-			fraction = sample_index / segment_sample_count
-			current_xy = start_point[:2] + fraction * (end_point[:2] - start_point[:2])
-
-			col, row = inverse_transform * (current_xy[0], current_xy[1])
-			col = _clamp_index(int(round(col)), elevation_map.shape[1])
-			row = _clamp_index(int(round(row)), elevation_map.shape[0])
-
-			elevation = elevation_map[row, col]
-			sampled_points.append([current_xy[0], current_xy[1], elevation])
-
-	# Remove duplicates if consecutive segments share a waypoint
-	sampled_points_arr = np.array(sampled_points)
-	if len(sampled_points_arr) > 1:
-		# Keep points where the next point is different
-		mask = np.any(np.diff(sampled_points_arr, axis=0) != 0, axis=1)
-		# Always keep the last point
-		mask = np.append(mask, True)
-		sampled_points_arr = sampled_points_arr[mask]
-
+	sampled_points_arr = sample_path_elevations(waypoints, elevation_map, transform)
 	return sampled_points_arr, None
 
 
 def _get_pixel_resolution(transform) -> float:
-	return min(abs(transform.a), abs(transform.e))
+	"""Compatibility wrapper (prefer get_pixel_resolution_m)."""
+	return get_pixel_resolution_m(transform)
 
 
 def _calculate_segment_sample_count(
@@ -244,6 +278,17 @@ def _calculate_segment_sample_count(
 	end_point: np.ndarray,
 	pixel_resolution: float,
 ) -> int:
+	"""
+	Calculates the segment sample count.
+
+	:param start_point: Parameter value.
+	:type start_point: np.ndarray
+	:param end_point: Parameter value.
+	:type end_point: np.ndarray
+	:param pixel_resolution: Parameter value.
+	:type pixel_resolution: float
+	:return: The resulting value.
+	"""
 	horizontal_distance = np.linalg.norm(end_point[:2] - start_point[:2])
 
 	if horizontal_distance == 0:
@@ -253,4 +298,13 @@ def _calculate_segment_sample_count(
 
 
 def _clamp_index(index: int, size: int) -> int:
+	"""
+	Performs clamp index.
+
+	:param index: Item index.
+	:type index: int
+	:param size: Parameter value.
+	:type size: int
+	:return: The resulting value.
+	"""
 	return max(0, min(index, size - 1))

@@ -1,8 +1,10 @@
 import numpy as np
 import pyvista
 import vtk
+from PySide6.QtCore import QTimer
 from pyvistaqt import QtInteractor
 
+from craterview.app.engine.illumination.sun_position import sun_position
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
 from craterview.app.io.reader import load_geotif
 from craterview.app.rendering.terrain.render import TerrainRenderer
@@ -43,15 +45,47 @@ class TerrainView(QtInteractor):
 	def __init__(self, parent=None):
 		super().__init__(parent=parent)
 		self.interactor.SetInteractorStyle(CustomInteractorStyle())
+		self._resize_timer = QTimer(self)
+		self._resize_timer.setSingleShot(True)
+		self._resize_timer.timeout.connect(self._render_after_resize)
 		self._terrain_mesh = None
+		self._loaded_path = None
+		self._loaded_utctime = None
 		self._waypoint_points = []
 		self._waypoint_actors = []
 		self._path_actor = None
 
+	def resizeEvent(self, event):
+		super().resizeEvent(event)
+		self._resize_timer.start(50)
+
+	def _render_after_resize(self):
+		if not self.isVisible():
+			return
+		if self.width() < 2 or self.height() < 2:
+			return
+		self.render()
+
 	# set the default to today
 	def load(self, path: str, utctime: str):
+		"""
+		Loads a GeoTIFF terrain dataset and renders it in the view.
+
+		:param path: Path to the GeoTIFF file.
+		:param utctime: UTC time string for sun position calculation.
+		:return: None
+		"""
+		if (
+			self._terrain_mesh is not None
+			and self._loaded_path == path
+			and self._loaded_utctime == utctime
+		):
+			return
+
 		data, meta = load_geotif(path)
 		self._build(data, utctime, meta)
+		self._loaded_path = path
+		self._loaded_utctime = utctime
 
 	def _build(self, data: np.ndarray, utctime: str, meta: dict = None):
 		"""
@@ -91,7 +125,33 @@ class TerrainView(QtInteractor):
 		center_y = self._origin[1] + (data.shape[0] * self._spacing[1]) / 2
 		center_longlat = xy_to_longlat(center_x, center_y)
 
-		mesh.compute_hillshade(utctime, center_longlat=center_longlat)
+		az_deg, _el_deg = sun_position(center_longlat[1], center_longlat[0], utctime)
+		el_deg = 20.0
+
+		display_mesh = mesh
+
+		az = np.radians(float(az_deg))
+		el = np.radians(float(el_deg))
+		sun_dir = np.array(
+			[
+				np.cos(el) * np.sin(az),
+				np.cos(el) * np.cos(az),
+				np.sin(el),
+			],
+			dtype=np.float64,
+		)
+		sun_dir = sun_dir / np.linalg.norm(sun_dir)
+
+		display_mesh.compute_normals(
+			cell_normals=False,
+			point_normals=True,
+			inplace=True,
+		)
+		normals = display_mesh.point_data["Normals"]
+		hillshade = np.clip(normals @ sun_dir, 0, 1).astype(np.float32)
+
+		display_mesh.point_data["Hillshade"] = hillshade
+
 		self.add_mesh(
 			mesh,
 			scalars="Hillshade",
@@ -99,12 +159,19 @@ class TerrainView(QtInteractor):
 			lighting=False,
 			show_scalar_bar=False,
 		)
-		self.add_bounding_box()
-
-		self.show_grid(
+		self.show_bounds(
+			bounds=mesh.bounds,
+			grid="front",
+			location="outer",
+			all_edges=True,
 			font_size=10,
 			n_xlabels=12,
 			n_ylabels=12,
+			n_zlabels=0,
+			show_zaxis=False,
+			show_zlabels=False,
+			color="black",
+			render=True,
 		)
 
 		self.reset_camera()

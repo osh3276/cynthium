@@ -1,11 +1,25 @@
 import numpy as np
 
+from craterview.app.engine.simulation.rover_dynamics import compute_velocity_stats
+from craterview.app.engine.simulation.rover_settings import RoverSettings
 from craterview.app.engine.simulation.stats import calculate_path_stats
 
 
 def calculate_simulation_stats(
-	points: list, map_data_bundle: tuple
+	points: list,
+	map_data_bundle: tuple,
+	*,
+	rover: RoverSettings | None = None,
 ) -> tuple[dict[str, float], np.ndarray]:
+	"""
+	Calculates the simulation stats.
+
+	:param points: Point data.
+	:type points: list
+	:param map_data_bundle: Parameter value.
+	:type map_data_bundle: tuple
+	:return: The resulting value.
+	"""
 	(
 		map_data,
 		map_meta,
@@ -34,10 +48,28 @@ def calculate_simulation_stats(
 		illumination_data,
 		illumination_transform,
 	)
+
+	if rover is not None:
+		stats.update(
+			compute_velocity_stats(
+				waypoints_xyz=points_array,
+				elevation_map=map_data,
+				transform=transform,
+				rover=rover,
+			)
+		)
+
 	return stats, points_array
 
 
 def format_simulation_stats(stats: dict[str, float]) -> str:
+	"""
+	Formats the simulation stats.
+
+	:param stats: Simulation statistics.
+	:type stats: dict[str, float]
+	:return: The resulting value.
+	"""
 	return (
 		f"Total Displacement: {stats['total_displacement']:.2f} m\n"
 		f"Total Distance Travelled: {stats['total_distance_travelled']:.2f} m\n"
@@ -49,5 +81,9 @@ def format_simulation_stats(stats: dict[str, float]) -> str:
 		f"Max Temp (avg.): {stats['max_temperature']:.2f} K\n"
 		f"Min Temp (avg.): {stats['min_temperature']:.2f} K\n"
 		f"Average Temp (avg.): {stats['average_temperature']:.2f} K\n"
-		f"Illumination (yearly avg.): {stats['percent_illumination']:.2f}%"
+		f"Illumination (yearly avg.): {stats['percent_illumination']:.2f}%\n"
+		f"Avg Velocity: {stats.get('average_velocity_mps', 0.0):.2f} m/s\n"
+		f"Min Velocity: {stats.get('min_velocity_mps', 0.0):.2f} m/s\n"
+		f"Max Velocity: {stats.get('max_velocity_mps', 0.0):.2f} m/s\n"
+		f"Max Climbable Slope: {stats.get('max_climbable_slope_deg', 0.0):.2f}°"
 	)

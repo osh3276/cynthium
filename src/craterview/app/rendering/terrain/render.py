@@ -28,7 +28,20 @@ def arrow_mesh(tip_point, length=100.0, shaft_radius=50, tip_radius=100):
 
 
 class TerrainRenderer(PolyData):
-	def __init__(self, data: np.ndarray, origin: tuple = (0, 0, 0), spacing: tuple = (5, 5, 1)):
+	def __init__(
+		self, data: np.ndarray, origin: tuple = (0, 0, 0), spacing: tuple = (5, 5, 1)
+	):
+		"""
+		Initializes the TerrainRenderer instance.
+
+		:param data: Input data.
+		:type data: np.ndarray
+		:param origin: Parameter value.
+		:type origin: tuple
+		:param spacing: Parameter value.
+		:type spacing: tuple
+		:return: None
+		"""
 		grid = pyvista.ImageData()
 		grid.dimensions = (data.shape[1], data.shape[0], 1)
 		grid.origin = origin
@@ -44,10 +57,19 @@ class TerrainRenderer(PolyData):
 		)
 
 	def compute_hillshade(self, utctime: str, center_longlat: tuple = (-89, 0)):
-		az, el = sun_position(center_longlat[1], center_longlat[0], utctime)
+		"""
+		Computes the hillshade.
+
+		:param utctime: UTC time string.
+		:type utctime: str
+		:param center_longlat: Longitude and latitude of the raster center.
+		:type center_longlat: tuple
+		:return: The resulting value.
+		"""
+		az, _el = sun_position(center_longlat[1], center_longlat[0], utctime)
 
 		az = np.radians(az)
-		el = np.radians(el)
+		el = np.radians(20.0)
 
 		sun_dir = np.array([
 			np.cos(el) * np.sin(az),

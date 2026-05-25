@@ -8,8 +8,13 @@ from PySide6.QtWidgets import (
 	QWidget,
 )
 
+from craterview.app.engine.simulation.rover_settings import (
+	RoverSettings,
+	rover_settings_from_strings,
+)
 from craterview.app.ui.panels.sidebar.map_selection_panel import MapSelectionPanel
 from craterview.app.ui.panels.sidebar.planning_panel import PlanningPanel
+from craterview.app.ui.panels.sidebar.rover_settings_panel import RoverSettingsPanel
 
 
 class AppSidebar(QWidget):
@@ -20,10 +25,20 @@ class AppSidebar(QWidget):
 	simulation_started = Signal()
 
 	def __init__(self):
+		"""
+		Initializes the AppSidebar instance.
+
+		:return: None
+		"""
 		super().__init__()
 		self._build()
 
 	def _build(self):
+		"""
+		Builds the result.
+
+		:return: The resulting value.
+		"""
 		layout = QVBoxLayout(self)
 
 		map_selection_label = QLabel("Map Selection")
@@ -45,6 +60,9 @@ class AppSidebar(QWidget):
 		planning_section.waypoint_removed.connect(self.waypoint_removed.emit)
 		layout.addWidget(planning_section)
 
+		self._rover_settings_panel = RoverSettingsPanel()
+		layout.addWidget(self._rover_settings_panel)
+
 		start_simulation_button = QPushButton("Start simulation")
 		start_simulation_button.clicked.connect(self.simulation_started.emit)
 		layout.addWidget(start_simulation_button)
@@ -57,5 +75,16 @@ class AppSidebar(QWidget):
 
 		layout.addStretch(1)
 
+	def get_rover_settings(self) -> RoverSettings:
+		mass, power, mu = self._rover_settings_panel.get_values()
+		return rover_settings_from_strings(mass, power, mu)
+
 	def set_results(self, text: str):
+		"""
+		Sets the results.
+
+		:param text: Parameter value.
+		:type text: str
+		:return: None
+		"""
 		self.results_text.setText(text)
