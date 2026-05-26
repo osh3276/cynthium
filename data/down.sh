@@ -1,5 +1,3 @@
-#!/bin/bash
-while IFS= read -r name; do
-    aria2c -x 16 -s 16 "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/${name}/${name}_final_adj_5mpp_slp.tif" &
-done < files.txt
-wait
+version https://git-lfs.github.com/spec/v1
+oid sha256:ca58c42186935fa785ea19d0fd70696993403ffec5269c20a454e22412c378cf
+size 170
