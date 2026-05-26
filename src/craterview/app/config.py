@@ -7,6 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = PROJECT_ROOT / "data" / "elevation"
 SLOPE_DIR = PROJECT_ROOT / "data" / "slope"
 ILLUMINATION_DIR = PROJECT_ROOT / "data" / "illum"
+ILLUMINATION_ANGLES_DIR = ILLUMINATION_DIR / "angles"
 TEMPERATURE_DIR = PROJECT_ROOT / "data" / "temperature"
 ILLUMINATION_RASTER_PATH = ILLUMINATION_DIR / "Illumination_mask_80mpp_FULL_GEO.tif"
 AVERAGE_TEMPERATURE_RASTER_PATH = (
@@ -28,6 +29,7 @@ MAP_TYPES = [
 	"Slope",
 	"Hillshade",
 	"Solar Illumination (yr. avg.)",
+	"solar illumination daily avg",
 	"Meteor Flux",
 	"Average Temperature",
 ]

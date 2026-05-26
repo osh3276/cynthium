@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 
 from PySide6.QtCore import Qt
@@ -7,6 +8,7 @@ from craterview.app.io.reader import load_geotif
 from craterview.app.services.site_rasters import (
 	RasterPayload,
 	load_context_rasters,
+	load_daily_avg_illumination_raster,
 	load_slope_raster,
 	select_display_raster,
 )
@@ -97,11 +99,29 @@ class ViewContainer(QWidget):
 			logger.warning("Cannot display map type before a site has been loaded.")
 			return False
 
+		map_key = map_type.strip().lower()
+		map_key = re.sub(r"[^a-z0-9]+", "_", map_key)
+		map_key = re.sub(r"_+", "_", map_key).strip("_")
+
+		illumination_raster = self._illumination_raster
+		if map_key == "solar_illumination_daily_avg":
+			daily = load_daily_avg_illumination_raster(
+				reference_path=self._current_path,
+				reference_meta=self._current_meta,
+				reference_shape=(
+					int(self._current_data.shape[0]),
+					int(self._current_data.shape[1]),
+				),
+				utctime=str(self._current_datetime),
+			)
+			if daily[0] is not None:
+				illumination_raster = daily
+
 		display_data, display_meta = select_display_raster(
 			map_type,
 			self._elevation_raster,
 			self._slope_raster,
-			self._illumination_raster,
+			illumination_raster,
 			self._temperature_raster,
 		)
 		if display_data is None:
