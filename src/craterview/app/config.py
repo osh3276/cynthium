@@ -27,7 +27,7 @@ MAP_TYPES = [
 	"Elevation",
 	"Slope",
 	"Hillshade",
-	"Solar Illumination",
+	"Solar Illumination (yr. avg.)",
 	"Meteor Flux",
 	"Average Temperature",
 ]
@@ -44,7 +44,7 @@ FRONTEND_CRS = "+proj=longlat +R=1737400 +no_defs +type=crs"
 ROVER_MAX_SLOPE_DEG = 20.0  # hard impassable threshold
 ROVER_WARN_SLOPE_DEG = 15.0  # soft warning threshold
 ROVER_MASS_KG = 150.0
-LUNAR_GRAVITY = 1.62  # m/s^2
+LUNAR_GRAVITY = 1.625  # m/s^2
 LUNAR_REGOLITH_FRICTION = (
 	0.1  # rolling resistance coefficient on regolith, not used for now
 )

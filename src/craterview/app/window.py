@@ -1,20 +1,19 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
 	QApplication,
 	QFileDialog,
-	QHBoxLayout,
 	QMainWindow,
 	QMessageBox,
+	QSplitter,
+	QVBoxLayout,
 	QWidget,
 )
 
 from craterview.app.io.export.simulation_csv import write_simulation_csv
-from craterview.app.services.simulation_service import (
-	calculate_simulation_stats,
-	format_simulation_stats,
-)
+from craterview.app.services.simulation_service import calculate_simulation_stats
 from craterview.app.ui.panels.sidebar.container import AppSidebar
 from craterview.app.utils.logger import get_logger
 
@@ -22,6 +21,7 @@ from .ui.map.map_view import MapView
 from .ui.map.terrain_view import TerrainView
 from .ui.map.view_container import ViewContainer
 from .ui.panels.menubar import AppMenuBar
+from .ui.panels.simulation_results_panel import SimulationResultsPanel
 
 logger = get_logger(__name__)
 
@@ -58,16 +58,27 @@ class Window(QMainWindow):
 		content = QWidget()
 		self.setCentralWidget(content)
 
-		layout = QHBoxLayout()
+		root = QVBoxLayout(content)
+		root.setContentsMargins(0, 0, 0, 0)
 
 		# Add widgets
 		self._view_container = ViewContainer(self)
-		layout.addWidget(self._view_container, stretch=1)
-
+		self._results_panel = SimulationResultsPanel(self)
 		self._sidebar = AppSidebar()
-		layout.addWidget(self._sidebar, stretch=0)
 
-		content.setLayout(layout)
+		left_splitter = QSplitter(Qt.Orientation.Vertical)
+		left_splitter.addWidget(self._view_container)
+		left_splitter.addWidget(self._results_panel)
+		left_splitter.setSizes([700, 200])
+
+		main_splitter = QSplitter(Qt.Orientation.Horizontal)
+		main_splitter.addWidget(left_splitter)
+		main_splitter.addWidget(self._sidebar)
+		main_splitter.setStretchFactor(0, 1)
+		main_splitter.setStretchFactor(1, 0)
+		main_splitter.setSizes([1200, 400])
+
+		root.addWidget(main_splitter)
 
 		self.statusBar().showMessage("Ready")
 		self._connect_signals()
@@ -112,14 +123,14 @@ class Window(QMainWindow):
 
 		points = self._view_container.get_waypoint_3d_points()
 		if len(points) < 2:
-			self._sidebar.set_results("Please add at least two waypoints.")
+			self._results_panel.set_error("Please add at least two waypoints.")
 			self.statusBar().showMessage("Ready")
 			return
 
 		try:
 			rover = self._sidebar.get_rover_settings()
 		except ValueError as exc:
-			self._sidebar.set_results(str(exc))
+			self._results_panel.set_error(str(exc))
 			self.statusBar().showMessage("Ready")
 			return
 
@@ -128,10 +139,26 @@ class Window(QMainWindow):
 			self._view_container.get_current_map_data(),
 			rover=rover,
 		)
-		message = format_simulation_stats(stats)
 		self._last_simulation_stats = stats
 		self._last_simulation_points = points_array
-		self._sidebar.set_results(message)
+		self._results_panel.set_stats(stats, rover=rover)
+
+		if float(stats.get("traverse_feasible", 1.0)) < 0.5:
+			req_mu = float(stats.get("required_wheel_friction_coeff", 0.0))
+			QMessageBox.warning(
+				self,
+				"Traverse not feasible",
+				f"Traversal failed under the dynamic rover model.\n\n"
+				f"Current settings:\n"
+				f"- μ: {rover.wheel_friction_coeff:.3f}\n"
+				f"- power: {rover.power_hp:.3f} hp\n"
+				f"- mass: {rover.mass_kg:.2f} kg\n\n"
+				f"Minimum μ needed (with current power/mass): {req_mu:.3f}\n\n"
+				"Try increasing friction, increasing horsepower, or decreasing weight.",
+			)
+			self.statusBar().showMessage("Simulation warning: traverse not feasible")
+			return
+
 		self.statusBar().showMessage("Simulation complete")
 
 	def _export_simulation_data(self):

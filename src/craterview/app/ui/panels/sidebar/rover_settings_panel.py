@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 	QWidget,
 )
 
-from craterview.app.config import ROVER_MASS_KG
+from craterview.app.config import LUNAR_REGOLITH_FRICTION, ROVER_MASS_KG
 
 
 class RoverSettingsPanel(QWidget):
@@ -46,9 +46,18 @@ class RoverSettingsPanel(QWidget):
 		friction_layout.addWidget(self.friction_field)
 		layout.addLayout(friction_layout)
 
-	def get_values(self) -> tuple[str, str, str]:
+		rr_layout = QHBoxLayout()
+		rr_layout.addWidget(QLabel("Rolling resistance (Crr):"))
+		self.rolling_resistance_field = QLineEdit()
+		self.rolling_resistance_field.setPlaceholderText("crr")
+		self.rolling_resistance_field.setText(str(float(LUNAR_REGOLITH_FRICTION)))
+		rr_layout.addWidget(self.rolling_resistance_field)
+		layout.addLayout(rr_layout)
+
+	def get_values(self) -> tuple[str, str, str, str]:
 		return (
 			self.mass_field.text().strip(),
 			self.power_field.text().strip(),
 			self.friction_field.text().strip(),
+			self.rolling_resistance_field.text().strip(),
 		)

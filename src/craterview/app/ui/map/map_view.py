@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pyqtgraph as pg
 from matplotlib.colors import LightSource
@@ -77,7 +79,9 @@ class MapView(QWidget):
 		:type map_type: str
 		:return: The resulting value.
 		"""
-		normalized_map_type = map_type.lower().replace(" ", "_")
+		normalized_map_type = map_type.strip().lower()
+		normalized_map_type = re.sub(r"[^a-z0-9]+", "_", normalized_map_type)
+		normalized_map_type = re.sub(r"_+", "_", normalized_map_type).strip("_")
 
 		if normalized_map_type == "hillshade":
 			dx = 1.0
@@ -157,8 +161,15 @@ class MapView(QWidget):
 			"meteor_flux": "Meteor Flux (J/yr*m²)",
 			"average_temperature": "Average Temperature (K)",
 		}
-		map_key = map_type.lower().replace(" ", "_")
-		self._colorbar.setLabel("right", labels.get(map_key, map_type))
+		map_key = map_type.strip().lower()
+		map_key = re.sub(r"[^a-z0-9]+", "_", map_key)
+		map_key = re.sub(r"_+", "_", map_key).strip("_")
+
+		label = labels.get(map_key, None)
+		if label is None and map_key.startswith("solar_illumination"):
+			label = labels["solar_illumination"]
+
+		self._colorbar.setLabel("right", label or map_type)
 
 	def _set_colorbar_levels(self, data: np.ndarray):
 		"""

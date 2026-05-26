@@ -8,6 +8,7 @@ class RoverSettings:
 	mass_kg: float
 	power_hp: float
 	wheel_friction_coeff: float
+	rolling_resistance_coeff: float
 
 	@property
 	def power_w(self) -> float:
@@ -20,16 +21,25 @@ class RoverSettings:
 			raise ValueError("Rover power must be > 0")
 		if not (self.wheel_friction_coeff > 0):
 			raise ValueError("Wheel friction coefficient must be > 0")
+		if not (self.rolling_resistance_coeff >= 0):
+			raise ValueError("Rolling resistance coefficient must be >= 0")
 
 
 def rover_settings_from_strings(
 	mass_kg: str,
 	power_hp: str,
 	wheel_friction_coeff: str,
+	rolling_resistance_coeff: str,
 ) -> RoverSettings:
 	m = float(mass_kg)
 	p = float(power_hp)
 	mu = float(wheel_friction_coeff)
-	settings = RoverSettings(mass_kg=m, power_hp=p, wheel_friction_coeff=mu)
+	crr = float(rolling_resistance_coeff)
+	settings = RoverSettings(
+		mass_kg=m,
+		power_hp=p,
+		wheel_friction_coeff=mu,
+		rolling_resistance_coeff=crr,
+	)
 	settings.validate()
 	return settings

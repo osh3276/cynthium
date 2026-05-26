@@ -3,7 +3,6 @@ from PySide6.QtWidgets import (
 	QFrame,
 	QLabel,
 	QPushButton,
-	QTextEdit,
 	QVBoxLayout,
 	QWidget,
 )
@@ -67,24 +66,8 @@ class AppSidebar(QWidget):
 		start_simulation_button.clicked.connect(self.simulation_started.emit)
 		layout.addWidget(start_simulation_button)
 
-		layout.addWidget(QLabel("Simulation Results:"))
-		self.results_text = QTextEdit()
-		self.results_text.setReadOnly(True)
-		self.results_text.setMaximumHeight(180)
-		layout.addWidget(self.results_text)
-
 		layout.addStretch(1)
 
 	def get_rover_settings(self) -> RoverSettings:
-		mass, power, mu = self._rover_settings_panel.get_values()
-		return rover_settings_from_strings(mass, power, mu)
-
-	def set_results(self, text: str):
-		"""
-		Sets the results.
-
-		:param text: Parameter value.
-		:type text: str
-		:return: None
-		"""
-		self.results_text.setText(text)
+		mass, power, mu, crr = self._rover_settings_panel.get_values()
+		return rover_settings_from_strings(mass, power, mu, crr)

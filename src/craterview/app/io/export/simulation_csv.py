@@ -19,6 +19,12 @@ SIMULATION_STAT_EXPORT_KEYS = [
 	("min_velocity_mps", "min_velocity_mps"),
 	("max_velocity_mps", "max_velocity_mps"),
 	("max_climbable_slope_deg", "max_climbable_slope_deg"),
+	("traversal_time_s", "traversal_time_s"),
+	("solar_energy_per_m2_j", "solar_energy_per_m2_j"),
+	("avg_solar_illumination_w_per_m2", "avg_solar_illumination_w_per_m2"),
+	("traverse_feasible", "traverse_feasible"),
+	("required_wheel_friction_coeff", "required_wheel_friction_coeff"),
+	("required_climb_slope_deg", "required_climb_slope_deg"),
 ]
 
 

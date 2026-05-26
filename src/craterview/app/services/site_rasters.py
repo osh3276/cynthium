@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import numpy as np
@@ -75,13 +76,20 @@ def load_cropped_context_raster(
 		return None, None
 
 	try:
-		data, meta = load_geotif_cropped_to_reference(source_path, reference_path)
+		data, meta = load_geotif_cropped_to_reference(str(source_path), reference_path)
 	except ValueError as exc:
 		logger.warning(f"Failed to crop {label} raster: {exc}")
 		return None, None
 
 	logger.info(f"Loaded cropped {label} raster from {source_path}")
 	return data, meta
+
+
+def _normalize_map_key(map_type: str) -> str:
+	key = map_type.strip().lower()
+	key = re.sub(r"[^a-z0-9]+", "_", key)
+	key = re.sub(r"_+", "_", key).strip("_")
+	return key
 
 
 def select_display_raster(
@@ -106,7 +114,7 @@ def select_display_raster(
 	:type temperature: RasterPayload
 	:return: The resulting value.
 	"""
-	map_key = map_type.strip().lower().replace(" ", "_")
+	map_key = _normalize_map_key(map_type)
 
 	if map_key == "slope":
 		return _fallback_if_missing(slope, elevation, "Slope")
@@ -114,7 +122,7 @@ def select_display_raster(
 	if map_key == "hillshade":
 		return elevation
 
-	if map_key == "solar_illumination":
+	if map_key == "solar_illumination" or map_key.startswith("solar_illumination_"):
 		return _fallback_if_missing(illumination, elevation, "Illumination")
 
 	if map_key == "average_temperature":

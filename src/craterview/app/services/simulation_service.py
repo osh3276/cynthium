@@ -1,6 +1,6 @@
 import numpy as np
 
-from craterview.app.engine.simulation.rover_dynamics import compute_velocity_stats
+from craterview.app.engine.simulation.rover_dynamics import compute_traversal_dynamics
 from craterview.app.engine.simulation.rover_settings import RoverSettings
 from craterview.app.engine.simulation.stats import calculate_path_stats
 
@@ -51,10 +51,12 @@ def calculate_simulation_stats(
 
 	if rover is not None:
 		stats.update(
-			compute_velocity_stats(
+			compute_traversal_dynamics(
 				waypoints_xyz=points_array,
 				elevation_map=map_data,
 				transform=transform,
+				illumination_map=illumination_data,
+				illumination_transform=illumination_transform,
 				rover=rover,
 			)
 		)
@@ -85,5 +87,8 @@ def format_simulation_stats(stats: dict[str, float]) -> str:
 		f"Avg Velocity: {stats.get('average_velocity_mps', 0.0):.2f} m/s\n"
 		f"Min Velocity: {stats.get('min_velocity_mps', 0.0):.2f} m/s\n"
 		f"Max Velocity: {stats.get('max_velocity_mps', 0.0):.2f} m/s\n"
+		f"Traversal Time: {stats.get('traversal_time_s', 0.0):.2f} s\n"
+		f"Solar Energy (per m²): {stats.get('solar_energy_per_m2_j', 0.0):.2f} J/m²\n"
+		f"Avg Solar Illum (time-weighted): {stats.get('avg_solar_illumination_w_per_m2', 0.0):.2f} W/m²\n"
 		f"Max Climbable Slope: {stats.get('max_climbable_slope_deg', 0.0):.2f}°"
 	)
