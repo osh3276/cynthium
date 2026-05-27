@@ -109,7 +109,53 @@ class Window(QMainWindow):
 		self._sidebar.map_generation_requested.connect(self._load_site_with_datetime)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
+		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
 		self._sidebar.simulation_started.connect(self._on_start_simulation)
+
+	def _on_autopath_requested(self, payload: dict):
+		if self._current_path is None:
+			QMessageBox.warning(self, "Autopath", "Load a site map first.")
+			self._sidebar.set_autopath_waypoints(None)
+			return
+
+		start_xy = payload.get("start_xy")
+		goal_xy = payload.get("goal_xy")
+		if not (
+			isinstance(start_xy, (list, tuple))
+			and isinstance(goal_xy, (list, tuple))
+			and len(start_xy) == 2
+			and len(goal_xy) == 2
+		):
+			QMessageBox.warning(self, "Autopath", "Invalid start/goal waypoints.")
+			self._sidebar.set_autopath_waypoints(None)
+			return
+
+		try:
+			points_xy = self._view_container.compute_autopath_theta_star(
+				start_xy=(float(start_xy[0]), float(start_xy[1])),
+				goal_xy=(float(goal_xy[0]), float(goal_xy[1])),
+				utctime=str(self._current_datetime),
+				map_type=str(self._current_map_type),
+				min_slope_deg=float(payload.get("min_slope_deg", 0.0)),
+				max_slope_deg=float(payload.get("max_slope_deg", 20.0)),
+				slope_weight=float(payload.get("slope_weight", 1.0)),
+				sun_weight=float(payload.get("sun_weight", 0.5)),
+			)
+		except Exception as exc:
+			logger.error(f"Autopath failed: {exc}")
+			QMessageBox.critical(self, "Autopath", f"Autopath failed:\n{exc}")
+			self._sidebar.set_autopath_waypoints(None)
+			return
+
+		if not points_xy or len(points_xy) < 2:
+			QMessageBox.warning(self, "Autopath", "No path found.")
+			self._view_container.set_autopath([])
+			self._sidebar.set_autopath_waypoints(None)
+			return
+
+		self._view_container.set_autopath(points_xy)
+		self._sidebar.set_autopath_waypoints(points_xy)
+		self.statusBar().showMessage(f"Autopath complete: {len(points_xy)} nodes")
 
 	def _on_start_simulation(self):
 		"""
@@ -296,6 +342,7 @@ class Window(QMainWindow):
 			f"Loading {map_type} map for {path} at {datetime_str}..."
 		)
 		QApplication.processEvents()
+		self._sidebar.set_autopath_waypoints(None)
 		self._view_container.load(path, map_type, datetime_str)
 		self._current_path = path
 		self._current_datetime = datetime_str

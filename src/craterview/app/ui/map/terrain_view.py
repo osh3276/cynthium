@@ -54,6 +54,7 @@ class TerrainView(QtInteractor):
 		self._waypoint_points = []
 		self._waypoint_actors = []
 		self._path_actor = None
+		self._autopath_actor = None
 
 	def resizeEvent(self, event):
 		super().resizeEvent(event)
@@ -99,6 +100,7 @@ class TerrainView(QtInteractor):
 		:return: None
 		"""
 		self.clear()
+		self._autopath_actor = None
 		self._data = data
 		self._origin = (0, 0, 0)
 		self._spacing = (5, 5, 1)
@@ -219,6 +221,35 @@ class TerrainView(QtInteractor):
 		Returns the list of 3D points for all waypoints.
 		"""
 		return self._waypoint_points
+
+	def set_autopath(self, points_xy: list[tuple[float, float]]):
+		if self._autopath_actor is not None:
+			self.remove_actor(self._autopath_actor)
+			self._autopath_actor = None
+
+		if not points_xy or len(points_xy) < 2:
+			return
+
+		path_points = []
+		for x, y in points_xy:
+			point = self._sample_surface_point(
+				float(x),
+				float(y),
+				PATH_ELEVATION_OFFSET_METERS,
+			)
+			if point is not None:
+				path_points.append(point)
+
+		if len(path_points) < 2:
+			return
+
+		path = pyvista.MultipleLines(points=np.array(path_points))
+		self._autopath_actor = self.add_mesh(
+			path,
+			color="blue",
+			line_width=4,
+			label="Autopath",
+		)
 
 	def _update_path(self):
 		"""

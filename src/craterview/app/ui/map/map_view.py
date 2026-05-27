@@ -46,6 +46,10 @@ class MapView(QWidget):
 		self._path_line.setZValue(10)
 		self._plot.addItem(self._path_line)
 
+		self._autopath_line = pg.PlotDataItem(pen=pg.mkPen("b", width=2))
+		self._autopath_line.setZValue(15)
+		self._plot.addItem(self._autopath_line)
+
 		self._waypoints = pg.ScatterPlotItem(
 			size=10,
 			pen=pg.mkPen("k", width=1),
@@ -232,3 +236,12 @@ class MapView(QWidget):
 			self._path_line.setData(xs, ys)
 		else:
 			self._path_line.setData([], [])
+
+	def set_autopath(self, points_xy: list[tuple[float, float]]):
+		if not points_xy or len(points_xy) < 2:
+			self._autopath_line.setData([], [])
+			return
+
+		xs = [p[0] for p in points_xy]
+		ys = [p[1] for p in points_xy]
+		self._autopath_line.setData(xs, ys)
