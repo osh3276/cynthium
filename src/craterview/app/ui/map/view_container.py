@@ -104,7 +104,7 @@ class ViewContainer(QWidget):
 		map_key = re.sub(r"_+", "_", map_key).strip("_")
 
 		illumination_raster = self._illumination_raster
-		if map_key == "solar_illumination_daily_avg":
+		if map_key in {"solar_illumination_day_avg", "solar_illumination_daily_avg"}:
 			daily = load_daily_avg_illumination_raster(
 				reference_path=self._current_path,
 				reference_meta=self._current_meta,
