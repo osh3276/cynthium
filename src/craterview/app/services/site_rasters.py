@@ -9,6 +9,7 @@ from craterview.app.config import (
 	ILLUMINATION_ANGLES_DIR,
 	ILLUMINATION_RASTER_PATH,
 	get_slope_path,
+	resolve_data_file_path,
 )
 from craterview.app.engine.illumination.sun_position import sun_position
 from craterview.app.engine.raster.point_conversion import xy_to_longlat
@@ -95,7 +96,9 @@ def load_daily_avg_illumination_raster(
 
 	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
 	angle_deg = _round_azimuth_deg_to_nearest_12(float(az_deg))
-	angle_path = ILLUMINATION_ANGLES_DIR / f"illum_angle_{angle_deg}.tif"
+	angle_path = resolve_data_file_path(
+		ILLUMINATION_ANGLES_DIR / f"illum_angle_{angle_deg}.tif"
+	)
 
 	if not angle_path.exists():
 		logger.warning(f"Missing daily illumination angle raster: {angle_path}")
@@ -129,6 +132,7 @@ def load_cropped_context_raster(
 	:type label: str
 	:return: The resulting value.
 	"""
+	source_path = resolve_data_file_path(source_path)
 	if not source_path.exists():
 		logger.warning(f"Missing {label} raster: {source_path}")
 		return None, None

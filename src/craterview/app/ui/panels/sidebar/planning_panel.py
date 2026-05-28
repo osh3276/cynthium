@@ -157,8 +157,7 @@ class PlanningPanel(QWidget):
 			logger.error("Need at least 2 waypoints for autopath")
 			return
 
-		start = self._waypoint_data[0]
-		goal = self._waypoint_data[-1]
+
 
 		try:
 			min_slope = float(self.min_slope_field.text().strip())

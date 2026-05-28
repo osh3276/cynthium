@@ -8,6 +8,8 @@ __pycache__/
 
 *.zip
 
+data-release
+
 *.tif.aux.xml
 
 # Distribution / packaging

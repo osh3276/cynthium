@@ -1,2 +1,25 @@
 [project.scripts]
 craterview = "craterview.app.main:main"
+
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "craterview"
+dynamic = ["version"]
+version = "0.1.0"
+dependencies = [
+    "pooch",
+    "rasterio",
+    "pyside6",
+    "numpy",
+    "numba",
+    "pyvistaqt",
+    "pyvista[colormaps]",
+    "vtk",
+    "spiceypy",
+    "pyproj",
+
+[tool.hatch.build.targets.wheel]
+packages = ["craterview"]   # does NOT include data/
