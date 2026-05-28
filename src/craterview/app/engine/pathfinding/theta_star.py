@@ -7,7 +7,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class ThetaStarConfig:
-	min_slope_deg: float = 0.0
+	min_slope_deg: float = -90.0
 	max_slope_deg: float = 20.0
 	slope_weight: float = 1.0
 	sun_weight: float = 0.5

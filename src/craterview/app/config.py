@@ -73,7 +73,7 @@ SITE_PRESET_PATHS = {
 	"Amundsen 1": DATA_DIR / f"NPB{SUF}.tif",
 	"Idel'son L crater 1": DATA_DIR / f"NPC{SUF}.tif",
 	"Malapert crater 1": DATA_DIR / f"NPD{SUF}.tif",
-	"Connecting ridge": DATA_DIR / f"Site01{SUF}.tif",
+	"Shackleton Connecting ridge": DATA_DIR / f"Site01{SUF}.tif",
 	"Shackleton rim": DATA_DIR / f"Site04{SUF}.tif",
 	"Nobile rim 1": DATA_DIR / f"Site06{SUF}.tif",
 	"Peak near Shackleton": DATA_DIR / f"Site07{SUF}.tif",

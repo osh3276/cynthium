@@ -118,29 +118,40 @@ class Window(QMainWindow):
 			self._sidebar.set_autopath_waypoints(None)
 			return
 
-		start_xy = payload.get("start_xy")
-		goal_xy = payload.get("goal_xy")
-		if not (
-			isinstance(start_xy, (list, tuple))
-			and isinstance(goal_xy, (list, tuple))
-			and len(start_xy) == 2
-			and len(goal_xy) == 2
-		):
-			QMessageBox.warning(self, "Autopath", "Invalid start/goal waypoints.")
+		waypoints_xy = payload.get("waypoints_xy")
+		if not (isinstance(waypoints_xy, (list, tuple)) and len(waypoints_xy) >= 2):
+			QMessageBox.warning(self, "Autopath", "Need at least 2 waypoints.")
 			self._sidebar.set_autopath_waypoints(None)
 			return
 
 		try:
-			points_xy = self._view_container.compute_autopath_theta_star(
-				start_xy=(float(start_xy[0]), float(start_xy[1])),
-				goal_xy=(float(goal_xy[0]), float(goal_xy[1])),
-				utctime=str(self._current_datetime),
-				map_type=str(self._current_map_type),
-				min_slope_deg=float(payload.get("min_slope_deg", 0.0)),
-				max_slope_deg=float(payload.get("max_slope_deg", 20.0)),
-				slope_weight=float(payload.get("slope_weight", 1.0)),
-				sun_weight=float(payload.get("sun_weight", 0.5)),
-			)
+			user_wps: list[tuple[float, float]] = []
+			for wp in waypoints_xy:
+				if not (isinstance(wp, (list, tuple)) and len(wp) == 2):
+					raise ValueError("Invalid waypoint format")
+				user_wps.append((float(wp[0]), float(wp[1])))
+
+			overall: list[tuple[float, float]] = []
+			for i in range(len(user_wps) - 1):
+				seg = self._view_container.compute_autopath_theta_star(
+					start_xy=user_wps[i],
+					goal_xy=user_wps[i + 1],
+					utctime=str(self._current_datetime),
+					map_type=str(self._current_map_type),
+					min_slope_deg=float(payload.get("min_slope_deg", 0.0)),
+					max_slope_deg=float(payload.get("max_slope_deg", 20.0)),
+					slope_weight=float(payload.get("slope_weight", 1.0)),
+					sun_weight=float(payload.get("sun_weight", 0.5)),
+				)
+				if not seg or len(seg) < 2:
+					raise ValueError(f"No path found for segment {i + 1} -> {i + 2}")
+
+				if i == 0:
+					overall.extend(seg)
+				else:
+					overall.extend(seg[1:])
+
+			points_xy = overall
 		except Exception as exc:
 			logger.error(f"Autopath failed: {exc}")
 			QMessageBox.critical(self, "Autopath", f"Autopath failed:\n{exc}")

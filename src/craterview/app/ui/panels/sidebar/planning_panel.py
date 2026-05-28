@@ -176,9 +176,9 @@ class PlanningPanel(QWidget):
 			logger.error("Weights must be >= 0")
 			return
 
+		waypoints_xy = [(float(x), float(y)) for (x, y, _ll) in self._waypoint_data]
 		payload = {
-			"start_xy": (float(start[0]), float(start[1])),
-			"goal_xy": (float(goal[0]), float(goal[1])),
+			"waypoints_xy": waypoints_xy,
 			"min_slope_deg": float(min_slope),
 			"max_slope_deg": float(max_slope),
 			"slope_weight": float(slope_weight),

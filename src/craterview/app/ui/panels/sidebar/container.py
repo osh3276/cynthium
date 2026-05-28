@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
 	QFrame,
 	QLabel,
 	QPushButton,
+	QScrollArea,
 	QVBoxLayout,
 	QWidget,
 )
@@ -40,35 +41,45 @@ class AppSidebar(QWidget):
 		:return: The resulting value.
 		"""
 		layout = QVBoxLayout(self)
+		layout.setContentsMargins(0, 0, 0, 0)
+
+		scroll = QScrollArea()
+		scroll.setWidgetResizable(True)
+		scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+		scroll_content = QWidget()
+		scroll_layout = QVBoxLayout(scroll_content)
 
 		map_selection_label = QLabel("Map Selection")
-		layout.addWidget(map_selection_label)
+		scroll_layout.addWidget(map_selection_label)
 
 		map_selection_panel = MapSelectionPanel()
 		map_selection_panel.map_generation_requested.connect(
 			self.map_generation_requested.emit
 		)
-		layout.addWidget(map_selection_panel)
+		scroll_layout.addWidget(map_selection_panel)
 
 		separator = QFrame()
 		separator.setFrameShape(QFrame.Shape.HLine)
 		separator.setFrameShadow(QFrame.Shadow.Sunken)
-		layout.addWidget(separator)
+		scroll_layout.addWidget(separator)
 
 		self._planning_panel = PlanningPanel()
 		self._planning_panel.waypoint_added.connect(self.waypoint_added.emit)
 		self._planning_panel.waypoint_removed.connect(self.waypoint_removed.emit)
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
-		layout.addWidget(self._planning_panel)
+		scroll_layout.addWidget(self._planning_panel)
 
 		self._rover_settings_panel = RoverSettingsPanel()
-		layout.addWidget(self._rover_settings_panel)
+		scroll_layout.addWidget(self._rover_settings_panel)
 
 		start_simulation_button = QPushButton("Start simulation")
 		start_simulation_button.clicked.connect(self.simulation_started.emit)
-		layout.addWidget(start_simulation_button)
+		scroll_layout.addWidget(start_simulation_button)
 
-		layout.addStretch(1)
+		scroll_layout.addStretch(1)
+		scroll.setWidget(scroll_content)
+		layout.addWidget(scroll)
 
 	def set_autopath_waypoints(self, points_xy: list[tuple[float, float]] | None):
 		if hasattr(self, "_planning_panel") and self._planning_panel is not None:

@@ -362,6 +362,16 @@ class ViewContainer(QWidget):
 		start_local = (int((sr - r0) // stride), int((sc - c0) // stride))
 		goal_local = (int((gr - r0) // stride), int((gc - c0) // stride))
 
+		# Always allow start/goal even if they violate slope limits.
+		if 0 <= start_local[0] < traversable.shape[0] and 0 <= start_local[1] < traversable.shape[1]:
+			traversable[start_local[0], start_local[1]] = True
+			if not np.isfinite(cell_cost[start_local[0], start_local[1]]):
+				cell_cost[start_local[0], start_local[1]] = 1.0
+		if 0 <= goal_local[0] < traversable.shape[0] and 0 <= goal_local[1] < traversable.shape[1]:
+			traversable[goal_local[0], goal_local[1]] = True
+			if not np.isfinite(cell_cost[goal_local[0], goal_local[1]]):
+				cell_cost[goal_local[0], goal_local[1]] = 1.0
+
 		res_x = float(abs(transform.a)) * float(stride)
 		res_y = float(abs(transform.e)) * float(stride)
 
@@ -386,6 +396,10 @@ class ViewContainer(QWidget):
 			x = (a * gcc) + (b * grr) + c_
 			y = (d * gcc) + (e * grr) + f_
 			xy.append((float(x), float(y)))
+
+		if xy:
+			xy[0] = (float(start_xy[0]), float(start_xy[1]))
+			xy[-1] = (float(goal_xy[0]), float(goal_xy[1]))
 
 		logger.info(
 			f"Autopath Theta*: nodes={len(result.path_rc)} expanded={result.expanded} cost={result.total_cost:.2f}"
