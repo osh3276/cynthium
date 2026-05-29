@@ -69,7 +69,7 @@ class AppSidebar(QWidget):
 		self._planning_panel.waypoint_removed.connect(self.waypoint_removed.emit)
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
 		scroll_layout.addWidget(self._planning_panel)
-
+		scroll_layout.addWidget(separator)
 		self._rover_settings_panel = RoverSettingsPanel()
 		scroll_layout.addWidget(self._rover_settings_panel)
 
@@ -80,6 +80,19 @@ class AppSidebar(QWidget):
 		scroll_layout.addStretch(1)
 		scroll.setWidget(scroll_content)
 		layout.addWidget(scroll)
+
+	def add_waypoint_direct(self, x: float, y: float):
+		"""
+		Adds a waypoint directly from map click coordinates,
+		routing through the planning panel's full data flow.
+
+		:param x: X coordinate.
+		:type x: float
+		:param y: Y coordinate.
+		:type y: float
+		:return: None
+		"""
+		self._planning_panel.add_waypoint_direct(x, y)
 
 	def set_autopath_waypoints(self, points_xy: list[tuple[float, float]] | None):
 		if hasattr(self, "_planning_panel") and self._planning_panel is not None:

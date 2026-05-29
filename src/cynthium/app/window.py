@@ -48,6 +48,8 @@ class Window(QMainWindow):
 		self._current_map_type = "Elevation"
 		self._last_simulation_stats = None
 		self._last_simulation_points = None
+		self._last_autopath_stats = None
+		self._last_autopath_points = None
 
 		# self.addToolBar(create_toolbar(self))
 
@@ -108,6 +110,9 @@ class Window(QMainWindow):
 		self._menubar.action_exit.triggered.connect(self.close)
 		self._sidebar.map_generation_requested.connect(self._load_site_with_datetime)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
+		self._view_container.raster_view.waypoint_added.connect(
+			self._sidebar.add_waypoint_direct
+		)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
 		self._sidebar.simulation_started.connect(self._on_start_simulation)
@@ -178,8 +183,10 @@ class Window(QMainWindow):
 		# Process events to ensure status bar updates
 		QApplication.processEvents()
 
-		points = self._view_container.get_waypoint_3d_points()
-		if len(points) < 2:
+		manual_points = self._view_container.get_waypoint_3d_points()
+		auto_points = self._view_container.get_autopath_3d_points()
+
+		if len(manual_points) < 2:
 			self._results_panel.set_error("Please add at least two waypoints.")
 			self.statusBar().showMessage("Ready")
 			return
@@ -191,27 +198,54 @@ class Window(QMainWindow):
 			self.statusBar().showMessage("Ready")
 			return
 
-		stats, points_array = calculate_simulation_stats(
-			points,
+		manual_stats, manual_points_array = calculate_simulation_stats(
+			manual_points,
 			self._view_container.get_current_map_data(),
 			rover=rover,
 		)
-		self._last_simulation_stats = stats
-		self._last_simulation_points = points_array
-		self._results_panel.set_stats(stats, rover=rover)
+		self._last_simulation_stats = manual_stats
+		self._last_simulation_points = manual_points_array
 
-		if float(stats.get("traverse_feasible", 1.0)) < 0.5:
-			req_mu = float(stats.get("required_wheel_friction_coeff", 0.0))
+		if len(auto_points) >= 2:
+			auto_stats, auto_points_array = calculate_simulation_stats(
+				auto_points,
+				self._view_container.get_current_map_data(),
+				rover=rover,
+			)
+			self._last_autopath_stats = auto_stats
+			self._last_autopath_points = auto_points_array
+		else:
+			auto_stats = None
+			self._last_autopath_stats = None
+			self._last_autopath_points = None
+
+		self._results_panel.set_stats(manual_stats, auto_stats, rover=rover)
+
+		def _feasible_warning(stats: dict[str, float] | None, label: str) -> str | None:
+			if stats is None:
+				return None
+			if float(stats.get("traverse_feasible", 1.0)) < 0.5:
+				req_mu = float(stats.get("required_wheel_friction_coeff", 0.0))
+				return (
+					f"{label} traversal failed under the dynamic rover model.\n"
+					f"Required μ: {req_mu:.3f}\n"
+					f"Current μ: {rover.wheel_friction_coeff:.3f}\n"
+					f"Power: {rover.power_hp:.3f} hp\n"
+					f"Mass: {rover.mass_kg:.2f} kg\n"
+				)
+			return None
+
+		manual_warning = _feasible_warning(manual_stats, "Manual path")
+		auto_warning = _feasible_warning(auto_stats, "Auto path")
+
+		warnings = [w for w in [manual_warning, auto_warning] if w is not None]
+		if warnings:
 			QMessageBox.warning(
 				self,
 				"Traverse not feasible",
-				f"Traversal failed under the dynamic rover model.\n\n"
-				f"Current settings:\n"
-				f"- μ: {rover.wheel_friction_coeff:.3f}\n"
-				f"- power: {rover.power_hp:.3f} hp\n"
-				f"- mass: {rover.mass_kg:.2f} kg\n\n"
-				f"Minimum μ needed (with current power/mass): {req_mu:.3f}\n\n"
-				"Try increasing friction, increasing horsepower, or decreasing weight.",
+				"Some paths failed under the dynamic rover model.\n\n"
+				+ "\n".join(warnings)
+				+ "Try increasing friction, increasing horsepower, or decreasing weight.",
 			)
 			self.statusBar().showMessage("Simulation warning: traverse not feasible")
 			return
@@ -232,21 +266,22 @@ class Window(QMainWindow):
 			)
 			return
 
-		default_name = "simulation_data.csv"
+		default_stem = "simulation_data"
 		if self._current_path:
-			default_name = f"{self._current_path.split('/')[-1]}_simulation_data.csv"
+			default_stem = f"{self._current_path.split('/')[-1]}_simulation_data"
 
 		path, _ = QFileDialog.getSaveFileName(
 			self,
 			"Export Simulation Data",
-			default_name,
+			f"{default_stem}.csv",
 			"CSV files (*.csv);;All files (*)",
 		)
 		if not path:
 			return
 
-		if not path.lower().endswith(".csv"):
-			path = f"{path}.csv"
+		base = path
+		if base.lower().endswith(".csv"):
+			base = base[:-4]
 
 		metadata = {
 			"site_path": self._current_path or "",
@@ -256,21 +291,38 @@ class Window(QMainWindow):
 
 		try:
 			write_simulation_csv(
-				path,
-				metadata,
+				f"{base}_manual.csv",
+				{**metadata, "path_type": "manual"},
 				self._last_simulation_stats,
 				self._last_simulation_points,
 			)
 		except OSError as exc:
-			logger.error(f"Failed to export simulation data: {exc}")
+			logger.error(f"Failed to export manual path data: {exc}")
 			QMessageBox.critical(
 				self,
 				"Export Failed",
-				f"Failed to export simulation data:\n{exc}",
+				f"Failed to export manual path data:\n{exc}",
 			)
 			return
 
-		self.statusBar().showMessage(f"Simulation data exported: {path}")
+		if self._last_autopath_stats is not None and self._last_autopath_points is not None:
+			try:
+				write_simulation_csv(
+					f"{base}_auto.csv",
+					{**metadata, "path_type": "auto"},
+					self._last_autopath_stats,
+					self._last_autopath_points,
+				)
+			except OSError as exc:
+				logger.error(f"Failed to export autopath data: {exc}")
+				QMessageBox.critical(
+					self,
+					"Export Failed",
+					f"Failed to export autopath data:\n{exc}",
+				)
+				return
+
+		self.statusBar().showMessage(f"Simulation data exported to {base}_manual.csv and {base}_auto.csv")
 
 	def _open_file_dialog(self):
 		"""

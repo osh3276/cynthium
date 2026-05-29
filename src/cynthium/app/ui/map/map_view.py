@@ -3,6 +3,7 @@ import re
 import numpy as np
 import pyqtgraph as pg
 from matplotlib.colors import LightSource
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from cynthium.app.engine.illumination.sun_position import sun_position
@@ -10,6 +11,8 @@ from cynthium.app.engine.raster.point_conversion import xy_to_longlat
 
 
 class MapView(QWidget):
+	waypoint_added = Signal(float, float)
+
 	def __init__(self, parent=None):
 		"""
 		Initializes the MapView instance.
@@ -21,9 +24,11 @@ class MapView(QWidget):
 
 		pg.setConfigOptions(antialias=False, useOpenGL=False)
 
+
 		self._view = pg.GraphicsLayoutWidget()
 		self._view.setBackground("w")
 		self._plot = self._view.addPlot()  # type: ignore[attr-defined]
+		self._plot.scene().sigMouseClicked.connect(self._on_click)
 		self._plot.setAspectLocked(True)
 		self._plot.setLabel("bottom", "X", units="m")
 		self._plot.setLabel("left", "Y", units="m")
@@ -245,3 +250,10 @@ class MapView(QWidget):
 		xs = [p[0] for p in points_xy]
 		ys = [p[1] for p in points_xy]
 		self._autopath_line.setData(xs, ys)
+
+	def _on_click(self, event):
+		pos = event.scenePos()
+		mouse_point = self._plot.vb.mapSceneToView(pos)
+		x, y = mouse_point.x(), mouse_point.y()
+		print(f"clicked at {x:.2f}, {y:.2f}")
+		self.waypoint_added.emit(x, y)

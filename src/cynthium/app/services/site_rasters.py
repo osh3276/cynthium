@@ -78,7 +78,7 @@ def load_daily_avg_illumination_raster(
 	"""Load a daily-avg illumination map by snapping sun azimuth to 12° bins.
 
 	- Computes sun azimuth for the *center* of the reference raster at `utctime`.
-	- Rounds to nearest multiple of 12 degrees.
+	- Rounds to the nearest multiple of 12 degrees.
 	- Loads `data/illum/angles/illum_angle_{bin}.tif` cropped to the reference raster.
 	"""
 	if not reference_meta or "transform" not in reference_meta:

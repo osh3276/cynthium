@@ -111,6 +111,24 @@ class PlanningPanel(QWidget):
 
 		layout.addStretch(1)
 
+	def add_waypoint_direct(self, x: float, y: float):
+		"""
+		Adds a waypoint directly from coordinates (e.g. from a map click)
+		without reading from the text field.
+
+		:param x: X coordinate.
+		:type x: float
+		:param y: Y coordinate.
+		:type y: float
+		:return: None
+		"""
+		longlat = xy_to_longlat(x, y)
+		self._waypoint_data.append((x, y, longlat))
+		if hasattr(self, "autopath_text"):
+			self.autopath_text.clear()
+		self.waypoint_added.emit(x, y)
+		self._refresh_waypoints_display()
+
 	def _on_add_waypoint(self):
 		coordinates = self.coord_field.text().split(",")
 		if len(coordinates) != 2:
@@ -126,12 +144,7 @@ class PlanningPanel(QWidget):
 			logger.error("Invalid coordinate values")
 			return
 
-		longlat = xy_to_longlat(x, y)
-		self._waypoint_data.append((x, y, longlat))
-		if hasattr(self, "autopath_text"):
-			self.autopath_text.clear()
-		self.waypoint_added.emit(x, y)
-		self._refresh_waypoints_display()
+		self.add_waypoint_direct(x, y)
 
 	def _on_delete_waypoint(self):
 		text = self.delete_idx_field.text().strip()
@@ -197,6 +210,6 @@ class PlanningPanel(QWidget):
 		self.waypoints_text.clear()
 		for i, (x, y, longlat) in enumerate(self._waypoint_data):
 			display_text = (
-				f"({i + 1}). ({x}, {y})m, ({longlat[0]:.3f}°N, {longlat[1]:.3f}°E)\n"
+				f"({i + 1}). ({x:.2f}, {y:.2f})m, ({longlat[0]:.3f}°N, {longlat[1]:.3f}°E)\n"
 			)
 			self.waypoints_text.append(display_text)

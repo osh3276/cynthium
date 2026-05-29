@@ -17,6 +17,9 @@ EMPTY_PATH_STATS = {
 	"average_slope": 0.0,
 	"max_slope": 0.0,
 	"min_slope": 0.0,
+	"surface_average_slope": 0.0,
+	"surface_max_slope": 0.0,
+	"surface_min_slope": 0.0,
 	"max_temperature": 0.0,
 	"min_temperature": 0.0,
 	"average_temperature": 0.0,
@@ -102,16 +105,14 @@ def _calculate_integrated_stats(
 	stats = _calculate_stats_from_points(sampled_points)
 	stats["average_resolution"] = _get_pixel_resolution(transform)
 
-	# Calculate directional slope (grade) between consecutive samples
+	# Traversal slope: grade between consecutive sampled points along the path
 	if len(sampled_points) > 1:
 		diffs = np.diff(sampled_points, axis=0)
 		horizontal_distances = np.linalg.norm(diffs[:, :2], axis=1)
 		z_diffs = diffs[:, 2]
 
-		# Avoid division by zero for identical consecutive points (though sampling should prevent this)
 		mask = horizontal_distances > 0
 		if np.any(mask):
-			# slope in degrees: atan(rise/run)
 			slopes = np.degrees(np.arctan2(z_diffs[mask], horizontal_distances[mask]))
 			stats["average_slope"] = float(np.mean(slopes))
 			stats["max_slope"] = float(np.max(slopes))
@@ -124,6 +125,19 @@ def _calculate_integrated_stats(
 		stats["average_slope"] = 0.0
 		stats["max_slope"] = 0.0
 		stats["min_slope"] = 0.0
+
+	# Surface slope: raw terrain slope sampled from the slope raster along the path
+	_surface_slopes = _sample_raster_values(
+		sampled_points[:, :2], slope_map, transform
+	)
+	if _surface_slopes.size > 0:
+		stats["surface_average_slope"] = float(np.mean(_surface_slopes))
+		stats["surface_max_slope"] = float(np.max(_surface_slopes))
+		stats["surface_min_slope"] = float(np.min(_surface_slopes))
+	else:
+		stats["surface_average_slope"] = 0.0
+		stats["surface_max_slope"] = 0.0
+		stats["surface_min_slope"] = 0.0
 
 	_add_context_stats(
 		stats,
