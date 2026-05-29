@@ -1,25 +1,57 @@
-[project.scripts]
-craterview = "craterview.app.main:main"
-
 [build-system]
-requires = ["hatchling >= 1.26"]
-build-backend = "hatchling.build"
+requires=["hatchling>=1.26"]
+build-backend="hatchling.build"
 
 [project]
-name = "craterview"
-dynamic = ["version"]
-version = "0.1.0"
-dependencies = [
-    "pooch",
-    "rasterio",
-    "pyside6",
-    "numpy",
-    "numba",
-    "pyvistaqt",
-    "pyvista[colormaps]",
-    "vtk",
-    "spiceypy",
-    "pyproj",
+name="cynthium"
+version="0.0a1"
+description="Scientific desktop application for lunar rover traversal planning and terrain analysis."
+readme="README.md"
+requires-python=">=3.12"
+license={file="LICENSE"}
+dependencies=[
+	"numpy",
+	"numba",
+	"rasterio",
+	"PySide6",
+	"pyqtgraph",
+	"matplotlib",
+	"pyproj",
+	"spiceypy",
+	"vtk",
+	"pyvista[colormaps]",
+	"pyvistaqt",
+	"pooch",
+    "tqdm"
+]
+authors = [
+    {name="Oliver Huang", email="oli.huang@mail.utoronto.ca"}
+]
+
+[project.urls]
+Repository = "https://github.com/osh3276/cynthium.git"
+Issues = "https://github.com/osh3276/cynthium/issues"
+# Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+
+[project.scripts]
+cynthium="cynthium.app.main:main"
+
+[tool.hatch.build]
+exclude=[
+	"data/**",
+	"tests/**",
+	"**/__pycache__/**",
+	"**/*.pyc",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["craterview"]   # does NOT include data/
+packages=["src/cynthium"]
+
+[tool.hatch.build.targets.sdist]
+include=[
+	"src/**",
+	"README.md",
+	"LICENSE",
+	"pyproject.toml",
+]

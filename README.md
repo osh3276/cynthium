@@ -1,93 +1,72 @@
-# CraterView
+# Cynthium
 
 A scientific desktop application for lunar rover traversal planning and terrain analysis, focused on the lunar south pole.
 
 ## Overview
 
-CraterView lets you load high-resolution lunar elevation and data maps, define rover traversal paths, and compute terrain statistics along those paths. It is designed for scientific use cases where map resolution, numerical accuracy, and reproducibility matter.
+Cynthium enables loading high-resolution lunar elevation data, defining rover traversal paths, and computing terrain statistics along those paths. It is designed for scientific use cases where map resolution, numerical accuracy, and reproducibility are critical.
 
-The tool is currently in early development.
+## Features
 
-## Features (current)
+- **Multi-dimensional Visualization**: 2D map views and 3D terrain visualization using GeoTIFF data (LOLA/LRO).
+- **Advanced Pathfinding**: Optimal path routing using the Theta* algorithm, considering distance and terrain slope.
+- **Rover Simulation**: Physics-based traversal simulation including energy consumption, velocity, and slope-based hazards.
+- **Illumination Analysis**: Sun position calculation and shadow mapping for specific lunar dates and times.
+- **Site Management**: Automated handling of lunar site rasters and data products.
+- **Data Export**: Export of traversal statistics and simulation results for further scientific analysis.
 
-- 2D and 3D terrain visualization from GeoTIFF input
+## Project Structure
 
-## Planned Features
-
-- A* optimal path routing (by distance, time, or energy cost)
-- Full rover traversal simulation (energy consumption, velocity, slope hazard)
-- Time-dependent illumination (sun angle, permanently shadowed regions)
-- Crater and rock hazard detection
-- Export of traversal statistics and simulation results
-
-## Data Sources
-
-The app is designed for use with LOLA (Lunar Orbiter Laser Altimeter) data and other products from LRO.
-
-## Architecture
-
-```text
-craterview/
-├── src/
-│   └── craterview/
-│       └── app/
-│           ├── main.py              # Qt application entry point
-│           ├── window.py            # Main application window
-│           ├── config.py            # Application configuration
-│           ├── constants.py         # Shared constants
-│           ├── assets/              # UI/static assets
-│           ├── controllers/         # UI orchestration
-│           ├── models/              # Application state and domain models
-│           │   ├── layers/
-│           │   ├── metadata/
-│           │   ├── project.py
-│           ├── ui/                  # UI components
-│           │   ├── dialogs/
-│           │   ├── map/
-│           │   ├── panels/
-│           │   └── shared/
-│           ├── engine/              # Numerical backend
-│           │   ├── terrain/
-│           │   ├── illumination/
-│           │   ├── routing/
-│           │   ├── pathfinding/
-│           │   ├── hazard/
-│           │   ├── simulation/
-│           │   ├── raster/
-│           │   ├── terrain.py
-│           ├── rendering/           # Visualization pipeline
-│           │   ├── flat/
-│           │   ├── terrain/
-│           ├── processing/          # Reproducible processing pipelines
-│           ├── io/                  # File I/O
-│           │   ├── cache/
-│           │   ├── project/
-│           │   ├── raster/
-│           │   └── vector/
-│           ├── planetary/           # Lunar/planetary constants and CRS definitions
-│           ├── services/            # Business logic
-│           └── utils/               # Shared utilities
-├── data/                            # Local raster datasets
-└── tests/
-```
+- `src/cynthium/app/engine`: Core logic for pathfinding (Theta*), illumination (sun position, shadows), and simulation (rover dynamics).
+- `src/cynthium/app/ui`: PySide6-based graphical user interface, including map viewers and control panels.
+- `src/cynthium/app/rendering`: Map and terrain rendering engines using `pyqtgraph` and `PyVista`.
+- `src/cynthium/app/services`: High-level services for site data and simulation management.
 
 ## Installation
 
-Requires Python 3.12+.
+### Prerequisites
 
+- Python 3.12 or newer.
+
+### pip Installation
+Run the following command to install Cynthium from PyPI:
 ```bash
-git clone https://github.com/your-username/craterview.git
-cd craterview
-pip install -r requirements.txt
-python -m craterview.app.main
+pip install cynthium
 ```
 
-Key dependencies: PyQt, pyqtgraph, rasterio, numpy, PyVista.
+### Setup
+
+Clone the repository:
+
+```bash
+git clone https://github.com/osh3276/cynthium.git
+cd cynthium
+pip install -e .
+```
+
+Key dependencies include: `PySide6`, `numpy`, `numba`, `rasterio`, `pyqtgraph`, `PyVista`, and `spiceypy`.
 
 ## Usage
 
-WIP
+You can launch Cynthium using the provided entry point:
+
+```bash
+cynthium
+```
+
+Or via Python:
+
+```bash
+python -m cynthium
+```
+
+### Quick Start
+
+1. **Load a Site**: Use the Sidebar to select a lunar site GeoTIFF.
+2. **Plan a Path**: Use the planning panel to define start and end points for traversal.
+3. **Run Simulation**: Configure rover settings and run a simulation to analyze energy and hazards.
+4. **View 3D**: Switch to the 3D terrain view to inspect the topography in detail.
 
 ## Related Work
 
-[SEXTANT](https://dspace.mit.edu/handle/1721.1/59560) is a MATLAB-based tool with similar capabilities, including 3D/2D lunar elevation maps, shadowing, heat flux, rover energy consumption, and path optimization. CraterView aims to provide an open-source Python alternative with a focus on extensibility and compatibility with large offline datasets.
+[SEXTANT](https://dspace.mit.edu/handle/1721.1/59560) is a MATLAB-based tool with similar capabilities. Cynthium aims to provide an open-source Python alternative with a focus on extensibility, high performance (via Numba), and modern GIS compatibility.

@@ -1,5 +1,5 @@
 import numpy as np
-from craterview.app.engine.simulation.stats import calculate_path_stats
+from cynthium.app.engine.simulation.stats import calculate_path_stats
 from affine import Affine
 
 def approx(val):

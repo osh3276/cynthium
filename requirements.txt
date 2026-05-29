@@ -8,3 +8,4 @@ pyvista[colormaps]
 vtk
 spiceypy
 pyproj
+tqdm
