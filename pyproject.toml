@@ -4,11 +4,12 @@ build-backend="hatchling.build"
 
 [project]
 name="cynthium"
-version="0.0a1"
+version="0.0a2"
 description="Scientific desktop application for lunar rover traversal planning and terrain analysis."
 readme="README.md"
 requires-python=">=3.12"
-license={file="LICENSE"}
+license="GPL-3.0-only"
+license-files=["LICENSE"]
 dependencies=[
 	"numpy",
 	"numba",
