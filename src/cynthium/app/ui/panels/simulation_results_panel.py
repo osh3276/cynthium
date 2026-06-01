@@ -46,6 +46,9 @@ _ENV_FIELDS = [
 	_Field("Illumination (yearly avg)", "percent_illumination", "{:.2f}%"),
 	_Field("Avg solar illum (time-weighted)", "avg_solar_illumination_w_per_m2", "{:.2f} W/m\u00b2"),
 	_Field("Solar energy (per m\u00b2)", "solar_energy_per_m2_j", "{:.2f} J/m\u00b2"),
+	_Field("Meteor flux (avg)", "average_meteor_flux", "{:.2f} J/yr*m\u00b2"),
+	_Field("Meteor flux (max)", "max_meteor_flux", "{:.2f} J/yr*m\u00b2"),
+	_Field("Meteor flux (min)", "min_meteor_flux", "{:.2f} J/yr*m\u00b2"),
 ]
 
 _ROVER_FIELDS = [
@@ -214,6 +217,9 @@ def _find_fmt_for_key(key: str) -> str | None:
 		"surface_average_slope": "{:.2f}\u00b0",
 		"surface_max_slope": "{:.2f}\u00b0",
 		"surface_min_slope": "{:.2f}\u00b0",
+		"average_meteor_flux": "{:.2f} J/yr*m\u00b2",
+		"max_meteor_flux": "{:.2f} J/yr*m\u00b2",
+		"min_meteor_flux": "{:.2f} J/yr*m\u00b2",
 		"max_temperature": "{:.2f} K",
 		"min_temperature": "{:.2f} K",
 		"average_temperature": "{:.2f} K",

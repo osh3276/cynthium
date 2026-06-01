@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.simulation_service import calculate_simulation_stats
+from cynthium.app.services.site_rasters import load_daily_avg_meteor_raster
 from cynthium.app.ui.panels.sidebar.container import AppSidebar
 from cynthium.app.utils.logger import get_logger
 
@@ -198,9 +199,29 @@ class Window(QMainWindow):
 			self.statusBar().showMessage("Ready")
 			return
 
+		map_data_bundle = list(self._view_container.get_current_map_data())
+		# Use daily-angle meteor raster for simulation if available.
+		vc = self._view_container
+		current_data = vc._current_data
+		current_meta = vc._current_meta
+		current_path = vc._current_path
+		if current_data is not None and current_meta is not None and current_path is not None:
+			daily_meteor = load_daily_avg_meteor_raster(
+				reference_path=str(current_path),
+				reference_meta=current_meta,
+				reference_shape=(
+					int(current_data.shape[0]),
+					int(current_data.shape[1]),
+				),
+				utctime=str(self._current_datetime),
+			)
+			if daily_meteor[0] is not None:
+				map_data_bundle[7] = daily_meteor[0]
+				map_data_bundle[8] = daily_meteor[1]
+
 		manual_stats, manual_points_array = calculate_simulation_stats(
 			manual_points,
-			self._view_container.get_current_map_data(),
+			tuple(map_data_bundle),
 			rover=rover,
 		)
 		self._last_simulation_stats = manual_stats
@@ -209,7 +230,7 @@ class Window(QMainWindow):
 		if len(auto_points) >= 2:
 			auto_stats, auto_points_array = calculate_simulation_stats(
 				auto_points,
-				self._view_container.get_current_map_data(),
+				tuple(map_data_bundle),
 				rover=rover,
 			)
 			self._last_autopath_stats = auto_stats

@@ -28,6 +28,8 @@ def calculate_simulation_stats(
 		temperature_meta,
 		illumination_data,
 		illumination_meta,
+		meteor_data,
+		meteor_meta,
 	) = map_data_bundle
 	transform = map_meta.get("transform") if map_meta else None
 	temperature_transform = (
@@ -35,6 +37,9 @@ def calculate_simulation_stats(
 	)
 	illumination_transform = (
 		illumination_meta.get("transform") if illumination_meta else None
+	)
+	meteor_transform = (
+		meteor_meta.get("transform") if meteor_meta else None
 	)
 
 	points_array = np.array(points)
@@ -47,6 +52,8 @@ def calculate_simulation_stats(
 		temperature_transform,
 		illumination_data,
 		illumination_transform,
+		meteor_data,
+		meteor_transform,
 	)
 
 	if rover is not None:

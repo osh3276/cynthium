@@ -14,6 +14,7 @@ from cynthium.app.services.site_rasters import (
 	RasterPayload,
 	load_context_rasters,
 	load_daily_avg_illumination_raster,
+	load_daily_avg_meteor_raster,
 	load_slope_raster,
 	select_display_raster,
 )
@@ -45,6 +46,8 @@ class ViewContainer(QWidget):
 		self._current_illumination_meta = None
 		self._current_temperature_data = None
 		self._current_temperature_meta = None
+		self._current_meteor_data = None
+		self._current_meteor_meta = None
 
 		self._autopath_xy = []
 
@@ -90,6 +93,7 @@ class ViewContainer(QWidget):
 		(
 			(self._current_illumination_data, self._current_illumination_meta),
 			(self._current_temperature_data, self._current_temperature_meta),
+			(self._current_meteor_data, self._current_meteor_meta),
 		) = load_context_rasters(path)
 
 		self.set_autopath([])
@@ -126,12 +130,27 @@ class ViewContainer(QWidget):
 			if daily[0] is not None:
 				illumination_raster = daily
 
+		meteor_raster = self._meteor_raster
+		if map_key == "meteor_flux" and self._current_path:
+			daily_meteor = load_daily_avg_meteor_raster(
+				reference_path=str(self._current_path),
+				reference_meta=self._current_meta,
+				reference_shape=(
+					int(self._current_data.shape[0]),
+					int(self._current_data.shape[1]),
+				),
+				utctime=str(self._current_datetime),
+			)
+			if daily_meteor[0] is not None:
+				meteor_raster = daily_meteor
+
 		display_data, display_meta = select_display_raster(
 			map_type,
 			self._elevation_raster,
 			self._slope_raster,
 			illumination_raster,
 			self._temperature_raster,
+			meteor_raster,
 		)
 		if display_data is None:
 			logger.warning(f"No raster data available for map type: {map_type}")
@@ -181,6 +200,15 @@ class ViewContainer(QWidget):
 		"""
 		return self._current_temperature_data, self._current_temperature_meta
 
+	@property
+	def _meteor_raster(self) -> RasterPayload:
+		"""
+		Performs meteor flux raster.
+
+		:return: The resulting value.
+		"""
+		return self._current_meteor_data, self._current_meteor_meta
+
 	def get_current_map_data(self):
 		"""
 		Returns the current map data.
@@ -195,6 +223,8 @@ class ViewContainer(QWidget):
 			self._current_temperature_meta,
 			self._current_illumination_data,
 			self._current_illumination_meta,
+			self._current_meteor_data,
+			self._current_meteor_meta,
 		)
 
 	def add_waypoint(self, x: float, y: float):

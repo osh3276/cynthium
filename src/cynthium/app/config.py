@@ -24,6 +24,8 @@ SLOPE_DIR = DATA_ROOT / "slope"
 ILLUMINATION_DIR = DATA_ROOT / "illum"
 ILLUMINATION_ANGLES_DIR = ILLUMINATION_DIR / "angles"
 TEMPERATURE_DIR = DATA_ROOT / "temperature"
+METEOR_DIR = DATA_ROOT / "meteor"
+METEOR_ANGLES_DIR = METEOR_DIR / "angles"
 
 
 def resolve_data_file_path(path: Path) -> Path:
@@ -78,6 +80,9 @@ ILLUMINATION_RASTER_PATH = resolve_data_file_path(
 )
 AVERAGE_TEMPERATURE_RASTER_PATH = resolve_data_file_path(
 	TEMPERATURE_DIR / "polar_south_80_summer_avg-float.tif"
+)
+METEOR_FLUX_RASTER_PATH = resolve_data_file_path(
+	DATA_ROOT / "meteor_flux.tif"
 )
 
 RASTER_LAYERS = {

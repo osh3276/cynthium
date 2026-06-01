@@ -20,6 +20,9 @@ EMPTY_PATH_STATS = {
 	"surface_average_slope": 0.0,
 	"surface_max_slope": 0.0,
 	"surface_min_slope": 0.0,
+	"average_meteor_flux": 0.0,
+	"max_meteor_flux": 0.0,
+	"min_meteor_flux": 0.0,
 	"max_temperature": 0.0,
 	"min_temperature": 0.0,
 	"average_temperature": 0.0,
@@ -36,6 +39,8 @@ def calculate_path_stats(
 	temperature_transform=None,
 	illumination_map: np.ndarray | None = None,
 	illumination_transform=None,
+	meteor_map: np.ndarray | None = None,
+	meteor_transform=None,
 ) -> dict[str, float]:
 	"""
 	Calculate statistics for a path of 3D points.
@@ -59,6 +64,8 @@ def calculate_path_stats(
 			temperature_transform,
 			illumination_map,
 			illumination_transform,
+			meteor_map,
+			meteor_transform,
 		)
 
 	stats = _calculate_stats_from_points(points)
@@ -69,6 +76,8 @@ def calculate_path_stats(
 		temperature_transform,
 		illumination_map,
 		illumination_transform,
+		meteor_map,
+		meteor_transform,
 	)
 	return stats
 
@@ -82,6 +91,8 @@ def _calculate_integrated_stats(
 	temperature_transform=None,
 	illumination_map: np.ndarray | None = None,
 	illumination_transform=None,
+	meteor_map: np.ndarray | None = None,
+	meteor_transform=None,
 ) -> dict[str, float]:
 	"""
 	Calculates the integrated stats.
@@ -99,6 +110,9 @@ def _calculate_integrated_stats(
 	:param illumination_map: Parameter value.
 	:type illumination_map: np.ndarray | None
 	:param illumination_transform: Parameter value.
+	:param meteor_map: Parameter value.
+	:type meteor_map: np.ndarray | None
+	:param meteor_transform: Parameter value.
 	:return: The resulting value.
 	"""
 	sampled_points, _ = _sample_path_data(waypoints, elevation_map, transform, None)
@@ -146,6 +160,8 @@ def _calculate_integrated_stats(
 		temperature_transform,
 		illumination_map,
 		illumination_transform,
+		meteor_map,
+		meteor_transform,
 	)
 	return stats
 
@@ -155,8 +171,10 @@ def _add_context_stats(
 	points_xy: np.ndarray,
 	temperature_map: np.ndarray | None,
 	temperature_transform,
-	illumination_map: np.ndarray | None,
-	illumination_transform,
+	illumination_map: np.ndarray | None = None,
+	illumination_transform=None,
+	meteor_map: np.ndarray | None = None,
+	meteor_transform=None,
 ):
 	"""
 	Adds the context stats.
@@ -171,6 +189,9 @@ def _add_context_stats(
 	:param illumination_map: Parameter value.
 	:type illumination_map: np.ndarray | None
 	:param illumination_transform: Parameter value.
+	:param meteor_map: Parameter value.
+	:type meteor_map: np.ndarray | None
+	:param meteor_transform: Parameter value.
 	:return: None
 	"""
 	temperature_values = _sample_raster_values(
@@ -199,6 +220,18 @@ def _add_context_stats(
 		)
 	else:
 		stats["percent_illumination"] = 0.0
+
+	meteor_values = _sample_raster_values(
+		points_xy, meteor_map, meteor_transform
+	)
+	if meteor_values.size:
+		stats["average_meteor_flux"] = float(np.mean(meteor_values))
+		stats["max_meteor_flux"] = float(np.max(meteor_values))
+		stats["min_meteor_flux"] = float(np.min(meteor_values))
+	else:
+		stats["average_meteor_flux"] = 0.0
+		stats["max_meteor_flux"] = 0.0
+		stats["min_meteor_flux"] = 0.0
 
 
 def _sample_raster_values(
