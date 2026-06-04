@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
 	QFormLayout,
 	QFrame,
 	QHBoxLayout,
 	QLabel,
+	QPushButton,
 	QTabWidget,
 	QVBoxLayout,
 	QWidget,
@@ -103,6 +105,8 @@ def _build_tab_group(parent: QWidget, fields_list: list[list[_Field]], label_sto
 
 
 class SimulationResultsPanel(QWidget):
+	simulation_started = Signal()
+
 	def __init__(self, parent=None):
 		super().__init__(parent=parent)
 		self._manual_labels: dict[str, QLabel] = {}
@@ -117,6 +121,9 @@ class SimulationResultsPanel(QWidget):
 		header = QHBoxLayout()
 		header.addWidget(QLabel("Simulation Results"))
 		header.addStretch(1)
+		self._start_button = QPushButton("Start simulation")
+		self._start_button.clicked.connect(self.simulation_started.emit)
+		header.addWidget(self._start_button)
 		layout.addLayout(header)
 
 		self._status = QLabel("No simulation run yet")

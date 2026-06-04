@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QSplitter, QWidget
 
 from cynthium.app.config import ensure_data_file_path
+from cynthium.app.engine.pathfinding.dijkstra import dijkstra
 from cynthium.app.engine.pathfinding.theta_star import theta_star
 from cynthium.app.io.reader import load_geotif
 from cynthium.app.services.site_rasters import (
@@ -24,6 +25,24 @@ from .map_view import MapView
 from .terrain_view import TerrainView
 
 logger = get_logger(__name__)
+
+
+def _block_mean(data: np.ndarray, stride: int) -> np.ndarray:
+	"""Downsample by averaging stride×stride blocks.
+
+	Pads with edge values when the array dimensions aren't a multiple of stride,
+	so the output shape is always ceil(h/stride) × ceil(w/stride).
+	"""
+	if stride <= 1:
+		return data
+	h, w = data.shape
+	out_h = (h + stride - 1) // stride
+	out_w = (w + stride - 1) // stride
+	pad_h = out_h * stride - h
+	pad_w = out_w * stride - w
+	if pad_h > 0 or pad_w > 0:
+		data = np.pad(data, ((0, pad_h), (0, pad_w)), mode="edge")
+	return data.reshape(out_h, stride, out_w, stride).mean(axis=(1, 3))
 
 
 class ViewContainer(QWidget):
@@ -272,17 +291,19 @@ class ViewContainer(QWidget):
 		self.raster_view.set_autopath(self._autopath_xy)
 		self.terrain_view.set_autopath(self._autopath_xy)
 
-	def compute_autopath_theta_star(
+	def compute_autopath(
 		self,
 		*,
 		start_xy: tuple[float, float],
 		goal_xy: tuple[float, float],
 		utctime: str,
 		map_type: str,
-		min_slope_deg: float,
-		max_slope_deg: float,
-		slope_weight: float,
+		min_slope_deg: float = 0.0,
+		max_slope_deg: float = 20.0,
+		slope_weight: float = 1.0,
 		sun_weight: float,
+		cost_strategy: str = "Weighted cost",
+		algorithm: str = "Theta*",
 		pad_cells: int = 200,
 		max_expanded: int = 500000,
 	) -> list[tuple[float, float]] | None:
@@ -325,11 +346,14 @@ class ViewContainer(QWidget):
 			stride = max(1, stride)
 			logger.info(f"Autopath: downsampling grid by stride={stride} (area={area})")
 
-		elev = self._current_data[r0:r1:stride, c0:c1:stride]
-		if self._current_slope_data is not None and self._current_slope_data.shape == self._current_data.shape:
-			slope = self._current_slope_data[r0:r1:stride, c0:c1:stride]
+		elev_full = self._current_data[r0:r1, c0:c1]
+
+		if stride > 1:
+			elev = _block_mean(elev_full, stride)
+			logger.info(f"Autopath: block-averaged grid by stride={stride} "
+				f"({elev_full.shape[0]}×{elev_full.shape[1]} → {elev.shape[0]}×{elev.shape[1]})")
 		else:
-			slope = np.zeros_like(elev, dtype=np.float32)
+			elev = elev_full
 
 		illum_data = self._current_illumination_data
 		illum_meta = self._current_illumination_meta
@@ -383,27 +407,31 @@ class ViewContainer(QWidget):
 				illum_norm = np.clip(illum_norm, 0.0, 1.0)
 				illum_norm[~np.isfinite(illum_norm)] = 0.5
 
-		max_slope = float(max_slope_deg)
-		if not (max_slope > 0.0):
-			max_slope = 1.0
-		slope_norm = np.clip((slope.astype(np.float32) / max_slope), 0.0, 1.0)
+		# Cost-strategy powers.  Weighted cost = linear (1.0),
+		# Minimax = 4th power so a single bad cell dominates.
+		if str(cost_strategy).strip().lower() == "minimax":
+			sun_power = 4.0
+			grade_power = 4.0
+		else:
+			sun_power = 1.0
+			grade_power = 1.0
+
+		sun_penalty = (1.0 - illum_norm)
+		if float(sun_power) != 1.0:
+			sun_penalty = sun_penalty ** float(sun_power)
 
 		cell_cost = (
 			1.0
-			+ (float(max(0.0, slope_weight)) * slope_norm)
-			+ (float(max(0.0, sun_weight)) * (1.0 - illum_norm))
+			+ (float(max(0.0, sun_weight)) * sun_penalty)
 		).astype(np.float32)
 		cell_cost = np.clip(cell_cost, 0.01, np.inf).astype(np.float32)
 
 		traversable = np.isfinite(elev)
-		traversable &= np.isfinite(slope)
-		traversable &= slope >= float(min_slope_deg)
-		traversable &= slope <= float(max_slope_deg)
 
 		start_local = (int((sr - r0) // stride), int((sc - c0) // stride))
 		goal_local = (int((gr - r0) // stride), int((gc - c0) // stride))
 
-		# Always allow start/goal even if they violate slope limits.
+		# Always allow start/goal cells.
 		if 0 <= start_local[0] < traversable.shape[0] and 0 <= start_local[1] < traversable.shape[1]:
 			traversable[start_local[0], start_local[1]] = True
 			if not np.isfinite(cell_cost[start_local[0], start_local[1]]):
@@ -416,15 +444,40 @@ class ViewContainer(QWidget):
 		res_x = float(abs(transform.a)) * float(stride)
 		res_y = float(abs(transform.e)) * float(stride)
 
-		result = theta_star(
-			start_rc=start_local,
-			goal_rc=goal_local,
-			traversable=traversable,
-			cell_cost=cell_cost,
-			res_x=res_x,
-			res_y=res_y,
-			max_expanded=int(max_expanded),
-		)
+		use_dijkstra = algorithm.strip().lower() == "dijkstra"
+
+		if use_dijkstra:
+			result = dijkstra(
+				start_rc=start_local,
+				goal_rc=goal_local,
+				traversable=traversable,
+				cell_cost=cell_cost,
+				elev=elev,
+				res_x=res_x,
+				res_y=res_y,
+				min_slope_deg=float(min_slope_deg),
+				max_slope_deg=float(max_slope_deg),
+				slope_weight=float(max(0.0, slope_weight)),
+				grade_power=float(grade_power),
+				max_expanded=int(max_expanded),
+			)
+			alg_name = "Dijkstra"
+		else:
+			result = theta_star(
+				start_rc=start_local,
+				goal_rc=goal_local,
+				traversable=traversable,
+				cell_cost=cell_cost,
+				elev=elev,
+				res_x=res_x,
+				res_y=res_y,
+				min_slope_deg=float(min_slope_deg),
+				max_slope_deg=float(max_slope_deg),
+				slope_weight=float(max(0.0, slope_weight)),
+				grade_power=float(grade_power),
+				max_expanded=int(max_expanded),
+			)
+			alg_name = "Theta*"
 		if result is None or not result.path_rc:
 			return None
 
@@ -443,6 +496,6 @@ class ViewContainer(QWidget):
 			xy[-1] = (float(goal_xy[0]), float(goal_xy[1]))
 
 		logger.info(
-			f"Autopath Theta*: nodes={len(result.path_rc)} expanded={result.expanded} cost={result.total_cost:.2f}"
+			f"Autopath {alg_name}: nodes={len(result.path_rc)} expanded={result.expanded} cost={result.total_cost:.2f}"
 		)
 		return xy

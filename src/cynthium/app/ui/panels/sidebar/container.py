@@ -2,7 +2,6 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
 	QFrame,
 	QLabel,
-	QPushButton,
 	QScrollArea,
 	QVBoxLayout,
 	QWidget,
@@ -23,7 +22,6 @@ class AppSidebar(QWidget):
 	waypoint_added = Signal(float, float)
 	waypoint_removed = Signal(int)
 	autopath_requested = Signal(object)
-	simulation_started = Signal()
 
 	def __init__(self):
 		"""
@@ -72,10 +70,6 @@ class AppSidebar(QWidget):
 		scroll_layout.addWidget(separator)
 		self._rover_settings_panel = RoverSettingsPanel()
 		scroll_layout.addWidget(self._rover_settings_panel)
-
-		start_simulation_button = QPushButton("Start simulation")
-		start_simulation_button.clicked.connect(self.simulation_started.emit)
-		scroll_layout.addWidget(start_simulation_button)
 
 		scroll_layout.addStretch(1)
 		scroll.setWidget(scroll_content)

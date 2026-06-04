@@ -108,7 +108,6 @@ MAP_TYPES = [
 # --- Lunar CRS ---
 # Lunar south pole stereographic (LOLA native projection)
 # Not in EPSG registry; defined manually via proj string.
-# TODO: Verify this is the same as Jack's
 LUNAR_CRS_PROJ = "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m +no_defs"
 # Lunar geographic latitude/longitude on the Moon
 FRONTEND_CRS = "+proj=longlat +R=1737400 +no_defs +type=crs"

@@ -58,14 +58,39 @@ def _bresenham_line(r0: int, c0: int, r1: int, c1: int) -> list[tuple[int, int]]
 	return points
 
 
+def _grade_deg(
+	e0: float,
+	e1: float,
+	horiz: float,
+) -> float:
+	"""Grade in degrees between two points (absolute, always >= 0)."""
+	if horiz < 1e-9:
+		return 0.0
+	dz = abs(e1 - e0)
+	if not (math.isfinite(dz)):
+		return 0.0
+	return float(math.degrees(math.atan2(dz, horiz)))
+
+
 def _segment_cost(
 	*,
 	rc0: tuple[int, int],
 	rc1: tuple[int, int],
 	cell_cost: np.ndarray,
+	elev: np.ndarray,
 	res_x: float,
 	res_y: float,
+	max_slope_deg: float,
+	slope_weight: float,
+	grade_power: float = 1.0,
 ) -> float:
+	"""Cost of the segment rc0→rc1.
+
+	Base cost integrates cell_cost (sun, etc.) along the Bresenham line.
+	Adds a grade penalty based on elevation difference between endpoints.
+	grade_power=1 → linear (weighted cost).
+	grade_power > 1 → minimax (punishes steep grades exponentially).
+	"""
 	line = _bresenham_line(rc0[0], rc0[1], rc1[0], rc1[1])
 	if len(line) < 2:
 		return 0.0
@@ -82,6 +107,19 @@ def _segment_cost(
 		prev_r, prev_c = r, c
 		prev_cc = cc
 
+	# Grade-based cost between endpoints (not per-cell).
+	total_dr = abs(rc1[0] - rc0[0])
+	total_dc = abs(rc1[1] - rc0[1])
+	horiz = math.hypot(float(total_dc) * float(res_x), float(total_dr) * float(res_y))
+	if horiz > 1e-9:
+		e0 = float(elev[rc0[0], rc0[1]])
+		e1 = float(elev[rc1[0], rc1[1]])
+		if math.isfinite(e0) and math.isfinite(e1):
+			g = _grade_deg(e0, e1, horiz)
+			max_slope = float(max_slope_deg)
+			grade_norm = min(1.0, g / max_slope) if max_slope > 0 else 0.0
+			cost += float(slope_weight) * (grade_norm ** float(grade_power)) * horiz
+
 	return float(cost)
 
 
@@ -91,9 +129,15 @@ def _line_of_sight(
 	rc1: tuple[int, int],
 	traversable: np.ndarray,
 ) -> bool:
+	"""True if rc0→rc1 is a valid shortcut.
+
+	All intermediate cells must be traversable. Grade is handled
+	by cost penalty, not hard rejection.
+	"""
 	for r, c in _bresenham_line(rc0[0], rc0[1], rc1[0], rc1[1]):
 		if not bool(traversable[r, c]):
 			return False
+
 	return True
 
 
@@ -115,15 +159,24 @@ def theta_star(
 	goal_rc: tuple[int, int],
 	traversable: np.ndarray,
 	cell_cost: np.ndarray,
+	elev: np.ndarray,
 	res_x: float,
 	res_y: float,
+	min_slope_deg: float = 0.0,
+	max_slope_deg: float = 20.0,
+	slope_weight: float = 1.0,
+	grade_power: float = 1.0,
 	max_expanded: int = 500000,
 ) -> ThetaStarResult | None:
 	"""Theta* over an 8-connected grid.
 
-	- `traversable`: True where allowed.
-	- `cell_cost`: multiplicative-ish per-cell coefficient (>=1 recommended).
-	- Costs integrate along grid lines for line-of-sight connections.
+	- `traversable`: True where allowed (finite elevation, etc.).
+	- `cell_cost`: per-cell coefficient for sun/shadow cost (>=1 recommended).
+	- `elev`: elevation array used to compute grade on-the-fly.
+	- Grade between two cells is computed from elevation difference; the
+	  steepness penalty is added dynamically.
+	- `grade_power`: exponent applied to grade_norm.  1 = linear cost,
+	  higher values amplify steepness penalty (minimax behavior).
 	"""
 	H, W = traversable.shape
 	sr, sc = int(start_rc[0]), int(start_rc[1])
@@ -198,17 +251,29 @@ def theta_star(
 				rc0=(r, c),
 				rc1=(nr, nc),
 				cell_cost=cell_cost,
+				elev=elev,
 				res_x=res_x,
 				res_y=res_y,
+				max_slope_deg=max_slope_deg,
+				slope_weight=slope_weight,
+				grade_power=grade_power,
 			)
 
-			if _line_of_sight(rc0=(pr, pc), rc1=(nr, nc), traversable=traversable):
+			if _line_of_sight(
+				rc0=(pr, pc),
+				rc1=(nr, nc),
+				traversable=traversable,
+			):
 				cand_g = g[pr, pc] + _segment_cost(
 					rc0=(pr, pc),
 					rc1=(nr, nc),
 					cell_cost=cell_cost,
+					elev=elev,
 					res_x=res_x,
 					res_y=res_y,
+					max_slope_deg=max_slope_deg,
+					slope_weight=slope_weight,
+					grade_power=grade_power,
 				)
 				if cand_g < best_g:
 					best_g = cand_g
