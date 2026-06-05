@@ -1,5 +1,6 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+	QComboBox,
 	QHBoxLayout,
 	QLabel,
 	QLineEdit,
@@ -81,20 +82,6 @@ class PlanningPanel(QWidget):
 		layout.addWidget(self.autopath_text)
 
 		# Autopath config
-		cfg1 = QHBoxLayout()
-		cfg1.addWidget(QLabel("Min slope (deg):"))
-		self.min_slope_field = QLineEdit()
-		self.min_slope_field.setFixedWidth(60)
-		self.min_slope_field.setText("0")
-		cfg1.addWidget(self.min_slope_field)
-
-		cfg1.addWidget(QLabel("Max slope (deg):"))
-		self.max_slope_field = QLineEdit()
-		self.max_slope_field.setFixedWidth(60)
-		self.max_slope_field.setText("20")
-		cfg1.addWidget(self.max_slope_field)
-		layout.addLayout(cfg1)
-
 		cfg2 = QHBoxLayout()
 		cfg2.addWidget(QLabel("Slope weight:"))
 		self.slope_weight_field = QLineEdit()
@@ -108,6 +95,22 @@ class PlanningPanel(QWidget):
 		self.sun_weight_field.setText(str(BETA_SHADOW))
 		cfg2.addWidget(self.sun_weight_field)
 		layout.addLayout(cfg2)
+
+		cfg3 = QHBoxLayout()
+		cfg3.addWidget(QLabel("Algorithm:"))
+		self.algorithm_combo = QComboBox()
+		self.algorithm_combo.addItems(["Theta*", "Dijkstra"])
+		cfg3.addWidget(self.algorithm_combo)
+
+		cfg3.addWidget(QLabel("Strategy:"))
+		self.cost_strategy_combo = QComboBox()
+		self.cost_strategy_combo.addItems(["Weighted cost", "Minimax"])
+		self.cost_strategy_combo.setToolTip(
+			"Weighted cost: trade-off between distance, grade, and sunlight.\n"
+			"Minimax: avoid steep grade and deep shadows at all costs."
+		)
+		cfg3.addWidget(self.cost_strategy_combo)
+		layout.addLayout(cfg3)
 
 		layout.addStretch(1)
 
@@ -173,17 +176,12 @@ class PlanningPanel(QWidget):
 
 
 		try:
-			min_slope = float(self.min_slope_field.text().strip())
-			max_slope = float(self.max_slope_field.text().strip())
 			slope_weight = float(self.slope_weight_field.text().strip())
 			sun_weight = float(self.sun_weight_field.text().strip())
 		except ValueError:
 			logger.error("Invalid autopath config values")
 			return
 
-		if max_slope < min_slope:
-			logger.error("Max slope must be >= min slope")
-			return
 		if slope_weight < 0.0 or sun_weight < 0.0:
 			logger.error("Weights must be >= 0")
 			return
@@ -191,10 +189,10 @@ class PlanningPanel(QWidget):
 		waypoints_xy = [(float(x), float(y)) for (x, y, _ll) in self._waypoint_data]
 		payload = {
 			"waypoints_xy": waypoints_xy,
-			"min_slope_deg": float(min_slope),
-			"max_slope_deg": float(max_slope),
 			"slope_weight": float(slope_weight),
 			"sun_weight": float(sun_weight),
+			"algorithm": self.algorithm_combo.currentText(),
+			"cost_strategy": self.cost_strategy_combo.currentText(),
 		}
 		self.autopath_text.setPlainText("Running autopath...")
 		self.autopath_requested.emit(payload)

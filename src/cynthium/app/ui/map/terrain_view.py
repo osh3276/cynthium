@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pyvista
 import vtk
@@ -12,7 +14,10 @@ from cynthium.app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-PATH_ELEVATION_OFFSET_METERS = 5.0
+# Offset added to all path/waypoint Z values so they render cleanly above
+# the terrain mesh.  Must be large enough to avoid z-fighting at any viewing
+# angle.  50 m is ~2 % of a typical 2.5 km elevation range on the Moon.
+PATH_ELEVATION_OFFSET_METERS = 50.0
 
 
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
@@ -239,15 +244,28 @@ class TerrainView(QtInteractor):
 		if not points_xy or len(points_xy) < 2:
 			return
 
-		path_points = []
-		for x, y in points_xy:
-			point = self._sample_surface_point(
-				float(x),
-				float(y),
-				PATH_ELEVATION_OFFSET_METERS,
-			)
-			if point is not None:
-				path_points.append(point)
+		# Sample along each segment at terrain resolution so the line follows
+		# the terrain surface instead of cutting straight through ridges.
+		if not hasattr(self, "_spacing"):
+			self._spacing = (5.0, 5.0, 1.0)
+		resolution = min(self._spacing[0], self._spacing[1])
+		path_points: list[list[float]] = []
+		for i in range(len(points_xy) - 1):
+			x0, y0 = points_xy[i]
+			x1, y1 = points_xy[i + 1]
+			dx = float(x1 - x0)
+			dy = float(y1 - y0)
+			dist = math.hypot(dx, dy)
+			samples = max(1, int(math.ceil(dist / resolution)))
+			for j in range(samples + 1):
+				if i > 0 and j == 0:
+					continue  # skip duplicates at segment joins
+				frac = j / samples
+				x = float(x0 + dx * frac)
+				y = float(y0 + dy * frac)
+				pt = self._sample_surface_point(x, y, PATH_ELEVATION_OFFSET_METERS)
+				if pt is not None:
+					path_points.append(pt)
 
 		if len(path_points) < 2:
 			return

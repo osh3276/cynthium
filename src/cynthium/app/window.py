@@ -116,7 +116,7 @@ class Window(QMainWindow):
 		)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
-		self._sidebar.simulation_started.connect(self._on_start_simulation)
+		self._results_panel.simulation_started.connect(self._on_start_simulation)
 
 	def _on_autopath_requested(self, payload: dict):
 		if self._current_path is None:
@@ -139,15 +139,15 @@ class Window(QMainWindow):
 
 			overall: list[tuple[float, float]] = []
 			for i in range(len(user_wps) - 1):
-				seg = self._view_container.compute_autopath_theta_star(
+				seg = self._view_container.compute_autopath(
 					start_xy=user_wps[i],
 					goal_xy=user_wps[i + 1],
 					utctime=str(self._current_datetime),
 					map_type=str(self._current_map_type),
-					min_slope_deg=float(payload.get("min_slope_deg", 0.0)),
-					max_slope_deg=float(payload.get("max_slope_deg", 20.0)),
 					slope_weight=float(payload.get("slope_weight", 1.0)),
 					sun_weight=float(payload.get("sun_weight", 0.5)),
+					cost_strategy=str(payload.get("cost_strategy", "Weighted cost")),
+					algorithm=str(payload.get("algorithm", "Theta*")),
 				)
 				if not seg or len(seg) < 2:
 					raise ValueError(f"No path found for segment {i + 1} -> {i + 2}")

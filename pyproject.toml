@@ -4,7 +4,7 @@ build-backend="hatchling.build"
 
 [project]
 name="cynthium"
-version="0.0a3"
+dynamic=["version"]
 description="Scientific desktop application for lunar rover traversal planning and terrain analysis."
 readme="README.md"
 requires-python=">=3.12"
@@ -37,6 +37,9 @@ Issues = "https://github.com/osh3276/cynthium/issues"
 
 [project.scripts]
 cynthium="cynthium.app.main:main"
+
+[tool.hatch.version]
+path="src/cynthium/__init__.py"
 
 [tool.hatch.build]
 exclude=[
