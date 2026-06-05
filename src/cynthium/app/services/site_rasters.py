@@ -248,7 +248,7 @@ def select_display_raster(
 	if map_key == "average_temperature":
 		return _fallback_if_missing(temperature, elevation, "Temperature")
 
-	if map_key == "meteor_flux":
+	if map_key.startswith("meteor_flux"):
 		return _fallback_if_missing(meteor_flux, elevation, "Meteor Flux")
 
 	return elevation

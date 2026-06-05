@@ -150,7 +150,7 @@ class ViewContainer(QWidget):
 				illumination_raster = daily
 
 		meteor_raster = self._meteor_raster
-		if map_key == "meteor_flux" and self._current_path:
+		if map_key in {"meteor_flux_day_avg", "meteor_flux_daily_avg"} and self._current_path:
 			daily_meteor = load_daily_avg_meteor_raster(
 				reference_path=str(self._current_path),
 				reference_meta=self._current_meta,

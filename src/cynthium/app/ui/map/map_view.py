@@ -177,6 +177,8 @@ class MapView(QWidget):
 		label = labels.get(map_key, None)
 		if label is None and map_key.startswith("solar_illumination"):
 			label = labels["solar_illumination"]
+		if label is None and map_key.startswith("meteor_flux"):
+			label = labels["meteor_flux"]
 
 		self._colorbar.setLabel("right", label or map_type)
 

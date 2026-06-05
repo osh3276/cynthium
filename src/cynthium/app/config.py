@@ -101,7 +101,8 @@ MAP_TYPES = [
 	"Hillshade",
 	"Solar Illumination (yr. avg.)",
 	"Solar Illumination (day avg.)",
-	"Meteor Flux",
+	"Meteor Flux (yr. avg.)",
+	"Meteor Flux (day avg.)",
 	"Average Temperature",
 ]
 
