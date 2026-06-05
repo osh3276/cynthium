@@ -10,13 +10,15 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 
+from cynthium import __version__
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "cynthium"
 copyright = "2026, Oliver Huang"
 author = "Oliver Huang"
-release = "0.0a4"
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
