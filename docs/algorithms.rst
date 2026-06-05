@@ -43,7 +43,7 @@ a node to inherit its grandparent's parent when a **line-of-sight**
 
 
 Cost function
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 The segment cost from cell :math:`a` to cell :math:`b` has two terms:
 
@@ -302,15 +302,16 @@ Workflow
       * - File
         - Role
       * - ``naif0012.tls``
-        - Leapseconds kernel (UTC → ET conversion)
+        - Leapseconds kernel file. Used to compute the increment to be applied to UTC to give ET. [naif0012.tls]_
       * - ``de430.bsp``
-        - Planetary ephemeris (Sun, Moon, Earth positions)
+        - Planet and Lunar ephemeris. Contains ephemeris data for the planet barycenters -- Mercury through Pluto (NAIF ID codes 1 through 9), plus the Sun (10), the earth mass center (399) and the moon (301). Valid from 1550 Jan 01 to 2650 Jan 22. [de430.bsp]_
       * - ``moon_pa_de440_200625.bpc``
-        - Lunar orientation / binary PCK (principal axis)
+        - Contains high-accuracy lunar orientation data from the JPL Solar System Dynamics Group's planetary ephemeris DE440. Valid from December 31, 1549 to January 25, 2650. [moon_pa_de440_200625_bpc]_
       * - ``moon_de440_250416.tf``
-        - Lunar frame definition (MOON_ME frame)
+        - Specifies lunar body-fixed reference frames. [moon_de440_250416.tf]_
       * - ``pck00011.tpc``
-        - Planetary constants kernel (Moon radii, etc.)
+        - Planetary constants kernel (Moon radii, etc.) [pck00011.tpc]_
+
 #. Convert the UTC time string to SPICE ephemeris time (ET) with
    :func:`spice.utc2et`.
 #. Compute the Sun-to-Moon vector using
@@ -366,3 +367,16 @@ Conversions between pixel and projected space use the GeoTIFF's affine
 transform matrix. The
 :mod:`cynthium.app.engine.raster.point_conversion` module provides
 these helpers.
+
+References
+----------
+
+.. [de430.bsp] Folkner, W. M., Williams, J. G., Boggs, D. H., Park, R. S., & Kuchynka, P. (2014). The Planetary and Lunar Ephemerides DE430 and DE431. Interplanetary Network Progress Report, 42–196, 1–81.
+
+.. [moon_de440_250416.tf] Park, R. S., Folkner, W. M., Williams, J. G., & Boggs, D. H. (2021). The JPL Planetary and Lunar Ephemerides DE440 and DE441. The Astronomical Journal, 161(3), 105. https://doi.org/10.3847/1538-3881/abd414
+
+.. [moon_pa_de440_200625_bpc] Bachman, Nat. NASA Navigation and Ancillary Information Facility (NAIF). (2021). SPICE Binary Lunar PCK [moon_pa_de440_200625.bpc]. Retrieved from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
+
+.. [naif0012.tls] NASA Navigation and Ancillary Information Facility (NAIF). (2016). Leapseconds Kernel File [naif0012.tls]. Retrieved from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
+
+.. [pck00011.tpc] Bachman, Nat. NASA Navigation and Ancillary Information Facility (NAIF). (2022). P_constants (PCK) SPICE kernel file [pck00011.tpc]. Retrieved from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
