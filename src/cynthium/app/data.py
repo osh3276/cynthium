@@ -127,6 +127,7 @@ REGISTRY = {
 	"meteor_angle_72.tif": "sha256:047f296aa77e0bc933dbb3370de04a0fd7f85d4c4253c370683d945405bb345b",
 	"meteor_angle_84.tif": "sha256:69a9e39df0d83b2bbae860eb1eedced695f203936d9e4b129a6912bf685aee0c",
 	"meteor_angle_96.tif": "sha256:65bd435c3bbbbd9686fd1943c068d987c66a349fd6240c6babc4aa61d1a15cad",
+	"meteor_flux.tif": "sha256:972ea361c22d84ca34a4ccd411241d310a83dbaa9172b32385e3491b81035fa2",
 	"polar_south_80_summer_avg-float.tif": "sha256:0be252e5fbaec7a12adf2e7ea04f2ade0ceefb3a6995f6ac68157e3a87d0b6b0",
 	"polar_south_80_summer_max-float.tif": "sha256:ba4a1b6275402d6b0c1000ceb0208ad63d37665afaeb902ab6f108c67c0a0c67",
 	"polar_south_80_summer_min-float.tif": "sha256:793d4a83c111b8a603f7b726ce5f7efae02e21e19f2589595922b348286d7721",
