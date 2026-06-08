@@ -1,5 +1,6 @@
 # zed
 .zed
+*.sh
 
 
 # Sphinx
