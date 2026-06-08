@@ -19,8 +19,6 @@ Or equivalently:
 The main window opens with a **sidebar** on the left, a **2D map view** in
 the centre, and a **menu bar** at the top.
 
----
-
 Workflow Overview
 -----------------
 
@@ -34,8 +32,6 @@ Simplified pipeline:
 #. Run physics simulation
 #. Inspect the 3D terrain view
 #. Export results to CSV
-
----
 
 1. Load a Site
 --------------
@@ -58,8 +54,31 @@ terrain:
 * **Elevation**: raw LOLA DEM, colour-mapped from low (blue) to high (red).
 * **Slope**: terrain steepness derived from the DEM.
 * **Hillshade**: shaded relief for a synthetic sun angle.
+
+  .. note::
+
+     Hillshading is a **visual aid only**. It does not represent accurate
+     shadows. The shading is based on a single synthetic light source and
+     does not account for terrain occlusion, local horizon, or time of day.
+     Only the azimuth of the light source is accurate to real conditions.
+
 * **Solar Illumination**: annual or daily-average solar exposure.
+
+  .. note::
+
+     The **daily-average** variant is **not a true daily average**. It
+     samples the sun azimuth at a single time of day, rounds to the
+     nearest 12° bin (30 bins total), and loads the pre-computed raster
+     for that bin. This discretisation roughly lines up with a month's
+     worth of days but is only a snapshot, not a time-weighted mean.
+
 * **Meteor Flux**: modelled meteorite impact flux.
+
+  .. note::
+
+     Same discretisation as the daily-average illumination: the sun
+     azimuth is rounded to the nearest 12° bin and the corresponding
+     angle-specific raster is used.
 * **Average Temperature**: modelled surface temperature.
 
 Each layer is a pre-computed raster stored alongside the elevation data.

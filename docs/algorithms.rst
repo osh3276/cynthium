@@ -10,7 +10,7 @@ rover simulation, and illumination analysis.
 
 ---
 
-Pathfinding: Theta\*
+Pathfinding
 --------------------
 
 Cynthium uses **Theta\***, an *any-angle* pathfinding algorithm similar to A\* that
@@ -99,13 +99,13 @@ See :func:`cynthium.app.engine.pathfinding.theta_star.theta_star`.
 
 ---
 
-Fallback: Dijkstra
+Dijkstra
 ------------------
 
-For comparison or constrained scenarios, Cynthium also provides a
+Cynthium also provides a
 standard **Dijkstra** implementation (no heuristic, no line-of-sight).
-It produces the same shortest path as Theta\* but only along 8-connected
-grid edges; paths are jagged and typically longer. It serves as a
+It attempts to produce the same shortest path as Theta\* but only along 8-connected
+grid edges. As a result, paths are jagged and typically longer. It may serve as a
 baseline when evaluating Theta\* improvements.
 
 See :func:`cynthium.app.engine.pathfinding.dijkstra.dijkstra`.
@@ -336,6 +336,16 @@ What it's used for
 * **Illumination rasters**: pre-computed annual or daily solar exposure
   maps that feed :math:`C_{\text{cell}}` in pathfinding and the solar
   energy calculation in the simulation.
+
+  .. note::
+
+     The **daily-average** illumination and meteor flux rasters are
+     **not true daily averages**. The sun azimuth is computed at a single
+     epoch (12:00 UTC) for the raster centre, rounded to the nearest 12°
+     bin (30 bins total), and the matching pre-computed angle slice is
+     loaded. This gives a coarse approximation, where each bin corresponds
+     to roughly one day of the lunar month, but the result is a single
+     *time slice*, not a temporally averaged product.
 
 See :func:`cynthium.app.engine.illumination.sun_position.sun_position`.
 

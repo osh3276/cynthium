@@ -8,4 +8,5 @@ pyvista[colormaps]
 vtk
 spiceypy
 pyproj
+requests
 tqdm

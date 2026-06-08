@@ -2,14 +2,15 @@ import os
 from pathlib import Path
 
 import pooch
+import requests
 
 GITHUB_URL = os.environ.get(
 	"CYNTHIUM_DATA_BASE_URL",
-	"https://github.com/osh3276/cynthium/releases/download/data-v0.0a3/",
+	"https://github.com/osh3276/cynthium/releases/download/data-v1.0.0b1/",
 )
 
 REGISTRY = {
-	"DM1_5mpp_surf.tif": "sha256:ceb7e786d05ef6a604c80b78be885e641ad7bd2b5c3aac944201a4f2008d8ca4",
+"DM1_5mpp_surf.tif": "sha256:ceb7e786d05ef6a604c80b78be885e641ad7bd2b5c3aac944201a4f2008d8ca4",
 	"DM1_final_adj_5mpp_slp.tif": "sha256:0b781ed17ce8d4dab1063bfa1a5c4f1efba41fd1ec95206f1c728d84ada0c577",
 	"DM2_5mpp_surf.tif": "sha256:d88677c21633683061117db0a577f0510e0948fe9db315d13be28782407ff604",
 	"DM2_final_adj_5mpp_slp.tif": "sha256:dc62edf86ae6717eb37aeaf4f9c8fb65e8d3833be7716461fa184012888c7254",
@@ -96,13 +97,42 @@ REGISTRY = {
 	"illum_angle_72.tif": "sha256:b9393b622e5d630366c69f38136256735b68af0363e138c21616f4a746b9b51e",
 	"illum_angle_84.tif": "sha256:047f296aa77e0bc933dbb3370de04a0fd7f85d4c4253c370683d945405bb345b",
 	"illum_angle_96.tif": "sha256:69a9e39df0d83b2bbae860eb1eedced695f203936d9e4b129a6912bf685aee0c",
+	"meteor_angle_0.tif": "sha256:f0f1a479da4b163cfb46c147c40e0ba32112864c5bcd93695db963cd5199fa19",
+	"meteor_angle_108.tif": "sha256:57f9f5c8045d05f056ff9394200260f19fa70c8e1af7e58f94b96fc375e771f7",
+	"meteor_angle_12.tif": "sha256:35130d734545c1b7f9b471981bd8b626805191b544af0f535411aa2a43584200",
+	"meteor_angle_120.tif": "sha256:15a2fc72f67c4e8fb45e540e64a6b42c3e927e2cc04962c36020b1190694a800",
+	"meteor_angle_132.tif": "sha256:e3ce7ccc15e81c0106f96df9a07b8201f1b2fd00f007e595b286de43b51eac1b",
+	"meteor_angle_144.tif": "sha256:1cdad2669f6a895b6e58b9b395b74cdccd8498820b77ecf8527fe2342521cc24",
+	"meteor_angle_156.tif": "sha256:d32a6c923d22e30b084ef1a36f55b016246726e52983726c9113a915801493d6",
+	"meteor_angle_168.tif": "sha256:4ae9d89a6f64b86339c5bd781bf90d61cf0d8213298c985da359af4bd34ea2c5",
+	"meteor_angle_180.tif": "sha256:f8d9578936cd590a8673d2588f0d89a7e3ac01ee5fd30e59aa1a565bfa92e499",
+	"meteor_angle_192.tif": "sha256:8b5e1be3f79184761b37d1cb1d99a0dd85a83ac3c91ee33df1bc9a5a7cbc8eba",
+	"meteor_angle_204.tif": "sha256:4c3219beb74e1ca7547e78d26960cd72578e79a536bc5403480491ea7524dd33",
+	"meteor_angle_216.tif": "sha256:a4bdf811db4c17bab9f6f1b112e08aa1519457d39359474e7243d581c792795a",
+	"meteor_angle_228.tif": "sha256:95decbd191bc1e59b1145cf287661041dbe17a6f5b4c0c97b8d1a14340d1ef92",
+	"meteor_angle_24.tif": "sha256:28eeb3a2f87bab920ec98e391bfcc33da4a7bde0db2e70107950a87697409ed5",
+	"meteor_angle_240.tif": "sha256:790f7bffaf32011a8923f22d05c3f0688fc06f600e08fc9b02c19687f03ce566",
+	"meteor_angle_252.tif": "sha256:536a90a7048130326c9614ed35d238164b448460af8ad030dcbb657728000b94",
+	"meteor_angle_264.tif": "sha256:4466bfd4e73126b3fc7b945844122f475ffca40c11ae70e31fb89f29ceedd02a",
+	"meteor_angle_276.tif": "sha256:bdee3d16512109206e80cec2a54246a12ff832313e750979a2e4deb9370ce3f6",
+	"meteor_angle_288.tif": "sha256:18308fccd5c315acc3271e65f7cef740b669a899c9ca2ad6150db81ca732fdf6",
+	"meteor_angle_300.tif": "sha256:0adc32a6be9fb79b3bf76d4403211e10d971d8229535a02f49d0d3fcc7f2e879",
+	"meteor_angle_312.tif": "sha256:4d455c36188aba912ef3b84f32d03bf4e888b052559408f05bd62cddb4be44a0",
+	"meteor_angle_324.tif": "sha256:91d6ee9591e367f8bfb70f97a4db8ecd1e084d9159d0da3a139c23a859bc9e04",
+	"meteor_angle_336.tif": "sha256:531c4e3a30879829cc8874197464e12019b437f2374a7776686acff09edebef2",
+	"meteor_angle_348.tif": "sha256:b76a5dd0b74125fd9ac97f8ac6f66979c1bdd8c1e9eecd8d8457445580150f77",
+	"meteor_angle_36.tif": "sha256:d186c9d22866f63a1a3547434615d6a621299e00a99eaeb45bc0a584c1b37414",
+	"meteor_angle_48.tif": "sha256:b36cd2b4d8e0253e3c8cc3c3c3fe2fb86d1a8edc4f045e978a877f612d0359fe",
+	"meteor_angle_60.tif": "sha256:b9393b622e5d630366c69f38136256735b68af0363e138c21616f4a746b9b51e",
+	"meteor_angle_72.tif": "sha256:047f296aa77e0bc933dbb3370de04a0fd7f85d4c4253c370683d945405bb345b",
+	"meteor_angle_84.tif": "sha256:69a9e39df0d83b2bbae860eb1eedced695f203936d9e4b129a6912bf685aee0c",
+	"meteor_angle_96.tif": "sha256:65bd435c3bbbbd9686fd1943c068d987c66a349fd6240c6babc4aa61d1a15cad",
 	"polar_south_80_summer_avg-float.tif": "sha256:0be252e5fbaec7a12adf2e7ea04f2ade0ceefb3a6995f6ac68157e3a87d0b6b0",
 	"polar_south_80_summer_max-float.tif": "sha256:ba4a1b6275402d6b0c1000ceb0208ad63d37665afaeb902ab6f108c67c0a0c67",
 	"polar_south_80_summer_min-float.tif": "sha256:793d4a83c111b8a603f7b726ce5f7efae02e21e19f2589595922b348286d7721",
 	"polar_south_80_winter_avg-float.tif": "sha256:5f1fb5149a426d5749938111b57f5710b0522e874c8cad6ba36fca23682e6f85",
 	"polar_south_80_winter_max-float.tif": "sha256:d61e264e1179fdcf8df7d471798b5f47bb80f59c13ec2088cd3913e72c001282",
 	"polar_south_80_winter_min-float.tif": "sha256:d12fd9becb91bc7d65a49729049381718fecff55784473c3d6664a60b4d96607",
-	# SPICE kernels (downloaded on first illumination computation)
 	"naif0012.tls": "sha256:678e32bdb5a744117a467cd9601cd6b373f0e9bc9bbde1371d5eee39600a039b",
 	"de430.bsp": "sha256:6e1b277c5f07135a84950604b83e56b736be696a7f3560bcddb1d4aeb944fca1",
 	"moon_pa_de440_200625.bpc": "sha256:60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f",
@@ -128,8 +158,72 @@ _store = pooch.create(
 def cache_dir() -> Path:
 	return Path(str(_store.path))
 
+
+def _gui_downloader(url, output_file, _pooch, check_only=None):
+	"""Download a file with a live Qt progress dialog.
+
+	Follows the pooch custom downloader signature:
+	``(url, output_file, pooch, check_only=False)``.
+	"""
+	if check_only:
+		return
+
+	# Progress-bar download
+	from PySide6.QtCore import Qt
+	from PySide6.QtWidgets import QApplication, QProgressDialog
+
+	fname = Path(output_file).name
+
+	dialog = QProgressDialog(None)
+	dialog.setWindowTitle("Downloading Data")
+	dialog.setLabelText(f"Downloading {fname}...")
+	dialog.setCancelButtonText("Cancel")
+	dialog.setWindowModality(Qt.WindowModality.WindowModal)
+	dialog.setMinimumDuration(0)
+	dialog.setValue(0)
+	dialog.show()
+	QApplication.processEvents()
+
+	try:
+		resp = requests.get(url, stream=True, timeout=300)
+		resp.raise_for_status()
+
+		total = int(resp.headers.get("content-length", 0))
+		downloaded = 0
+
+		with open(output_file, "wb") as f:
+			for chunk in resp.iter_content(chunk_size=65536):
+				if dialog.wasCanceled():
+					raise Exception("Download cancelled by user")
+				if chunk:
+					f.write(chunk)
+					downloaded += len(chunk)
+					if total:
+						dialog.setMaximum(100)
+						dialog.setValue(int(downloaded * 100 / total))
+						dialog.setLabelText(
+							f"Downloading {fname}...\n"
+							f"{downloaded // 1024 // 1024}M / {total // 1024 // 1024}M"
+						)
+					QApplication.processEvents()
+	except Exception:
+		dialog.close()
+		raise
+
+	dialog.close()
+
+
 def fetch(filename: str) -> str:
-	"""Returns local path to the file, downloading if necessary."""
+	"""Returns local path to the file, downloading if necessary.
+
+	Shows a Qt progress dialog if a GUI application is running,
+	otherwise falls back to the terminal tqdm progress bar.
+	"""
+	from PySide6.QtWidgets import QApplication
+
+	app = QApplication.instance()
+	if app is not None:
+		return _store.fetch(filename, downloader=_gui_downloader)  # type: ignore[arg-type]
 	return _store.fetch(filename, progressbar=True)
 
 def fetch_all() -> dict[str, str]:
