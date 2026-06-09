@@ -1,5 +1,5 @@
 Cynthium |version|
-===================
+###################
 
 Scientific desktop application for **lunar rover traversal planning** and
 **terrain analysis**, focused on the lunar south pole.
@@ -37,7 +37,7 @@ numerical accuracy, and reproducibility are critical.
    GitHub <https://github.com/osh3276/cynthium>
 
 Indices and tables
-==================
+******************
 
 * :ref:`genindex`
 * :ref:`modindex`

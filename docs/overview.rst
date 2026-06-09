@@ -1,11 +1,11 @@
 Overview
-========
+########
 
 Cynthium is a scientific desktop application for planning lunar rover traverses
 and analyzing terrain data from the lunar south pole.
 
 Features
---------
+********
 
 * **Multi-dimensional Visualization**: 2D map views and 3D terrain
   visualisation using GeoTIFF data (LOLA / LRO).
@@ -21,7 +21,7 @@ Features
   further scientific analysis.
 
 Architecture
-------------
+************
 
 The application is organised into several subpackages under
 ``cynthium.app``:
@@ -46,7 +46,7 @@ The application is organised into several subpackages under
      - Logging and general utilities.
 
 Related Work
-------------
+************
 
 `SEXTANT <https://dspace.mit.edu/handle/1721.1/59560>`_ is a MATLAB-based tool
 with similar capabilities. Cynthium aims to provide an open-source Python

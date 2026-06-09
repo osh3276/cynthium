@@ -1,5 +1,5 @@
 Algorithms
-==========
+##########
 
 This page explains the core mathematics behind Cynthium's pathfinding,
 rover simulation, and illumination analysis.
@@ -8,17 +8,17 @@ rover simulation, and illumination analysis.
    :local:
    :depth: 2
 
----
-
 Pathfinding
---------------------
+***********
 
 Cynthium uses **Theta\***, an *any-angle* pathfinding algorithm similar to A\* that
 produces shorter and more realistic paths grid-based terrain.
 The algorithm is as follows:
 
 #. Initialise the open set with the start node.
-#. Pop the node with the lowest :math:`f = g + h` (same as A\*).
+#. Pop the node with the lowest :math:`f = g + h` (same as A\*),
+   where :math:`g` is the accumulated cost from the start node
+   and :math:`h` is the heuristic (straight-line distance to the goal).
 #. For each neighbour :math:`n` of the current node :math:`s`:
 
    a. Compute cost via :math:`s \to n` as candidate #0.
@@ -33,8 +33,14 @@ The algorithm is as follows:
 
 .. _Bresenham's algorithm: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 
+.. code-block:: python
+
+   theta_star(start_rc, goal_rc, traversable, cell_cost, elev, res_x, res_y, ...)
+
+See :func:`cynthium.app.engine.pathfinding.theta_star.theta_star`.
+
 Why not A\*?
-^^^^^^^^^^^^
+============
 
 A\* restricts path headings to 8 or 16 discrete directions (the grid
 neighbourhood), producing jagged paths. Theta\* relaxes this by allowing
@@ -43,64 +49,87 @@ a node to inherit its grandparent's parent when a **line-of-sight**
 
 
 Cost function
-^^^^^^^^^^^^^
+=============
 
-The segment cost from cell :math:`a` to cell :math:`b` has two terms:
-
-**Base cost**: integrates the :math:`C_{\text{cell}}` raster (sun/shadow
-penalty) along the Bresenham line between :math:`a` and :math:`b`:
-
-.. math::
-
-   \text{cost}_{\text{base}} = \int_{a}^{b} C_{\text{cell}} \; ds
-
-**Grade penalty**: adds a cost proportional to the steepness of the
-segment:
+The total segment cost from cell :math:`a` to cell :math:`b` has two
+components: a **base cost** that integrates a per-cell cost raster
+:math:`C_{\text{cell}}` along the segment, and a **grade penalty** for
+steepness:
 
 .. math::
 
-   \text{cost}_{\text{grade}} =
-   w_{\text{slope}}
+   \text{cost}(a \to b) =
+   \int_{a}^{b} C_{\text{cell}} \; ds
+   + w_{\text{slope}}
    \left( \frac{\theta}{\theta_{\max}} \right)^{p}
    \; \Delta s
 
+The per-cell cost raster :math:`C_{\text{cell}}` bundles penalties from
+multiple terrain layers:
+
+.. math::
+
+   C_{\text{cell}} = 1.0
+   + w_{\text{sun}} \cdot (1.0 - I_{\text{norm}})
+   + w_{\text{flux}} \cdot F_{\text{norm}}
+   + w_{\text{temp}} \cdot (1.0 - T_{\text{norm}})
+
 where:
 
-* :math:`\theta = \arctan\left(\frac{|z_b - z_a|}{\Delta s_{\text{horiz}}}\right)`
-  : the absolute grade angle in degrees.
-* :math:`\theta_{\max}`: the maximum climbable slope (default 20°).
-* :math:`w_{\text{slope}}`: weight controlling how strongly steep terrain
-  is penalised (default 1.0).
-* :math:`p`: grade power exponent:
+* :math:`I_{\text{norm}}` — normalised solar illumination
+  (0 = dark, 1 = full sun).
+* :math:`F_{\text{norm}}` — normalised meteor flux
+  (0 = low flux, 1 = high flux).
+* :math:`T_{\text{norm}}` — normalised temperature
+  (0 = cold, 1 = hot).
+* :math:`w_{\text{sun}}` — sun weight (default 0.5).
+* :math:`w_{\text{flux}}` — meteor flux weight (default 0.2).
+* :math:`w_{\text{temp}}` — temperature weight (default 0.2).
 
-  * :math:`p = 1`: linear penalty (weighted average behaviour).
-  * :math:`p > 1`: steep slopes are penalised exponentially (minimax
-    behaviour, avoids extreme grades).
+Grade penalty
+-------------
+
+.. math::
+
+   \theta = \arctan\left(\frac{|z_b - z_a|}{\Delta s_{\text{horiz}}}\right)
+
+is the absolute grade angle in degrees, and:
+
+* :math:`\theta_{\max}` — maximum climbable slope (default 20°).
+* :math:`w_{\text{slope}}` — slope weight (default 1.0).
+* :math:`p` — grade power exponent.
+
+Cost strategy (minimax vs weighted cost)
+----------------------------------------
+
+The exponent :math:`p` controls how extreme values are treated.
+It applies independently to the grade penalty and to each raster
+layer (via the :math:`C_{\text{cell}}` components when ``minimax``
+is selected).
+
+* :math:`p = 1` (**Weighted cost**):
+  Penalties accumulate linearly. A short stretch of bad terrain
+  adds a proportional cost — the path may cut through it if the
+  detour is long enough.
+* :math:`p = 4` (**Minimax**):
+  Penalties are raised to the 4th power. A single very steep,
+  very dark, very high-flux, or very cold cell dominates the
+  cost, forcing the path to avoid any extreme cell even at the
+  cost of a long detour.
 
 The heuristic :math:`h` is the straight-line Euclidean distance to the
 goal (admissible, so Theta\* remains optimal).
 
 Coordinate system
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=================
 
 All pathfinding operates in **pixel (row, col) space**. The
 :func:`~cynthium.app.engine.raster.point_conversion` module converts
 between geographic coordinates (latitude/longitude, projected easting/northing)
 and pixel indices using the GeoTIFF's affine transform.
 
-Reference
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   theta_star(start_rc, goal_rc, traversable, cell_cost, elev, res_x, res_y, ...)
-
-See :func:`cynthium.app.engine.pathfinding.theta_star.theta_star`.
-
----
-
 Dijkstra
-------------------
+========
 
 Cynthium also provides a
 standard **Dijkstra** implementation (no heuristic, no line-of-sight).
@@ -110,10 +139,11 @@ baseline when evaluating Theta\* improvements.
 
 See :func:`cynthium.app.engine.pathfinding.dijkstra.dijkstra`.
 
----
+Simulation
+**********
 
 Path Sampling
--------------
+=============
 
 Before simulation, waypoints are converted into a dense 3D polyline
 sampled at approximately **one pixel per step**:
@@ -134,13 +164,13 @@ See :func:`cynthium.app.engine.simulation.path_sampling.sample_path_elevations`.
 ---
 
 Rover Dynamics & Physics
-------------------------
+========================
 
 The simulation models the rover as a **1D point mass** moving along the
 sampled path. It is always at **maximum throttle** (no PID, no steering).
 
 Forces
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------
 
 For each segment of the path:
 
@@ -175,7 +205,7 @@ where:
      F_{\text{roll}} = C_{rr} \, m \, g \, |\cos\theta|
 
 Velocity integration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 Given :math:`F_{\text{net}}`, the acceleration is :math:`a = F_{\text{net}} / m`.
 Velocity is integrated via the kinematic equation:
@@ -194,7 +224,7 @@ The time for each segment is:
    \Delta t = \frac{2 \Delta s}{v + v_{\text{next}}}
 
 Solar energy accumulation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 At each segment midpoint, the illumination raster is sampled. The solar
 energy received is:
@@ -207,7 +237,7 @@ where :math:`I(t)` is the local solar irradiance (W/m²) from the
 illumination map, assumed constant over the short segment duration.
 
 Key outputs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+===========
 
 .. list-table::
    :header-rows: 1
@@ -226,7 +256,7 @@ Key outputs
      - Min :math:`\mu` needed to complete traverse
 
 Lunar parameters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+================
 
 .. list-table::
    :header-rows: 1
@@ -246,16 +276,14 @@ See:
 * :func:`cynthium.app.engine.simulation.rover_dynamics.compute_traversal_dynamics`
 * :func:`cynthium.app.engine.simulation.rover_physics.simulate_rover_over_path`
 
----
-
 Path Statistics
----------------
+===============
 
 The :func:`~cynthium.app.engine.simulation.stats.calculate_path_stats`
 function computes a comprehensive set of path and terrain statistics.
 
 Geometric stats
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------
 
 .. list-table::
    :header-rows: 1
@@ -274,7 +302,7 @@ Geometric stats
      - :math:`\text{mean}(\arctan(\Delta z / \Delta s_{\text{horiz}}))`
 
 Raster-sampled stats
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 When auxiliary rasters are available, the function samples their values
 at each point along the path:
@@ -286,13 +314,13 @@ at each point along the path:
 * **Meteor flux**: sampled from the meteor impact flux raster.
 
 Sun Position & Illumination
-----------------------------
+===========================
 
 Cynthium uses **NASA SPICE** (via ``spiceypy``) to compute the Sun's
 position as seen from any lunar latitude/longitude at any UTC time.
 
 Workflow
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------
 
 #. Load SPICE kernels (fetched on first use via ``pooch``):
 
@@ -329,7 +357,7 @@ Workflow
       \text{azimuth} = \arctan2(\text{sun} \cdot \text{east},\; \text{sun} \cdot \text{noon})
 
 What it's used for
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------
 
 * **Shadow mapping**: at a given date/time, cells where the Sun is below
   the local horizon are flagged as shadowed.
@@ -349,10 +377,8 @@ What it's used for
 
 See :func:`cynthium.app.engine.illumination.sun_position.sun_position`.
 
----
-
 Coordinate Systems
-------------------
+==================
 
 Cynthium juggles three coordinate spaces:
 
@@ -379,7 +405,7 @@ transform matrix. The
 these helpers.
 
 References
-----------
+**********
 
 .. [de430.bsp] Folkner, W. M., Williams, J. G., Boggs, D. H., Park, R. S., & Kuchynka, P. (2014). The Planetary and Lunar Ephemerides DE430 and DE431. Interplanetary Network Progress Report, 42–196, 1–81.
 

@@ -1,15 +1,15 @@
 Installation
-============
+############
 
 Prerequisites
--------------
+*************
 
 * Python 3.12 or newer.
 * A working C/C++ compiler toolchain (required by some dependencies such as
   ``rasterio`` and ``numba``).
 
 pip Install (from PyPI)
------------------------
+***********************
 
 .. code-block:: bash
 
@@ -22,7 +22,7 @@ Alternatively, install from pipx:
    pipx install cynthium
 
 Editable Install (from source)
--------------------------------
+******************************
 
 .. code-block:: bash
 
@@ -31,7 +31,7 @@ Editable Install (from source)
    pip install -e .
 
 Key Dependencies
-----------------
+****************
 
 +------------------+----------------------------------------------+
 | Package          | Role                                         |
@@ -56,7 +56,7 @@ Key Dependencies
 +------------------+----------------------------------------------+
 
 Building Documentation
-----------------------
+**********************
 
 .. code-block:: bash
 

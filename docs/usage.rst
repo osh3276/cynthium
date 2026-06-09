@@ -1,8 +1,8 @@
 Usage
-=====
+#####
 
 Launching
----------
+*********
 
 After installation, start Cynthium from the terminal:
 
@@ -20,7 +20,7 @@ The main window opens with a **sidebar** on the left, a **2D map view** in
 the centre, and a **menu bar** at the top.
 
 Workflow Overview
------------------
+*****************
 
 Simplified pipeline:
 
@@ -34,7 +34,7 @@ Simplified pipeline:
 #. Export results to CSV
 
 1. Load a Site
---------------
+**************
 
 #. In the sidebar, select a preset lunar site from the dropdown (e.g.
    *Haworth*, *Shackleton rim*, *Nobile rim 1*).
@@ -46,7 +46,7 @@ south polar stereographic projection. See the :doc:`installation` page
 for how data is fetched.
 
 2. Select a Map Layer
----------------------
+*********************
 
 The layer dropdown lets you switch between visualisations of the same
 terrain:
@@ -84,37 +84,96 @@ terrain:
 Each layer is a pre-computed raster stored alongside the elevation data.
 
 3. Plan a Path
---------------
+**************
 
 #. Click on the 2D map to place a **start point** (green marker).
 #. Click again to place a **goal point** (red marker).
-#. The pathfinding engine runs automatically (or click *Find Path*).
+#. Click *Autopath* to find the optimal route.
 #. The optimal path is overlaid on the map as a coloured polyline.
 
-**Pathfinding algorithm**: Theta\* (see :doc:`algorithms`). It balances
-distance against terrain slope to find a route that is both short and
-traversable. The cost function is:
+**Pathfinding algorithm**: Theta\* (see :doc:`algorithms`), with a
+Dijkstra fallback option. The algorithm minimises a weighted cost
+function that blends four terrain factors:
 
-.. math::
+* **Slope** — steep terrain costs more to traverse.
+* **Solar illumination** — shadowed cells are penalised.
+* **Meteor flux** — high-impact-flux areas are avoided.
+* **Temperature** — cold areas are penalised.
 
-   \text{cost}(a \to b) = \int_{a}^{b} C_{\text{cell}} \; ds
-   + w_{\text{slope}} \left( \frac{\theta}{\theta_{\max}} \right)^{p} \; \Delta s
+The cost for each step combines a per-cell penalty from the raster
+layers and a grade penalty from elevation change.  Each factor has
+its own weight slider (see *Configure Pathfinding* below) — set a
+weight to zero to ignore that factor entirely.
 
-where :math:`C_{\text{cell}}` encodes sun/shadow penalties, :math:`\theta` is
-the grade angle, and :math:`\theta_{\max}` (default 20°) is the max climbable
-slope.
+For the exact mathematical formulation see :doc:`algorithms`.
+
+Configure Pathfinding
+=====================
+
+The **Planning** panel in the sidebar exposes several pathfinding
+settings:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Setting
+     - Default
+     - Description
+   * - ``Slope weight``
+     - ``1.0``
+     - How strongly steep terrain is penalised.
+       Higher values force the path to avoid slopes.
+   * - ``Sun weight``
+     - ``0.5``
+     - How strongly shadowed cells are penalised.
+       Higher values bias the path toward sunlit areas.
+   * - ``Meteor flux weight``
+     - ``0.2``
+     - How strongly high meteor flux is penalised.
+       Higher values bias the path toward low-flux areas.
+   * - ``Temp weight``
+     - ``0.2``
+     - How strongly cold cells are penalised.
+       Higher values bias the path toward warmer areas.
+   * - ``Algorithm``
+     - ``Theta*``
+     - Which pathfinding algorithm to use:
+
+       * **Theta*** — any-angle paths with line-of-sight
+         shortcuts (shorter, more natural routes).
+       * **Dijkstra** — 8-connected grid only (jagged
+         paths, baseline comparison).
+   * - ``Strategy``
+     - ``Weighted cost``
+     - How penalties are aggregated along the path:
+
+       * **Weighted cost** — linear combination.  A single
+         bad cell adds its penalty proportionally; the path
+         may cut through a short bad patch if the detour is
+         much longer.
+       * **Minimax** — extreme penalties are amplified, so
+         even one very steep or very dark cell dominates the
+         cost.  The path will go far out of its way to avoid
+         any extreme value.
+
+.. tip::
+
+   **Minimax** is useful for mission-critical routes where
+   exceeding a slope or shadow threshold is unacceptable.
+   **Weighted cost** is better for everyday exploration where
+   a reasonable trade-off is acceptable.
 
 4. Configure the Rover
-----------------------
+**********************
 
 Open the rover settings panel in the sidebar and adjust:
 
 +------------------------+----------+------------------------------------+
 | Parameter              | Default  | Description                        |
 +========================+==========+====================================+
-| Mass                   | 150 kg   | Rover mass (affects normal force)  |
+| Mass                   | 150 kg   | Rover mass (affects normal force)  |
 +------------------------+----------+------------------------------------+
-| Power                  | 0.5 hp   | Motor power (max throttle)         |
+| Power                  | 0.5 hp   | Motor power (max throttle)         |
 +------------------------+----------+------------------------------------+
 | Wheel Friction         | 0.5      | Traction coefficient :math:`\mu`   |
 +------------------------+----------+------------------------------------+
@@ -124,13 +183,13 @@ Open the rover settings panel in the sidebar and adjust:
 These map directly to the physics model described under :doc:`algorithms`.
 
 5. Run a Simulation
--------------------
+*******************
 
 Hit *Run Simulation* to execute the physics-based 1D rover traverse.
 
 The simulation steps are:
 
-#. Sample the 3D path at ~1‑pixel intervals along each segment (see
+#. Sample the 3D path at ~1-pixel intervals along each segment (see
    :func:`~cynthium.app.engine.simulation.path_sampling.sample_path_elevations`).
 #. For each segment, compute net acceleration from thrust, gravity,
    and rolling resistance.
@@ -153,7 +212,7 @@ friction coefficient** that *would* make the traverse feasible (useful
 for mission design).
 
 6. Inspect in 3D
-----------------
+****************
 
 Switch to the **3D Terrain View** tab to see the path draped over the
 digital elevation model as a mesh. The view supports:
@@ -166,14 +225,14 @@ The 3D renderer uses PyVista (VTK); see
 :class:`cynthium.app.rendering.terrain.render.TerrainRenderer`.
 
 7. Export Results
------------------
+*****************
 
 Use the *Export* menu item (or button) to save simulation statistics as CSV.
 The CSV contains one row per simulation run with all the statistics listed
 above, suitable for external analysis in Excel, MATLAB, or pandas.
 
 Troubleshooting
----------------
+***************
 
 **No path found / path too short**
   The start or goal may be on an untraversable pixel (e.g. a shadowed
