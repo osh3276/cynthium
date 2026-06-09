@@ -357,12 +357,10 @@ class ViewContainer(QWidget):
 		else:
 			elev = elev_full
 
+		# Always try daily illumination for path cost (more accurate)
 		illum_data = self._current_illumination_data
 		illum_meta = self._current_illumination_meta
-		map_key = map_type.strip().lower()
-		map_key = re.sub(r"[^a-z0-9]+", "_", map_key)
-		map_key = re.sub(r"_+", "_", map_key).strip("_")
-		if map_key in {"solar_illumination_day_avg", "solar_illumination_daily_avg"} and self._current_path:
+		if self._current_path:
 			daily = load_daily_avg_illumination_raster(
 				reference_path=self._current_path,
 				reference_meta=self._current_meta,
@@ -412,6 +410,15 @@ class ViewContainer(QWidget):
 		# --- meteor flux sampling ---
 		meteor_data = self._current_meteor_data
 		meteor_meta = self._current_meteor_meta
+		if self._current_path:
+			daily_meteor = load_daily_avg_meteor_raster(
+				reference_path=self._current_path,
+				reference_meta=self._current_meta,
+				reference_shape=(H, W),
+				utctime=str(utctime),
+			)
+			if daily_meteor[0] is not None:
+				meteor_data, meteor_meta = daily_meteor
 		meteor_sampled = np.full_like(elev, np.nan, dtype=np.float32)
 		if meteor_data is not None and meteor_meta is not None and "transform" in meteor_meta:
 			it = meteor_meta["transform"]

@@ -137,6 +137,18 @@ class Window(QMainWindow):
 					raise ValueError("Invalid waypoint format")
 				user_wps.append((float(wp[0]), float(wp[1])))
 
+			# Derive max climbable slope from rover's friction coefficient
+			try:
+				rover = self._sidebar.get_rover_settings()
+			except (ValueError, KeyError, TypeError) as exc:
+				QMessageBox.warning(
+					self, "Autopath",
+					f"Rover settings are incomplete or invalid:\n{exc}\n\nFill in all rover fields or select a preset."
+				)
+				self._sidebar.set_autopath_waypoints(None)
+				return
+			max_slope_deg = rover.max_climbable_slope_deg
+
 			overall: list[tuple[float, float]] = []
 			for i in range(len(user_wps) - 1):
 				seg = self._view_container.compute_autopath(
@@ -150,6 +162,7 @@ class Window(QMainWindow):
 					temperature_weight=float(payload.get("temperature_weight", 0.2)),
 					cost_strategy=str(payload.get("cost_strategy", "Weighted cost")),
 					algorithm=str(payload.get("algorithm", "Theta*")),
+					max_slope_deg=float(max_slope_deg),
 				)
 				if not seg or len(seg) < 2:
 					raise ValueError(f"No path found for segment {i + 1} -> {i + 2}")

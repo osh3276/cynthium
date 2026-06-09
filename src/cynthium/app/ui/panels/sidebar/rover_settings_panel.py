@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+	QComboBox,
 	QHBoxLayout,
 	QLabel,
 	QLineEdit,
@@ -6,7 +7,7 @@ from PySide6.QtWidgets import (
 	QWidget,
 )
 
-from cynthium.app.config import LUNAR_REGOLITH_FRICTION, ROVER_MASS_KG
+from cynthium.app.engine.simulation.rover_settings import ROVER_PRESETS
 
 
 class RoverSettingsPanel(QWidget):
@@ -22,11 +23,18 @@ class RoverSettingsPanel(QWidget):
 
 		layout.addWidget(QLabel("Rover Settings"))
 
+		preset_layout = QHBoxLayout()
+		preset_layout.addWidget(QLabel("Preset:"))
+		self.preset_combo = QComboBox()
+		self.preset_combo.addItems(list(ROVER_PRESETS.keys()))
+		self.preset_combo.currentTextChanged.connect(self._on_preset_changed)
+		preset_layout.addWidget(self.preset_combo)
+		layout.addLayout(preset_layout)
+
 		mass_layout = QHBoxLayout()
 		mass_layout.addWidget(QLabel("Rover mass (kg):"))
 		self.mass_field = QLineEdit()
 		self.mass_field.setPlaceholderText("kg")
-		self.mass_field.setText(str(float(ROVER_MASS_KG)))
 		mass_layout.addWidget(self.mass_field)
 		layout.addLayout(mass_layout)
 
@@ -34,7 +42,6 @@ class RoverSettingsPanel(QWidget):
 		power_layout.addWidget(QLabel("Rover power (hp):"))
 		self.power_field = QLineEdit()
 		self.power_field.setPlaceholderText("hp")
-		self.power_field.setText("0.2")
 		power_layout.addWidget(self.power_field)
 		layout.addLayout(power_layout)
 
@@ -42,7 +49,6 @@ class RoverSettingsPanel(QWidget):
 		friction_layout.addWidget(QLabel("Wheel friction coeff (μ):"))
 		self.friction_field = QLineEdit()
 		self.friction_field.setPlaceholderText("mu")
-		self.friction_field.setText("0.6")
 		friction_layout.addWidget(self.friction_field)
 		layout.addLayout(friction_layout)
 
@@ -50,9 +56,20 @@ class RoverSettingsPanel(QWidget):
 		rr_layout.addWidget(QLabel("Rolling resistance (Crr):"))
 		self.rolling_resistance_field = QLineEdit()
 		self.rolling_resistance_field.setPlaceholderText("crr")
-		self.rolling_resistance_field.setText(str(float(LUNAR_REGOLITH_FRICTION)))
 		rr_layout.addWidget(self.rolling_resistance_field)
 		layout.addLayout(rr_layout)
+
+		# Apply default preset
+		self._on_preset_changed("Custom")
+
+	def _on_preset_changed(self, name: str):
+		preset = ROVER_PRESETS.get(name)
+		if preset is None:
+			return
+		self.mass_field.setText(str(preset.mass_kg))
+		self.power_field.setText(str(preset.power_hp))
+		self.friction_field.setText(str(preset.wheel_friction_coeff))
+		self.rolling_resistance_field.setText(str(preset.rolling_resistance_coeff))
 
 	def get_values(self) -> tuple[str, str, str, str]:
 		return (

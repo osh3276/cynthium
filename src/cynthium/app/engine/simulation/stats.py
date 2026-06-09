@@ -117,11 +117,21 @@ def _calculate_integrated_stats(
 	"""
 	sampled_points, _ = _sample_path_data(waypoints, elevation_map, transform, None)
 	stats = _calculate_stats_from_points(sampled_points)
-	stats["average_resolution"] = _get_pixel_resolution(transform)
+	pixel_res = _get_pixel_resolution(transform)
+	stats["average_resolution"] = pixel_res
 
-	# Traversal slope: grade between consecutive sampled points along the path
-	if len(sampled_points) > 1:
-		diffs = np.diff(sampled_points, axis=0)
+	# Traversal slope: use ~20m steps to avoid boulder-scale spike artifacts
+	slope_step = max(1, int(round(20.0 / pixel_res)))
+	if slope_step > 1 and len(sampled_points) > slope_step + 1:
+		slope_indices = list(range(0, len(sampled_points), slope_step))
+		if slope_indices[-1] != len(sampled_points) - 1:
+			slope_indices.append(len(sampled_points) - 1)
+		slope_pts = sampled_points[slope_indices]
+	else:
+		slope_pts = sampled_points
+
+	if len(slope_pts) > 1:
+		diffs = np.diff(slope_pts, axis=0)
 		horizontal_distances = np.linalg.norm(diffs[:, :2], axis=1)
 		z_diffs = diffs[:, 2]
 

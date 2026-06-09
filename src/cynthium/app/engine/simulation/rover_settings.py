@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from math import atan, degrees
 
 _HP_TO_W = 745.699872
 
@@ -14,6 +15,11 @@ class RoverSettings:
 	def power_w(self) -> float:
 		return float(self.power_hp) * _HP_TO_W
 
+	@property
+	def max_climbable_slope_deg(self) -> float:
+		"""Maximum climbable slope derived from friction coefficient."""
+		return float(degrees(atan(self.wheel_friction_coeff)))
+
 	def validate(self):
 		if not (self.mass_kg > 0):
 			raise ValueError("Rover mass must be > 0")
@@ -23,6 +29,22 @@ class RoverSettings:
 			raise ValueError("Wheel friction coefficient must be > 0")
 		if not (self.rolling_resistance_coeff >= 0):
 			raise ValueError("Rolling resistance coefficient must be >= 0")
+
+
+ROVER_PRESETS: dict[str, RoverSettings] = {
+	"Custom": RoverSettings(
+		mass_kg=150.0,
+		power_hp=0.2,
+		wheel_friction_coeff=0.6,
+		rolling_resistance_coeff=0.1,
+	),
+	"Apollo LRV": RoverSettings(
+		mass_kg=210.0,
+		power_hp=1.0,
+		wheel_friction_coeff=0.6,
+		rolling_resistance_coeff=0.021,
+	),
+}
 
 
 def rover_settings_from_strings(
