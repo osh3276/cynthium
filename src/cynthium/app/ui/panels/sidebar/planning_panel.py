@@ -10,7 +10,12 @@ from PySide6.QtWidgets import (
 	QWidget,
 )
 
-from cynthium.app.config import ALPHA_SLOPE, BETA_SHADOW
+from cynthium.app.config import (
+	ALPHA_SLOPE,
+	BETA_SHADOW,
+	METEOR_FLUX_WEIGHT,
+	TEMPERATURE_WEIGHT,
+)
 from cynthium.app.engine.raster.point_conversion import xy_to_longlat
 from cynthium.app.utils.logger import get_logger
 
@@ -96,6 +101,20 @@ class PlanningPanel(QWidget):
 		cfg2.addWidget(self.sun_weight_field)
 		layout.addLayout(cfg2)
 
+		cfg4 = QHBoxLayout()
+		cfg4.addWidget(QLabel("Met. flux weight:"))
+		self.meteor_flux_weight_field = QLineEdit()
+		self.meteor_flux_weight_field.setFixedWidth(60)
+		self.meteor_flux_weight_field.setText(str(METEOR_FLUX_WEIGHT))
+		cfg4.addWidget(self.meteor_flux_weight_field)
+
+		cfg4.addWidget(QLabel("Temperature weight:"))
+		self.temperature_weight_field = QLineEdit()
+		self.temperature_weight_field.setFixedWidth(60)
+		self.temperature_weight_field.setText(str(TEMPERATURE_WEIGHT))
+		cfg4.addWidget(self.temperature_weight_field)
+		layout.addLayout(cfg4)
+
 		cfg3 = QHBoxLayout()
 		cfg3.addWidget(QLabel("Algorithm:"))
 		self.algorithm_combo = QComboBox()
@@ -178,11 +197,13 @@ class PlanningPanel(QWidget):
 		try:
 			slope_weight = float(self.slope_weight_field.text().strip())
 			sun_weight = float(self.sun_weight_field.text().strip())
+			meteor_flux_weight = float(self.meteor_flux_weight_field.text().strip())
+			temperature_weight = float(self.temperature_weight_field.text().strip())
 		except ValueError:
 			logger.error("Invalid autopath config values")
 			return
 
-		if slope_weight < 0.0 or sun_weight < 0.0:
+		if slope_weight < 0.0 or sun_weight < 0.0 or meteor_flux_weight < 0.0 or temperature_weight < 0.0:
 			logger.error("Weights must be >= 0")
 			return
 
@@ -191,6 +212,8 @@ class PlanningPanel(QWidget):
 			"waypoints_xy": waypoints_xy,
 			"slope_weight": float(slope_weight),
 			"sun_weight": float(sun_weight),
+			"meteor_flux_weight": float(meteor_flux_weight),
+			"temperature_weight": float(temperature_weight),
 			"algorithm": self.algorithm_combo.currentText(),
 			"cost_strategy": self.cost_strategy_combo.currentText(),
 		}

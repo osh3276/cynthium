@@ -146,6 +146,8 @@ class Window(QMainWindow):
 					map_type=str(self._current_map_type),
 					slope_weight=float(payload.get("slope_weight", 1.0)),
 					sun_weight=float(payload.get("sun_weight", 0.5)),
+					meteor_flux_weight=float(payload.get("meteor_flux_weight", 0.2)),
+					temperature_weight=float(payload.get("temperature_weight", 0.2)),
 					cost_strategy=str(payload.get("cost_strategy", "Weighted cost")),
 					algorithm=str(payload.get("algorithm", "Theta*")),
 				)

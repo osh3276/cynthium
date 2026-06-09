@@ -302,6 +302,8 @@ class ViewContainer(QWidget):
 		max_slope_deg: float = 20.0,
 		slope_weight: float = 1.0,
 		sun_weight: float,
+		meteor_flux_weight: float = 0.2,
+		temperature_weight: float = 0.2,
 		cost_strategy: str = "Weighted cost",
 		algorithm: str = "Theta*",
 		pad_cells: int = 200,
@@ -407,6 +409,86 @@ class ViewContainer(QWidget):
 				illum_norm = np.clip(illum_norm, 0.0, 1.0)
 				illum_norm[~np.isfinite(illum_norm)] = 0.5
 
+		# --- meteor flux sampling ---
+		meteor_data = self._current_meteor_data
+		meteor_meta = self._current_meteor_meta
+		meteor_sampled = np.full_like(elev, np.nan, dtype=np.float32)
+		if meteor_data is not None and meteor_meta is not None and "transform" in meteor_meta:
+			it = meteor_meta["transform"]
+			inv_it = ~it
+			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
+			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
+			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
+			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
+
+			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
+			for rr in range(int(r0), int(r1), int(stride)):
+				rowc = float(rr) + (0.5 * float(stride))
+				x = (a * cols) + (b * rowc) + c_
+				y = (d * cols) + (e * rowc) + f_
+				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
+				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
+
+				local_r = int((rr - r0) // int(stride))
+				valid = (
+					(ri >= 0)
+					& (ci >= 0)
+					& (ri < int(meteor_data.shape[0]))
+					& (ci < int(meteor_data.shape[1]))
+				)
+				if np.any(valid):
+					meteor_sampled[local_r, valid] = meteor_data[ri[valid], ci[valid]]
+
+		meteor_norm = np.full_like(meteor_sampled, 0.5, dtype=np.float32)
+		finite_meteor = meteor_sampled[np.isfinite(meteor_sampled)]
+		if finite_meteor.size > 0:
+			lo = float(np.min(finite_meteor))
+			hi = float(np.max(finite_meteor))
+			if hi > lo:
+				meteor_norm = ((meteor_sampled - lo) / (hi - lo)).astype(np.float32)
+				meteor_norm = np.clip(meteor_norm, 0.0, 1.0)
+				meteor_norm[~np.isfinite(meteor_norm)] = 0.5
+
+		# --- temperature sampling ---
+		temp_data = self._current_temperature_data
+		temp_meta = self._current_temperature_meta
+		temp_sampled = np.full_like(elev, np.nan, dtype=np.float32)
+		if temp_data is not None and temp_meta is not None and "transform" in temp_meta:
+			it = temp_meta["transform"]
+			inv_it = ~it
+			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
+			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
+			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
+			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
+
+			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
+			for rr in range(int(r0), int(r1), int(stride)):
+				rowc = float(rr) + (0.5 * float(stride))
+				x = (a * cols) + (b * rowc) + c_
+				y = (d * cols) + (e * rowc) + f_
+				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
+				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
+
+				local_r = int((rr - r0) // int(stride))
+				valid = (
+					(ri >= 0)
+					& (ci >= 0)
+					& (ri < int(temp_data.shape[0]))
+					& (ci < int(temp_data.shape[1]))
+				)
+				if np.any(valid):
+					temp_sampled[local_r, valid] = temp_data[ri[valid], ci[valid]]
+
+		temp_norm = np.full_like(temp_sampled, 0.5, dtype=np.float32)
+		finite_temp = temp_sampled[np.isfinite(temp_sampled)]
+		if finite_temp.size > 0:
+			lo = float(np.min(finite_temp))
+			hi = float(np.max(finite_temp))
+			if hi > lo:
+				temp_norm = ((temp_sampled - lo) / (hi - lo)).astype(np.float32)
+				temp_norm = np.clip(temp_norm, 0.0, 1.0)
+				temp_norm[~np.isfinite(temp_norm)] = 0.5
+
 		# Cost-strategy powers.  Weighted cost = linear (1.0),
 		# Minimax = 4th power so a single bad cell dominates.
 		if str(cost_strategy).strip().lower() == "minimax":
@@ -423,6 +505,8 @@ class ViewContainer(QWidget):
 		cell_cost = (
 			1.0
 			+ (float(max(0.0, sun_weight)) * sun_penalty)
+			+ (float(max(0.0, meteor_flux_weight)) * meteor_norm)
+			+ (float(max(0.0, temperature_weight)) * (1.0 - temp_norm))
 		).astype(np.float32)
 		cell_cost = np.clip(cell_cost, 0.01, np.inf).astype(np.float32)
 
