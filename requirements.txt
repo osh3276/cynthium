@@ -5,6 +5,7 @@ numpy
 numba
 pyvistaqt
 pyvista[colormaps]
+pyqtgraph
 vtk
 spiceypy
 pyproj
