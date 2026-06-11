@@ -95,19 +95,31 @@ def _segment_cost(
 	if len(line) < 2:
 		return 0.0
 
+	max_slope = float(max_slope_deg)
 	cost = 0.0
 	prev_r, prev_c = line[0]
 	prev_cc = float(cell_cost[prev_r, prev_c])
+	prev_e = float(elev[prev_r, prev_c]) if max_slope > 0 else 0.0
 	for r, c in line[1:]:
 		cc = float(cell_cost[r, c])
 		dr = abs(r - prev_r)
 		dc = abs(c - prev_c)
 		step = math.hypot(float(dc) * float(res_x), float(dr) * float(res_y))
+
+		# Hard limit: no intermediate step may exceed max slope
+		if max_slope > 0 and step > 1e-9:
+			curr_e = float(elev[r, c])
+			if math.isfinite(prev_e) and math.isfinite(curr_e):
+				g = _grade_deg(prev_e, curr_e, step)
+				if g > max_slope:
+					return float("inf")
+			prev_e = curr_e
+
 		cost += step * 0.5 * (prev_cc + cc)
 		prev_r, prev_c = r, c
 		prev_cc = cc
 
-	# Grade-based cost between endpoints (not per-cell).
+	# Grade-based cost between endpoints.
 	total_dr = abs(rc1[0] - rc0[0])
 	total_dc = abs(rc1[1] - rc0[1])
 	horiz = math.hypot(float(total_dc) * float(res_x), float(total_dr) * float(res_y))
@@ -116,7 +128,6 @@ def _segment_cost(
 		e1 = float(elev[rc1[0], rc1[1]])
 		if math.isfinite(e0) and math.isfinite(e1):
 			g = _grade_deg(e0, e1, horiz)
-			max_slope = float(max_slope_deg)
 			grade_norm = min(1.0, g / max_slope) if max_slope > 0 else 0.0
 			cost += float(slope_weight) * (grade_norm ** float(grade_power)) * horiz
 
@@ -208,6 +219,7 @@ def theta_star(
 		),
 	)
 
+	# 8-connected + 8 knight-move directions (16-connected)
 	neighbors = [
 		(-1, -1),
 		(-1, 0),
@@ -217,6 +229,14 @@ def theta_star(
 		(1, -1),
 		(1, 0),
 		(1, 1),
+		(-2, -1),
+		(-2, 1),
+		(2, -1),
+		(2, 1),
+		(-1, -2),
+		(-1, 2),
+		(1, -2),
+		(1, 2),
 	]
 
 	expanded = 0

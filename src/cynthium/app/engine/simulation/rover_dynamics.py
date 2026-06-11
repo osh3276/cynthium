@@ -71,7 +71,8 @@ def compute_traversal_dynamics(
 	- Uses the illumination map to integrate energy: E = ∫ I dt (J/m²).
 	"""
 	mu = float(rover.wheel_friction_coeff)
-	max_climbable = float(np.degrees(np.arctan(mu)))
+	crr = float(rover.rolling_resistance_coeff)
+	max_climbable = float(np.degrees(np.arctan(max(0.001, mu - crr))))
 
 	if waypoints_xyz.shape[0] < 2:
 		return {

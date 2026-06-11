@@ -17,8 +17,14 @@ class RoverSettings:
 
 	@property
 	def max_climbable_slope_deg(self) -> float:
-		"""Maximum climbable slope derived from friction coefficient."""
-		return float(degrees(atan(self.wheel_friction_coeff)))
+		"""Maximum sustainable slope accounting for rolling resistance.
+
+		Steady-state force balance:  μ·m·g·cos(θ) = m·g·sin(θ) + Crr·m·g·cos(θ)
+		Simplifies to:  tan(θ) = μ − Crr
+		"""
+		mu = self.wheel_friction_coeff
+		crr = self.rolling_resistance_coeff
+		return float(degrees(atan(max(0.001, mu - crr))))
 
 	def validate(self):
 		if not (self.mass_kg > 0):

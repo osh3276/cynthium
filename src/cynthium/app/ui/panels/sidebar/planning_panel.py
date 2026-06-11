@@ -118,7 +118,7 @@ class PlanningPanel(QWidget):
 		cfg3 = QHBoxLayout()
 		cfg3.addWidget(QLabel("Algorithm:"))
 		self.algorithm_combo = QComboBox()
-		self.algorithm_combo.addItems(["Theta*", "Dijkstra"])
+		self.algorithm_combo.addItems(["A*"])
 		cfg3.addWidget(self.algorithm_combo)
 
 		cfg3.addWidget(QLabel("Strategy:"))
@@ -130,6 +130,17 @@ class PlanningPanel(QWidget):
 		)
 		cfg3.addWidget(self.cost_strategy_combo)
 		layout.addLayout(cfg3)
+
+		cfg5 = QHBoxLayout()
+		cfg5.addWidget(QLabel("Path mode:"))
+		self.path_mode_combo = QComboBox()
+		self.path_mode_combo.addItems(["Waypoint to waypoint", "Start to finish"])
+		self.path_mode_combo.setToolTip(
+			"Waypoint to waypoint: plan a separate path between each pair of waypoints.\n"
+			"Start to finish: plan a single path from the first to the last waypoint."
+		)
+		cfg5.addWidget(self.path_mode_combo)
+		layout.addLayout(cfg5)
 
 		layout.addStretch(1)
 
@@ -208,6 +219,7 @@ class PlanningPanel(QWidget):
 			return
 
 		waypoints_xy = [(float(x), float(y)) for (x, y, _ll) in self._waypoint_data]
+		path_mode = self.path_mode_combo.currentText()
 		payload = {
 			"waypoints_xy": waypoints_xy,
 			"slope_weight": float(slope_weight),
@@ -216,6 +228,7 @@ class PlanningPanel(QWidget):
 			"temperature_weight": float(temperature_weight),
 			"algorithm": self.algorithm_combo.currentText(),
 			"cost_strategy": self.cost_strategy_combo.currentText(),
+			"path_mode": path_mode,
 		}
 		self.autopath_text.setPlainText("Running autopath...")
 		self.autopath_requested.emit(payload)

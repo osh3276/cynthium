@@ -137,7 +137,7 @@ class Window(QMainWindow):
 					raise ValueError("Invalid waypoint format")
 				user_wps.append((float(wp[0]), float(wp[1])))
 
-			# Derive max climbable slope from rover's friction coefficient
+			# Read rover settings
 			try:
 				rover = self._sidebar.get_rover_settings()
 			except (ValueError, KeyError, TypeError) as exc:
@@ -149,45 +149,113 @@ class Window(QMainWindow):
 				return
 			max_slope_deg = rover.max_climbable_slope_deg
 
-			overall: list[tuple[float, float]] = []
-			for i in range(len(user_wps) - 1):
-				seg = self._view_container.compute_autopath(
-					start_xy=user_wps[i],
-					goal_xy=user_wps[i + 1],
-					utctime=str(self._current_datetime),
-					map_type=str(self._current_map_type),
-					slope_weight=float(payload.get("slope_weight", 1.0)),
-					sun_weight=float(payload.get("sun_weight", 0.5)),
-					meteor_flux_weight=float(payload.get("meteor_flux_weight", 0.2)),
-					temperature_weight=float(payload.get("temperature_weight", 0.2)),
-					cost_strategy=str(payload.get("cost_strategy", "Weighted cost")),
-					algorithm=str(payload.get("algorithm", "Theta*")),
-					max_slope_deg=float(max_slope_deg),
+			path_mode = str(payload.get("path_mode", "Waypoint to waypoint"))
+			if path_mode == "Start to finish":
+				pairs = [(user_wps[0], user_wps[-1])]
+			else:
+				pairs = [(user_wps[i], user_wps[i + 1]) for i in range(len(user_wps) - 1)]
+
+			map_data_bundle = self._view_container.get_current_map_data()
+
+			# Validate-and-retry loop: pathfind, simulate, block failures, repeat
+			MAX_ATTEMPTS = 10
+			site_path_xy: list[tuple[float, float]] = []
+			all_blocked: set[tuple[int, int]] = set()
+			overall_feasible = False
+
+			for attempt in range(MAX_ATTEMPTS):
+				# --- Pathfind all segments ---
+				segments: list[list[tuple[float, float]]] = []
+				pathfind_failed = False
+				for start_xy, goal_xy in pairs:
+					seg = self._view_container.compute_autopath(
+						start_xy=start_xy,
+						goal_xy=goal_xy,
+						utctime=str(self._current_datetime),
+						map_type=str(self._current_map_type),
+						slope_weight=float(payload.get("slope_weight", 1.0)),
+						sun_weight=float(payload.get("sun_weight", 0.5)),
+						meteor_flux_weight=float(payload.get("meteor_flux_weight", 0.2)),
+						temperature_weight=float(payload.get("temperature_weight", 0.2)),
+						cost_strategy=str(payload.get("cost_strategy", "Weighted cost")),
+						algorithm=str(payload.get("algorithm", "A*")),
+						max_slope_deg=float(max_slope_deg),
+						blocked_cells=all_blocked if all_blocked else None,
+					)
+					if not seg or len(seg) < 2:
+						pathfind_failed = True
+						break
+					segments.append(seg)
+
+				if pathfind_failed:
+					if attempt == 0:
+						QMessageBox.warning(
+							self, "Autopath",
+							"No path exists between these waypoints with the current rover.\n"
+							f"Max climbable slope: {max_slope_deg:.1f}°."
+						)
+					self._sidebar.set_autopath_waypoints(None)
+					return
+
+				overall: list[tuple[float, float]] = []
+				for i, seg in enumerate(segments):
+					if i == 0:
+						overall.extend(seg)
+					else:
+						overall.extend(seg[1:])
+				site_path_xy = overall
+
+				# --- Validate with simulation ---
+				try:
+					stats, _ = calculate_simulation_stats(
+						site_path_xy,
+						map_data_bundle,
+						rover=rover,
+					)
+					feasible = float(stats.get("traverse_feasible", 0.0)) >= 0.5
+				except Exception:
+					feasible = False
+
+				if feasible:
+					overall_feasible = True
+					logger.info(f"Autopath: path validated (attempt {attempt + 1})")
+					break
+
+				# --- Block cells on this path and retry ---
+				meta = self._view_container._current_meta
+				if meta and "transform" in meta:
+					inv = ~meta["transform"]
+					for x, y in site_path_xy:
+						c, r = inv * (float(x), float(y))
+						all_blocked.add((int(round(r)), int(round(c))))
+				logger.info(f"Autopath: attempt {attempt + 1} infeasible, retrying with {len(all_blocked)} cells blocked")
+
+			if not overall_feasible:
+				QMessageBox.warning(
+					self, "Autopath",
+					"No traversable path found after multiple attempts.\n"
+					f"Max climbable slope: {max_slope_deg:.1f}° (μ={rover.wheel_friction_coeff:.2f}).\n"
+					"The rover cannot handle this terrain with the current settings.\n"
+					"Try a different route or adjust the rover's friction coefficient."
 				)
-				if not seg or len(seg) < 2:
-					raise ValueError(f"No path found for segment {i + 1} -> {i + 2}")
+				self._sidebar.set_autopath_waypoints(None)
+				return
 
-				if i == 0:
-					overall.extend(seg)
-				else:
-					overall.extend(seg[1:])
-
-			points_xy = overall
 		except Exception as exc:
 			logger.error(f"Autopath failed: {exc}")
 			QMessageBox.critical(self, "Autopath", f"Autopath failed:\n{exc}")
 			self._sidebar.set_autopath_waypoints(None)
 			return
 
-		if not points_xy or len(points_xy) < 2:
+		if not site_path_xy or len(site_path_xy) < 2:
 			QMessageBox.warning(self, "Autopath", "No path found.")
 			self._view_container.set_autopath([])
 			self._sidebar.set_autopath_waypoints(None)
 			return
 
-		self._view_container.set_autopath(points_xy)
-		self._sidebar.set_autopath_waypoints(points_xy)
-		self.statusBar().showMessage(f"Autopath complete: {len(points_xy)} nodes")
+		self._view_container.set_autopath(site_path_xy)
+		self._sidebar.set_autopath_waypoints(site_path_xy)
+		self.statusBar().showMessage(f"Autopath complete: {len(site_path_xy)} nodes (validated via simulation)")
 
 	def _on_start_simulation(self):
 		"""

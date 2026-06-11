@@ -8,8 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QSplitter, QWidget
 
 from cynthium.app.config import ensure_data_file_path
-from cynthium.app.engine.pathfinding.dijkstra import dijkstra
-from cynthium.app.engine.pathfinding.theta_star import theta_star
+from cynthium.app.engine.pathfinding.dijkstra import a_star
 from cynthium.app.io.reader import load_geotif
 from cynthium.app.services.site_rasters import (
 	RasterPayload,
@@ -308,6 +307,7 @@ class ViewContainer(QWidget):
 		algorithm: str = "Theta*",
 		pad_cells: int = 200,
 		max_expanded: int = 500000,
+		blocked_cells: set[tuple[int, int]] | None = None,
 	) -> list[tuple[float, float]] | None:
 		if self._current_data is None or self._current_meta is None:
 			return None
@@ -340,13 +340,19 @@ class ViewContainer(QWidget):
 
 		win_h = int(r1 - r0)
 		win_w = int(c1 - c0)
+		# Target ~10m/px resolution for pathfinding
+		source_res = float(abs(transform.a))
+		target_res = 10.0
+		min_stride = max(1, int(round(target_res / source_res)))
 		max_nodes = 250000
 		area = int(win_h * win_w)
-		stride = 1
+		stride = min_stride
 		if area > max_nodes:
 			stride = int(math.ceil(math.sqrt(float(area) / float(max_nodes))))
-			stride = max(1, stride)
-			logger.info(f"Autopath: downsampling grid by stride={stride} (area={area})")
+			stride = max(min_stride, stride)
+		if stride > 1:
+			logger.info(f"Autopath: downsampling grid by stride={stride} "
+				f"({source_res:.1f}m/px → {source_res * stride:.1f}m/px)")
 
 		elev_full = self._current_data[r0:r1, c0:c1]
 
@@ -519,6 +525,14 @@ class ViewContainer(QWidget):
 
 		traversable = np.isfinite(elev)
 
+		# Block cells from previous failed simulation attempts
+		if blocked_cells:
+			for rr, cc in blocked_cells:
+				rr_local = (rr - r0) // stride
+				cc_local = (cc - c0) // stride
+				if 0 <= rr_local < traversable.shape[0] and 0 <= cc_local < traversable.shape[1]:
+					traversable[rr_local, cc_local] = False
+
 		start_local = (int((sr - r0) // stride), int((sc - c0) // stride))
 		goal_local = (int((gr - r0) // stride), int((gc - c0) // stride))
 
@@ -535,40 +549,21 @@ class ViewContainer(QWidget):
 		res_x = float(abs(transform.a)) * float(stride)
 		res_y = float(abs(transform.e)) * float(stride)
 
-		use_dijkstra = algorithm.strip().lower() == "dijkstra"
-
-		if use_dijkstra:
-			result = dijkstra(
-				start_rc=start_local,
-				goal_rc=goal_local,
-				traversable=traversable,
-				cell_cost=cell_cost,
-				elev=elev,
-				res_x=res_x,
-				res_y=res_y,
-				min_slope_deg=float(min_slope_deg),
-				max_slope_deg=float(max_slope_deg),
-				slope_weight=float(max(0.0, slope_weight)),
-				grade_power=float(grade_power),
-				max_expanded=int(max_expanded),
-			)
-			alg_name = "Dijkstra"
-		else:
-			result = theta_star(
-				start_rc=start_local,
-				goal_rc=goal_local,
-				traversable=traversable,
-				cell_cost=cell_cost,
-				elev=elev,
-				res_x=res_x,
-				res_y=res_y,
-				min_slope_deg=float(min_slope_deg),
-				max_slope_deg=float(max_slope_deg),
-				slope_weight=float(max(0.0, slope_weight)),
-				grade_power=float(grade_power),
-				max_expanded=int(max_expanded),
-			)
-			alg_name = "Theta*"
+		result = a_star(
+			start_rc=start_local,
+			goal_rc=goal_local,
+			traversable=traversable,
+			cell_cost=cell_cost,
+			elev=elev,
+			res_x=res_x,
+			res_y=res_y,
+			min_slope_deg=float(min_slope_deg),
+			max_slope_deg=float(max_slope_deg),
+			slope_weight=float(max(0.0, slope_weight)),
+			grade_power=float(grade_power),
+			max_expanded=int(max_expanded),
+		)
+		alg_name = "A*"
 		if result is None or not result.path_rc:
 			return None
 

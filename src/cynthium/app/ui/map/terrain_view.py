@@ -106,24 +106,32 @@ class TerrainView(QtInteractor):
 		"""
 		self.clear()
 		self._autopath_actor = None
-		self._data = data
-		self._origin = (0, 0, 0)
-		self._spacing = (5, 5, 1)
 
+		stride = 1
 		if meta:
+			transform = meta["transform"]
+			# Target ~10m/px for the 3D mesh
+			source_res = float(abs(transform.a))
+			target_res = 10.0
+			stride = max(1, int(round(target_res / source_res)))
+			if stride > 1:
+				data = data[::stride, ::stride]
+				logger.info(f"Terrain mesh: decimated by stride={stride} "
+					f"({source_res:.1f}m/px → {source_res * stride:.1f}m/px)")
+
+			# Set origin and spacing from the (possibly decimated) data
 			# rasterio transform: (a, b, c, d, e, f)
 			# x = a * col + b * row + c
 			# y = d * col + e * row + f
-			# For North-up: b=0, d=0. a=res_x, e=-res_y (usually, e < 0)
-			transform = meta["transform"]
-			# PyVista ImageData origin is the bottom-left corner.
-			# GeoTIFF transform (c, f) is the top-left corner.
-			# The bottom-left in world coordinates is:
-			# x_bl = c
-			# y_bl = f + (height * e)  (where e is negative)
+			# For North-up: b=0, d=0. a=res_x, e=-res_y
 			height = data.shape[0]
-			self._origin = (transform.c, transform.f + (height * transform.e), 0)
-			self._spacing = (abs(transform.a), abs(transform.e), 1)
+			self._origin = (transform.c, transform.f + (height * transform.e * stride), 0)
+			self._spacing = (abs(transform.a) * stride, abs(transform.e) * stride, 1)
+		else:
+			self._origin = (0, 0, 0)
+			self._spacing = (5 * stride, 5 * stride, 1)
+
+		self._data = data
 
 		mesh = TerrainRenderer(data, origin=self._origin, spacing=self._spacing)
 		self._terrain_mesh = mesh

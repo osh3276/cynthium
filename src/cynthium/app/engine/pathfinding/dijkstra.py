@@ -6,7 +6,7 @@ import numpy as np
 
 
 @dataclass(frozen=True)
-class DijkstraResult:
+class PathResult:
 	path_rc: list[tuple[int, int]]
 	total_cost: float
 	expanded: int
@@ -58,13 +58,16 @@ def _segment_cost(
 		if math.isfinite(e0) and math.isfinite(e1):
 			g = _grade_deg(e0, e1, step)
 			max_slope = float(max_slope_deg)
+			# Hard limit: grade steeper than max_slope_deg is untraversable
+			if max_slope > 0 and g > max_slope:
+				return float("inf")
 			grade_norm = min(1.0, g / max_slope) if max_slope > 0 else 0.0
 			cost += float(slope_weight) * (grade_norm ** float(grade_power)) * step
 
 	return float(cost)
 
 
-def dijkstra(
+def a_star(
 	*,
 	start_rc: tuple[int, int],
 	goal_rc: tuple[int, int],
@@ -78,8 +81,13 @@ def dijkstra(
 	slope_weight: float = 1.0,
 	grade_power: float = 1.0,
 	max_expanded: int = 500000,
-) -> DijkstraResult | None:
-	"""Dijkstra over an 8-connected grid (no heuristic, no line-of-sight).
+	blocked_pixels: set[tuple[int, int]] | None = None,
+) -> PathResult | None:
+	"""A* over a 16-connected grid.
+
+	Standard A* with Euclidean-distance heuristic.  No line-of-sight
+	shortcuts — every step follows a concrete grid neighbour so the
+	slope limit is enforced on every individual transition.
 
 	- `traversable`: True where allowed (finite elevation, etc.).
 	- `cell_cost`: per-cell coefficient for sun/shadow cost (>=1 recommended).
@@ -107,9 +115,11 @@ def dijkstra(
 	parent_r[sr, sc] = sr
 	parent_c[sr, sc] = sc
 
+	h0 = math.hypot(float(gr - sr) * float(res_x), float(gc - sc) * float(res_y))
 	open_heap: list[tuple[float, int, int]] = []
-	heapq.heappush(open_heap, (0.0, sr, sc))
+	heapq.heappush(open_heap, (h0, sr, sc))
 
+	# 8-connected + 8 knight-move directions (16-connected)
 	neighbors = [
 		(-1, -1),
 		(-1, 0),
@@ -119,6 +129,14 @@ def dijkstra(
 		(1, -1),
 		(1, 0),
 		(1, 1),
+		(-2, -1),
+		(-2, 1),
+		(2, -1),
+		(2, 1),
+		(-1, -2),
+		(-1, 2),
+		(1, -2),
+		(1, 2),
 	]
 
 	expanded = 0
@@ -142,6 +160,8 @@ def dijkstra(
 				continue
 			if not bool(traversable[nr, nc]):
 				continue
+			if blocked_pixels and (nr, nc) in blocked_pixels:
+				continue
 
 			new_g = g[r, c] + _segment_cost(
 				rc0=(r, c),
@@ -158,7 +178,8 @@ def dijkstra(
 				g[nr, nc] = float(new_g)
 				parent_r[nr, nc] = r
 				parent_c[nr, nc] = c
-				heapq.heappush(open_heap, (float(new_g), nr, nc))
+				h = math.hypot(float(gr - nr) * float(res_x), float(gc - nc) * float(res_y))
+				heapq.heappush(open_heap, (float(new_g) + h, nr, nc))
 
 	if not closed[gr, gc]:
 		return None
@@ -178,4 +199,4 @@ def dijkstra(
 		return None
 
 	path.reverse()
-	return DijkstraResult(path_rc=path, total_cost=float(g[gr, gc]), expanded=int(expanded))
+	return PathResult(path_rc=path, total_cost=float(g[gr, gc]), expanded=int(expanded))
