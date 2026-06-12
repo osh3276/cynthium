@@ -1,0 +1,48 @@
+import numpy as np
+import spiceypy as spice
+
+from cynthium.app import data as data_store
+
+_kernels_loaded = False
+
+
+def _ensure_kernels_loaded() -> None:
+	"""Fetch SPICE kernels via pooch on first use and furnsh them once."""
+	global _kernels_loaded
+	if _kernels_loaded:
+		return
+	for name in data_store.SPICE_KERNELS:
+		spice.furnsh(str(data_store.fetch(name)))
+	_kernels_loaded = True
+
+
+def sun_position(lat, lon, time):
+	"""
+	lat, lon: selenographic degrees
+	et: SPICE ephemeris time (use spice.utc2et)
+	"""
+	_ensure_kernels_loaded()
+	et = spice.utc2et(time)
+
+	# Get the position of the sun relative to the moon
+	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
+	sun_pos = np.array(state)
+	sun_pos /= np.linalg.norm(sun_pos)
+
+	# Convert latitude and longitude to radians
+	lat_rad = np.radians(lat)
+	lon_rad = np.radians(lon)
+
+	# Calculate the local up, east, and north vectors
+	up = np.array([np.cos(lat_rad) * np.cos(lon_rad),
+				   np.cos(lat_rad) * np.sin(lon_rad),
+				   np.sin(lat_rad)])
+	east = np.cross(np.array([0, 0, 1]), up)
+	east /= np.linalg.norm(east)
+	north = np.cross(up, east)
+
+	# Calculate the local azimuth and elevation
+	elevation = np.degrees(np.arcsin(np.dot(sun_pos, up)))
+	azimuth = np.degrees(np.arctan2(np.dot(sun_pos, east), np.dot(sun_pos, north))) % 360
+
+	return azimuth, elevation

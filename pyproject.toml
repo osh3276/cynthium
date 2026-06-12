@@ -1,0 +1,61 @@
+[build-system]
+requires=["hatchling>=1.26"]
+build-backend="hatchling.build"
+
+[project]
+name="cynthium"
+dynamic=["version"]
+description="Scientific desktop application for lunar rover traversal planning and terrain analysis."
+readme="README.md"
+requires-python=">=3.12"
+license="GPL-3.0-only"
+license-files=["LICENSE"]
+dependencies=[
+	"numpy",
+	"numba",
+	"rasterio",
+	"PySide6",
+	"pyqtgraph",
+	"matplotlib",
+	"pyproj",
+	"spiceypy",
+	"vtk",
+	"pyvista[colormaps]",
+	"pyvistaqt",
+	"pooch",
+    "tqdm"
+]
+authors = [
+    {name="Oliver Huang", email="oli.huang@mail.utoronto.ca"}
+]
+
+[project.urls]
+Repository = "https://github.com/osh3276/cynthium.git"
+Issues = "https://github.com/osh3276/cynthium/issues"
+# Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+
+[project.scripts]
+cynthium="cynthium.app.main:main"
+
+[tool.hatch.version]
+path="src/cynthium/__init__.py"
+
+[tool.hatch.build]
+exclude=[
+	"data/**",
+	"tests/**",
+	"**/__pycache__/**",
+	"**/*.pyc",
+]
+
+[tool.hatch.build.targets.wheel]
+packages=["src/cynthium"]
+
+[tool.hatch.build.targets.sdist]
+include=[
+	"src/**",
+	"README.md",
+	"LICENSE",
+	"pyproject.toml",
+]
