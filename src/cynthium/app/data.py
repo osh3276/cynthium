@@ -6,7 +6,7 @@ import requests
 
 GITHUB_URL = os.environ.get(
 	"CYNTHIUM_DATA_BASE_URL",
-	"https://github.com/osh3276/cynthium/releases/download/data-v1.0.0b2/",
+	"https://github.com/osh3276/cynthium/releases/download/data-v1.1.0b1/",
 )
 
 REGISTRY = {
