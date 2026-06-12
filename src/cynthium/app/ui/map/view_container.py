@@ -96,6 +96,9 @@ class ViewContainer(QWidget):
 			stem_20 = stem + "_20mpp_surf"
 		path_20 = str(p.with_name(f"{stem_20}{p.suffix}"))
 
+		# Resolve through the data registry so pooch can download it if missing.
+		path_20 = str(ensure_data_file_path(Path(path_20)))
+
 		data, meta = load_geotif(path_20)
 
 		self._current_path = path_20
