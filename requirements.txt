@@ -1,0 +1,13 @@
+
+pyside6
+rasterio
+numpy
+numba
+pyvistaqt
+pyvista[colormaps]
+pyqtgraph
+vtk
+spiceypy
+pyproj
+requests
+tqdm

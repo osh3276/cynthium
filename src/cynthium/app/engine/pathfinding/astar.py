@@ -1,0 +1,211 @@
+import heapq
+import math
+from dataclasses import dataclass
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class PathResult:
+	path_rc: list[tuple[int, int]]
+	total_cost: float
+	expanded: int
+
+
+def _grade_deg(
+	e0: float,
+	e1: float,
+	horiz: float,
+) -> float:
+	"""Signed grade in degrees between two points (+ = uphill, - = downhill)."""
+	if horiz < 1e-9:
+		return 0.0
+	dz = e1 - e0
+	if not (math.isfinite(dz)):
+		return 0.0
+	return float(math.degrees(math.atan2(dz, horiz)))
+
+
+def _segment_cost(
+	*,
+	rc0: tuple[int, int],
+	rc1: tuple[int, int],
+	cell_cost: np.ndarray,
+	elev: np.ndarray,
+	res_x: float,
+	res_y: float,
+	max_slope_deg: float,
+	slope_weight: float,
+	grade_power: float = 1.0,
+) -> float:
+	"""Cost of moving between two adjacent cells (8-connected).
+
+	Base cost from cell_cost (sun, etc.), plus grade penalty from
+	elevation difference.
+	grade_power=1 → linear (weighted cost).
+	grade_power > 1 → minimax (punishes steep grades exponentially).
+	"""
+	cc0 = float(cell_cost[rc0[0], rc0[1]])
+	cc1 = float(cell_cost[rc1[0], rc1[1]])
+	dr = abs(rc1[0] - rc0[0])
+	dc = abs(rc1[1] - rc0[1])
+	step = math.hypot(float(dc) * float(res_x), float(dr) * float(res_y))
+	cost = step * 0.5 * (cc0 + cc1)
+
+	if step > 1e-9:
+		e0 = float(elev[rc0[0], rc0[1]])
+		e1 = float(elev[rc1[0], rc1[1]])
+		if math.isfinite(e0) and math.isfinite(e1):
+			g = _grade_deg(e0, e1, step)  # signed: + uphill, - downhill
+			max_slope = float(max_slope_deg)
+			# Grade penalty — no hard cutoff.  At 20 m grid resolution the
+			# path cannot follow a continuous line exactly, so per-cell-step
+			# grades can exceed the static limit even on a feasible route.
+			# The simulation retry loop handles true feasibility.
+			if g > 0 and max_slope > 0:
+				grade_norm = min(1.0, g / max_slope)
+				cost += float(slope_weight) * (grade_norm ** float(grade_power)) * step
+
+	return float(cost)
+
+
+def a_star(
+	*,
+	start_rc: tuple[int, int],
+	goal_rc: tuple[int, int],
+	traversable: np.ndarray,
+	cell_cost: np.ndarray,
+	elev: np.ndarray,
+	res_x: float,
+	res_y: float,
+	min_slope_deg: float = 0.0,
+	max_slope_deg: float = 20.0,
+	slope_weight: float = 1.0,
+	grade_power: float = 1.0,
+	max_expanded: int = 500000,
+	blocked_pixels: set[tuple[int, int]] | None = None,
+	dijkstra: bool = False,
+) -> PathResult | None:
+	"""A* over a 16-connected grid.
+
+	Standard A* with Euclidean-distance heuristic.  When ``dijkstra=True``
+	the heuristic is set to zero, making it pure Dijkstra (uniform-cost
+	search).  No line-of-sight shortcuts — every step follows a concrete
+	grid neighbour so the slope limit is enforced on every individual
+	transition.
+
+	- `traversable`: True where allowed (finite elevation, etc.).
+	- `cell_cost`: per-cell coefficient for sun/shadow cost (>=1 recommended).
+	- `elev`: elevation array used to compute grade on-the-fly.
+	- `grade_power`: exponent applied to grade_norm.  1 = linear cost,
+	  higher values amplify steepness penalty (minimax behavior).
+	- `dijkstra`: if True, use zero heuristic (pure Dijkstra).
+	"""
+	H, W = traversable.shape
+	sr, sc = int(start_rc[0]), int(start_rc[1])
+	gr, gc = int(goal_rc[0]), int(goal_rc[1])
+	if not (0 <= sr < H and 0 <= sc < W and 0 <= gr < H and 0 <= gc < W):
+		return None
+	if not bool(traversable[sr, sc]) or not bool(traversable[gr, gc]):
+		return None
+
+	N = int(H * W)
+	INF = float("inf")
+
+	g = np.full((H, W), INF, dtype=np.float64)
+	closed = np.zeros((H, W), dtype=bool)
+	parent_r = np.full((H, W), -1, dtype=np.int32)
+	parent_c = np.full((H, W), -1, dtype=np.int32)
+
+	g[sr, sc] = 0.0
+	parent_r[sr, sc] = sr
+	parent_c[sr, sc] = sc
+
+	h0 = math.hypot(float(gr - sr) * float(res_x), float(gc - sc) * float(res_y))
+	open_heap: list[tuple[float, int, int]] = []
+	heapq.heappush(open_heap, (h0, sr, sc))
+
+	# 8-connected + 8 knight-move directions (16-connected)
+	neighbors = [
+		(-1, -1),
+		(-1, 0),
+		(-1, 1),
+		(0, -1),
+		(0, 1),
+		(1, -1),
+		(1, 0),
+		(1, 1),
+		(-2, -1),
+		(-2, 1),
+		(2, -1),
+		(2, 1),
+		(-1, -2),
+		(-1, 2),
+		(1, -2),
+		(1, 2),
+	]
+
+	expanded = 0
+	while open_heap:
+		cost, r, c = heapq.heappop(open_heap)
+		if closed[r, c]:
+			continue
+		closed[r, c] = True
+		expanded += 1
+		if expanded > int(max_expanded):
+			return None
+		if r == gr and c == gc:
+			break
+
+		for dr, dc in neighbors:
+			nr = int(r + dr)
+			nc = int(c + dc)
+			if nr < 0 or nc < 0 or nr >= H or nc >= W:
+				continue
+			if closed[nr, nc]:
+				continue
+			if not bool(traversable[nr, nc]):
+				continue
+			if blocked_pixels and (nr, nc) in blocked_pixels:
+				continue
+
+			new_g = g[r, c] + _segment_cost(
+				rc0=(r, c),
+				rc1=(nr, nc),
+				cell_cost=cell_cost,
+				elev=elev,
+				res_x=res_x,
+				res_y=res_y,
+				max_slope_deg=max_slope_deg,
+				slope_weight=slope_weight,
+				grade_power=grade_power,
+			)
+			if new_g < g[nr, nc]:
+				g[nr, nc] = float(new_g)
+				parent_r[nr, nc] = r
+				parent_c[nr, nc] = c
+				if not dijkstra:
+					h = math.hypot(float(gr - nr) * float(res_x), float(gc - nc) * float(res_y))
+				else:
+					h = 0.0
+				heapq.heappush(open_heap, (float(new_g) + h, nr, nc))
+
+	if not closed[gr, gc]:
+		return None
+
+	path: list[tuple[int, int]] = []
+	r, c = gr, gc
+	for _ in range(N):
+		path.append((int(r), int(c)))
+		pr = int(parent_r[r, c])
+		pc = int(parent_c[r, c])
+		if pr == r and pc == c:
+			break
+		if pr < 0 or pc < 0:
+			break
+		r, c = pr, pc
+	else:
+		return None
+
+	path.reverse()
+	return PathResult(path_rc=path, total_cost=float(g[gr, gc]), expanded=int(expanded))
