@@ -93,11 +93,21 @@ def simulate_rover_over_path(
 			if a >= 0.0:
 				v_next = 0.0
 				dt = 0.0
+				# Failure at the start of this segment
+				failure_xy = (float(pts_xyz[i, 0]), float(pts_xyz[i, 1]))
 			else:
 				s_stop = (v * v) / (-2.0 * a) if v > 0.0 else 0.0
 				dt = (v / (-a)) if v > 0.0 else 0.0
 				d_total += float(s_stop)
 				t_total += float(dt)
+
+				# Failure location along the segment where speed reaches 0
+				seg_len = max(s, 1e-9)
+				frac = min(1.0, s_stop / seg_len)
+				xy0 = pts_xyz[i, :2]
+				xy1 = pts_xyz[i + 1, :2]
+				failure_xy = xy0 + frac * (xy1 - xy0)
+				failure_xy = (float(failure_xy[0]), float(failure_xy[1]))
 
 				if inv_illum is not None and dt > 0.0:
 					xy_mid = 0.5 * (pts_xyz[i, :2] + pts_xyz[i + 1, :2])
@@ -112,18 +122,20 @@ def simulate_rover_over_path(
 						if np.isfinite(illum):
 							energy_j_per_m2 += illum * float(dt)
 
-				min_v = min(min_v, 0.0)
-				max_v = max(max_v, float(v))
+			min_v = min(min_v, 0.0)
+			max_v = max(max_v, float(v))
 
-				return {
-					"traverse_feasible": 0.0,
-					"traversal_time_s": float("inf"),
-					"average_velocity_mps": 0.0,
-					"min_velocity_mps": 0.0 if min_v == float("inf") else float(min_v),
-					"max_velocity_mps": float(max_v),
-					"solar_energy_per_m2_j": float(energy_j_per_m2),
-					"avg_solar_illumination_w_per_m2": 0.0,
-				}
+			return {
+				"traverse_feasible": 0.0,
+				"traversal_time_s": float("inf"),
+				"average_velocity_mps": 0.0,
+				"min_velocity_mps": 0.0 if min_v == float("inf") else float(min_v),
+				"max_velocity_mps": float(max_v),
+				"solar_energy_per_m2_j": float(energy_j_per_m2),
+				"avg_solar_illumination_w_per_m2": 0.0,
+				"failure_x": float(failure_xy[0]),
+				"failure_y": float(failure_xy[1]),
+			}
 
 		v_next = float(np.sqrt(v_sq_next))
 		den = float(v + v_next)

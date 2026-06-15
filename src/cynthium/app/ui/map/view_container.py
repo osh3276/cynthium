@@ -254,6 +254,8 @@ class ViewContainer(QWidget):
 		:type y: float
 		:return: None
 		"""
+		self.clear_failure_point()
+		self.clear_sim_failure_point()
 		self.raster_view.add_waypoint(x, y)
 		self.terrain_view.add_waypoint(x, y)
 
@@ -265,6 +267,8 @@ class ViewContainer(QWidget):
 		:type index: int
 		:return: None
 		"""
+		self.clear_failure_point()
+		self.clear_sim_failure_point()
 		self.raster_view.remove_waypoint(index)
 		self.terrain_view.remove_waypoint(index)
 
@@ -288,6 +292,22 @@ class ViewContainer(QWidget):
 		self._autopath_xy = list(points_xy)
 		self.raster_view.set_autopath(self._autopath_xy)
 		self.terrain_view.set_autopath(self._autopath_xy)
+
+	def set_failure_point(self, x: float, y: float):
+		self.raster_view.set_failure_point(x, y)
+		self.terrain_view.set_failure_point(x, y)
+
+	def clear_failure_point(self):
+		self.raster_view.clear_failure_point()
+		self.terrain_view.clear_failure_point()
+
+	def set_sim_failure_point(self, x: float, y: float):
+		self.raster_view.set_sim_failure_point(x, y)
+		self.terrain_view.set_sim_failure_point(x, y)
+
+	def clear_sim_failure_point(self):
+		self.raster_view.clear_sim_failure_point()
+		self.terrain_view.clear_sim_failure_point()
 
 	def compute_autopath(
 		self,
