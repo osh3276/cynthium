@@ -41,7 +41,7 @@ ROVER_PRESETS: dict[str, RoverSettings] = {
 	"Curiosity": RoverSettings(
 		mass_kg=899.0,
 		power_hp=0.13,
-		wheel_friction_coeff=0.35,
+		wheel_friction_coeff=0.5,
 		rolling_resistance_coeff=0.02,
 	),
 	"Apollo LRV": RoverSettings(
@@ -49,6 +49,12 @@ ROVER_PRESETS: dict[str, RoverSettings] = {
 		power_hp=1.0,
 		wheel_friction_coeff=0.6,
 		rolling_resistance_coeff=0.021,
+	),
+	"Perseverance": RoverSettings(
+		mass_kg=1025.0,
+		power_hp=0.14,
+		wheel_friction_coeff=0.5,
+		rolling_resistance_coeff=0.02,
 	),
 }
 
