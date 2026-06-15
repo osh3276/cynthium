@@ -158,7 +158,7 @@ class Window(QMainWindow):
 			map_data_bundle = self._view_container.get_current_map_data()
 
 			# Validate-and-retry loop: pathfind, simulate, block failures, repeat
-			MAX_ATTEMPTS = 1
+			MAX_ATTEMPTS = 15
 			site_path_xy: list[tuple[float, float]] = []
 			all_blocked: set[tuple[int, int]] = set()
 			overall_feasible = False
@@ -188,14 +188,18 @@ class Window(QMainWindow):
 					segments.append(seg)
 
 				if pathfind_failed:
+					# Pathfinding itself failed — blocked cells made start/goal disconnected
 					if attempt == 0:
 						QMessageBox.warning(
 							self, "Autopath",
 							"No path exists between these waypoints with the current rover.\n"
 							f"Max climbable slope: {max_slope_deg:.1f}°."
 						)
-					self._sidebar.set_autopath_waypoints(None)
-					return
+						self._sidebar.set_autopath_waypoints(None)
+						return
+					# On retry attempts, pathfind failed because start/goal got blocked.
+					# No point retrying further.
+					break
 
 				overall: list[tuple[float, float]] = []
 				for i, seg in enumerate(segments):

@@ -60,7 +60,7 @@ class RoverSettingsPanel(QWidget):
 		layout.addLayout(rr_layout)
 
 		# Apply default preset
-		self._on_preset_changed("Custom")
+		self._on_preset_changed("Curiosity")
 
 	def _on_preset_changed(self, name: str):
 		preset = ROVER_PRESETS.get(name)

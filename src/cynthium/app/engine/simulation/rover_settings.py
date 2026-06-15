@@ -38,11 +38,11 @@ class RoverSettings:
 
 
 ROVER_PRESETS: dict[str, RoverSettings] = {
-	"Custom": RoverSettings(
-		mass_kg=150.0,
-		power_hp=0.2,
-		wheel_friction_coeff=0.6,
-		rolling_resistance_coeff=0.1,
+	"Curiosity": RoverSettings(
+		mass_kg=899.0,
+		power_hp=0.13,
+		wheel_friction_coeff=0.35,
+		rolling_resistance_coeff=0.02,
 	),
 	"Apollo LRV": RoverSettings(
 		mass_kg=210.0,
