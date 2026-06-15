@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.2.0b1 (2026-06-15)
+
+### Major changes
+
+- **Default rover: Curiosity** — renamed the default rover preset from "Custom"
+  to "Curiosity" with mass=899 kg, wheel friction μ=0.5, power=0.13 hp, and
+  rolling resistance Crr=0.02.
+- **Autopath retry loop re-enabled** — ``MAX_ATTEMPTS`` raised from 1 to 3,
+  restoring the validate-and-retry loop that blocks infeasible path cells and
+  re-routes around them.
+- **Perseverance rover preset** — added with mass=1025 kg, power=0.14 hp,
+  wheel friction μ=0.5, rolling resistance Crr=0.02.
+
+### Bug fixes
+
+- **Path blocking cell misalignment** — fixed a banker's-rounding bug
+  (``int(round(r))`` → ``int(r)``) that caused half the blocked cells to land
+  one cell off from the actual path, making the retry loop ineffective.
+
+### UI / UX
+
+- **Failure point markers** — when autopath or simulation validation fails, a
+  red dot is placed on both the 2D map and 3D terrain view at the exact
+  location where the rover stalled. Autopath and simulation failures use
+  separate markers so both remain visible simultaneously.
+- **Waypoint color** — changed from white (2D) / red (3D) to bright lime green
+  on both views.
+- **Failed autopath path shown** — the last attempted autopath route (blue
+  line) is now rendered on the map even when validation fails, so the
+  failure point appears in context on the path.
+
 ## v1.1.0b1 (2026-06-12)
 
 ### Major changes
