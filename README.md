@@ -8,6 +8,11 @@ defining rover traversal paths, and computing terrain statistics along those
 paths. It is designed for scientific use cases where map resolution, numerical
 accuracy, and reproducibility are critical.
 
+> **Note**: Cynthium is still in beta. Things may break, change, or be
+> missing. If something doesn't work or you have an idea, open an issue at
+> [github.com/osh3276/cynthium/issues](https://github.com/osh3276/cynthium/issues)
+> and describe what you ran into.
+
 ## Features
 
 - **Multi-dimensional Visualization**: 2D map views and 3D terrain
@@ -24,7 +29,7 @@ accuracy, and reproducibility are critical.
 - **Data Export**: Export traversal statistics and simulation results for
   further scientific analysis.
 
-## Architecture
+<!--## Architecture
 
 The application is organised into several subpackages under `cynthium.app`:
 
@@ -35,12 +40,7 @@ The application is organised into several subpackages under `cynthium.app`:
 | `services`      | High-level orchestration: site raster management, simulation lifecycle. |
 | `ui`            | PySide6-based graphical interface: map views, sidebar panels, dialogs. |
 | `io`            | Data reading (GeoTIFF) and export (CSV).                        |
-| `utils`         | Logging and general utilities.                                  |
-
-> **Note**: Cynthium is still in beta. Things may break, change, or be
-> missing. If something doesn't work or you have an idea, open an issue at
-> [github.com/osh3276/cynthium/issues](https://github.com/osh3276/cynthium/issues)
-> and describe what you ran into.
+| `utils`         | Logging and general utilities.                                  |-->
 
 ## Installation
 
