@@ -58,11 +58,27 @@ class MapView(QWidget):
 		self._waypoints = pg.ScatterPlotItem(
 			size=10,
 			pen=pg.mkPen("k", width=1),
-			brush=pg.mkBrush(255, 255, 255, 255),
+			brush=pg.mkBrush(100, 255, 0, 255),
 		)
 		self._waypoints.setZValue(20)
 		self._plot.addItem(self._waypoints)
 		self._waypoint_list = []
+
+		self._failure_point = pg.ScatterPlotItem(
+			size=14,
+			pen=pg.mkPen("k", width=1),
+			brush=pg.mkBrush(255, 0, 0, 255),
+		)
+		self._failure_point.setZValue(25)
+		self._plot.addItem(self._failure_point)
+
+		self._sim_failure_point = pg.ScatterPlotItem(
+			size=14,
+			pen=pg.mkPen("k", width=1),
+			brush=pg.mkBrush(255, 0, 0, 255),
+		)
+		self._sim_failure_point.setZValue(25)
+		self._plot.addItem(self._sim_failure_point)
 
 		self.setStyleSheet("border-right: 1px solid #cccccc;")
 
@@ -243,6 +259,18 @@ class MapView(QWidget):
 			self._path_line.setData(xs, ys)
 		else:
 			self._path_line.setData([], [])
+
+	def clear_failure_point(self):
+		self._failure_point.setData([])
+
+	def set_failure_point(self, x: float, y: float):
+		self._failure_point.setData(pos=np.array([[x, y]]))
+
+	def set_sim_failure_point(self, x: float, y: float):
+		self._sim_failure_point.setData(pos=np.array([[x, y]]))
+
+	def clear_sim_failure_point(self):
+		self._sim_failure_point.setData([])
 
 	def set_autopath(self, points_xy: list[tuple[float, float]]):
 		if not points_xy or len(points_xy) < 2:

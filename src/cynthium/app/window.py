@@ -158,10 +158,11 @@ class Window(QMainWindow):
 			map_data_bundle = self._view_container.get_current_map_data()
 
 			# Validate-and-retry loop: pathfind, simulate, block failures, repeat
-			MAX_ATTEMPTS = 15
+			MAX_ATTEMPTS = 3
 			site_path_xy: list[tuple[float, float]] = []
 			all_blocked: set[tuple[int, int]] = set()
 			overall_feasible = False
+			self._view_container.clear_failure_point()
 
 			for attempt in range(MAX_ATTEMPTS):
 				# --- Pathfind all segments ---
@@ -223,18 +224,25 @@ class Window(QMainWindow):
 				if feasible:
 					overall_feasible = True
 					logger.info(f"Autopath: path validated (attempt {attempt + 1})")
+					self._view_container.clear_failure_point()
 					break
 
 				# --- Block cells on this path and retry ---
+				fx = stats.get("failure_x")
+				fy = stats.get("failure_y")
+				if fx is not None and fy is not None:
+					self._view_container.set_failure_point(float(fx), float(fy))
 				meta = self._view_container._current_meta
 				if meta and "transform" in meta:
 					inv = ~meta["transform"]
 					for x, y in site_path_xy:
 						c, r = inv * (float(x), float(y))
-						all_blocked.add((int(round(r)), int(round(c))))
+						all_blocked.add((int(r), int(c)))
 				logger.info(f"Autopath: attempt {attempt + 1} infeasible, retrying with {len(all_blocked)} cells blocked")
 
 			if not overall_feasible:
+				# Show the last attempted path so the failure point is visible
+				self._view_container.set_autopath(site_path_xy)
 				QMessageBox.warning(
 					self, "Autopath",
 					"No traversable path found after multiple attempts.\n"
@@ -242,7 +250,7 @@ class Window(QMainWindow):
 					"The rover cannot handle this terrain with the current settings.\n"
 					"Try a different route or adjust the rover's friction coefficient."
 				)
-				self._sidebar.set_autopath_waypoints(None)
+				self._sidebar.set_autopath_waypoints(site_path_xy)
 				return
 
 		except Exception as exc:
@@ -328,6 +336,16 @@ class Window(QMainWindow):
 			self._last_autopath_points = None
 
 		self._results_panel.set_stats(manual_stats, auto_stats)
+
+		# Mark failure point on the manual path if traversal failed
+		manual_feasible = float(manual_stats.get("traverse_feasible", 1.0)) >= 0.5
+		if not manual_feasible:
+			fx = manual_stats.get("failure_x")
+			fy = manual_stats.get("failure_y")
+			if fx is not None and fy is not None:
+				self._view_container.set_sim_failure_point(float(fx), float(fy))
+		else:
+			self._view_container.clear_sim_failure_point()
 
 		def _feasible_warning(stats: dict[str, float] | None, label: str) -> str | None:
 			if stats is None:

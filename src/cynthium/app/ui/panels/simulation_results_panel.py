@@ -162,6 +162,7 @@ class SimulationResultsPanel(QWidget):
 				f"Traverse failed (dynamic model). "
 				f"Manual path: required \u03bc={req_mu_manual:.3f}, "
 				f"Auto path: required \u03bc={req_mu_auto:.3f}."
+				f"Failure point marked in red."
 			)
 
 		self._status.setText(status)

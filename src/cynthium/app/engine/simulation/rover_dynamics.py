@@ -137,4 +137,6 @@ def compute_traversal_dynamics(
 		"required_climb_slope_deg": float(
 			np.degrees(np.arctan(required_mu_dynamic))
 		),
+		"failure_x": physics.get("failure_x"),
+		"failure_y": physics.get("failure_y"),
 	}

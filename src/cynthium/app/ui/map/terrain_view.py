@@ -59,6 +59,8 @@ class TerrainView(QtInteractor):
 		self._waypoint_actors = []
 		self._path_actor = None
 		self._autopath_actor = None
+		self._failure_actor = None
+		self._sim_failure_actor = None
 
 	def resizeEvent(self, event):
 		super().resizeEvent(event)
@@ -212,7 +214,7 @@ class TerrainView(QtInteractor):
 			sphere.SetRadius(50)
 			sphere.Update()
 
-			actor = self.add_mesh(sphere.GetOutput(), color="red", label="Waypoint")
+			actor = self.add_mesh(sphere.GetOutput(), color="lime", label="Waypoint")
 			logger.info(f"Added sphere: {actor}")
 
 			self._waypoint_points.append(point)
@@ -290,6 +292,42 @@ class TerrainView(QtInteractor):
 			line_width=4,
 			label="Autopath",
 		)
+
+	def set_failure_point(self, x: float, y: float):
+		if self._failure_actor is not None:
+			self.remove_actor(self._failure_actor)
+		pt = self._sample_surface_point(x, y, PATH_ELEVATION_OFFSET_METERS)
+		if pt is None:
+			self._failure_actor = None
+			return
+		sphere = vtk.vtkSphereSource()
+		sphere.SetCenter(pt)
+		sphere.SetRadius(50)
+		sphere.Update()
+		self._failure_actor = self.add_mesh(sphere.GetOutput(), color="red", label="Failure")
+
+	def set_sim_failure_point(self, x: float, y: float):
+		if self._sim_failure_actor is not None:
+			self.remove_actor(self._sim_failure_actor)
+		pt = self._sample_surface_point(x, y, PATH_ELEVATION_OFFSET_METERS)
+		if pt is None:
+			self._sim_failure_actor = None
+			return
+		sphere = vtk.vtkSphereSource()
+		sphere.SetCenter(pt)
+		sphere.SetRadius(50)
+		sphere.Update()
+		self._sim_failure_actor = self.add_mesh(sphere.GetOutput(), color="red", label="Sim Failure")
+
+	def clear_failure_point(self):
+		if self._failure_actor is not None:
+			self.remove_actor(self._failure_actor)
+			self._failure_actor = None
+
+	def clear_sim_failure_point(self):
+		if self._sim_failure_actor is not None:
+			self.remove_actor(self._sim_failure_actor)
+			self._sim_failure_actor = None
 
 	def _update_path(self):
 		"""
