@@ -86,9 +86,12 @@ Each layer is a pre-computed raster stored alongside the elevation data.
 **************
 
 #. Click on the 2D map to place a **start point** (green marker).
-#. Click again to place a **goal point** (red marker).
+#. Click again to place a **goal point** (green marker).
 #. Click *Autopath* to find the optimal route.
-#. The optimal path is overlaid on the map as a coloured polyline.
+#. The optimal path is overlaid on the map as a blue polyline.
+   If the path fails physics validation, the last attempted route
+   is shown in blue with a **red marker** at the point where the
+   rover got stuck.
 
 **Pathfinding algorithm**: A\* (default) or Dijkstra (see :doc:`algorithms`).
 The algorithm minimises a weighted cost function that blends four terrain
@@ -163,19 +166,25 @@ settings:
 4. Configure the Rover
 **********************
 
-Open the rover settings panel in the sidebar and adjust:
+Select a rover preset from the dropdown (Curiosity, Perseverance, or
+Apollo LRV), or customise the parameters manually:
 
-+------------------------+----------+------------------------------------+
-| Parameter              | Default  | Description                        |
-+========================+==========+====================================+
-| Mass                   | 150 kg   | Rover mass (affects normal force)  |
-+------------------------+----------+------------------------------------+
-| Power                  | 0.5 hp   | Motor power (max throttle)         |
-+------------------------+----------+------------------------------------+
-| Wheel Friction         | 0.5      | Traction coefficient :math:`\mu`   |
-+------------------------+----------+------------------------------------+
-| Rolling Resistance     | 0.1      | Regolith rolling resistance        |
-+------------------------+----------+------------------------------------+
++------------------------+--------------+------------------------------------+
+| Parameter              | Curiosity    | Description                        |
++========================+==============+====================================+
+| Mass                   | 899 kg       | Rover mass (affects normal force)  |
++------------------------+--------------+------------------------------------+
+| Power                  | 0.13 hp      | Motor power (max throttle)         |
++------------------------+--------------+------------------------------------+
+| Wheel Friction         | 0.5          | Traction coefficient :math:`\mu`   |
++------------------------+--------------+------------------------------------+
+| Rolling Resistance     | 0.02         | Regolith rolling resistance        |
++------------------------+--------------+------------------------------------+
+
+The **Curiosity** preset (899 kg, 0.13 hp, :math:`\mu`=0.5, Crr=0.02) is
+selected by default.  **Perseverance** (1025 kg, 0.14 hp, :math:`\mu`=0.5,
+Crr=0.02) and **Apollo LRV** (210 kg, 1 hp, :math:`\mu`=0.6, Crr=0.021)
+are also available.
 
 These map directly to the physics model described under :doc:`algorithms`.
 
@@ -203,6 +212,11 @@ The simulation steps are:
 * Solar energy received (J/m²) and average illumination (W/m²)
 * **Feasible?**: whether the rover could complete the traverse without
   stopping (i.e. kinetic energy never reached zero).
+
+If the rover gets stuck, a **red marker** appears on both the 2D map
+and 3D terrain view at the exact location where it stalled.  The manual
+path and autopath each have their own marker, so both failure points
+are visible simultaneously.
 
 If the rover gets stuck, the simulation also reports the **required wheel
 friction coefficient** that *would* make the traverse feasible (useful
@@ -237,8 +251,14 @@ Troubleshooting
 
 **Rover gets stuck on a seemingly gentle slope**
   The friction coefficient :math:`\mu` determines max climbable slope via
-  :math:`\theta_{\max} = \arctan(\mu)`. Increase :math:`\mu` or reduce
-  the rover mass.
+  :math:`\theta_{\max} = \arctan(\mu - C_{rr})`. Increase :math:`\mu` or reduce
+  the rover mass.  A red marker on the map shows exactly where the
+  rover stalled.
+
+**Autopath finds a path but it fails validation**
+  The autopath retries with blocked cells up to 3 times, re-routing
+  around the failed segments.  If all attempts fail, the last attempted
+  route is shown in blue with a red failure marker.
 
 **Data files not found**
   Cynthium will attempt to download missing files via ``pooch`` on first
