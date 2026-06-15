@@ -37,6 +37,11 @@ The application is organised into several subpackages under `cynthium.app`:
 | `io`            | Data reading (GeoTIFF) and export (CSV).                        |
 | `utils`         | Logging and general utilities.                                  |
 
+> **Note**: Cynthium is still in beta. Things may break, change, or be
+> missing. If something doesn't work or you have an idea, open an issue at
+> [github.com/osh3276/cynthium/issues](https://github.com/osh3276/cynthium/issues)
+> and describe what you ran into.
+
 ## Installation
 
 ### Prerequisites
