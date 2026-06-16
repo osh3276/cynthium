@@ -126,7 +126,7 @@ LUNAR_REGOLITH_FRICTION = (
 
 # coordinates not finalized
 
-SUF = "_5mpp_surf"
+SUF = "_20mpp_surf"
 SITE_PRESET_PATHS = {
 	"Haworth": resolve_data_file_path(DATA_DIR / f"Haworth{SUF}.tif"),
 	"Shoemaker": resolve_data_file_path(DATA_DIR / f"Shoemaker{SUF}.tif"),

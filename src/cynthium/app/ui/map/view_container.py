@@ -87,17 +87,8 @@ class ViewContainer(QWidget):
 		"""
 		path = str(ensure_data_file_path(Path(path)))
 
-		# Derive the 20 m/px tile path from the 5 m/px preset path.
-		p = Path(path)
-		stem = p.stem
-		if stem.endswith("_5mpp_surf"):
-			stem_20 = stem.replace("_5mpp_surf", "_20mpp_surf")
-		else:
-			stem_20 = stem + "_20mpp_surf"
-		path_20 = str(p.with_name(f"{stem_20}{p.suffix}"))
-
-		# Resolve through the data registry so pooch can download it if missing.
-		path_20 = str(ensure_data_file_path(Path(path_20)))
+		# The preset path already points to the 20 m/px tile.
+		path_20 = path
 
 		data, meta = load_geotif(path_20)
 
