@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.2.1b (2026-06-16)
+
+### Bug fixes
+- **Slope map not loading** — site tile suffix was ``_5mpp_surf`` but all
+  elevation tiles were renamed to ``_20mpp_surf`` in v1.2.0b.  ``SUF`` updated
+  to match, fixing slope raster lookup.
+
+### Other
+- Change in versioning format; beta versions will no longer be numbered, and will just be tagged "b".
+  Displayed as "b0" in PyPI.
+
 ## v1.2.0b1 (2026-06-15)
 
 ### Major changes
