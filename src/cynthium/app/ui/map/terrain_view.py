@@ -234,6 +234,13 @@ class TerrainView(QtInteractor):
 			self._waypoint_points.pop(index)
 			self._update_path()
 
+	def clear_all_waypoints(self):
+		for actor in self._waypoint_actors:
+			self.remove_actor(actor)
+		self._waypoint_actors.clear()
+		self._waypoint_points.clear()
+		self._update_path()
+
 	def get_waypoint_3d_points(self):
 		"""
 		Returns the list of 3D points for all waypoints.

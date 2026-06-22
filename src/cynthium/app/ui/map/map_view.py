@@ -241,6 +241,10 @@ class MapView(QWidget):
 			self._waypoint_list.pop(index)
 			self._update_graph()
 
+	def clear_all_waypoints(self):
+		self._waypoint_list.clear()
+		self._update_graph()
+
 	def _update_graph(self):
 		"""
 		Performs update graph.

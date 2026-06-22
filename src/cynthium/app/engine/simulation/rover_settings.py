@@ -56,6 +56,12 @@ ROVER_PRESETS: dict[str, RoverSettings] = {
 		wheel_friction_coeff=0.5,
 		rolling_resistance_coeff=0.02,
 	),
+	"Artemis SR": RoverSettings(
+		mass_kg=530.0,
+		power_hp=0.72,
+		wheel_friction_coeff=0.7,
+		rolling_resistance_coeff=0.15,
+	),
 }
 
 

@@ -115,8 +115,16 @@ class Window(QMainWindow):
 			self._sidebar.add_waypoint_direct
 		)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
+		self._sidebar.waypoints_cleared.connect(self._on_clear_waypoints)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
 		self._results_panel.simulation_started.connect(self._on_start_simulation)
+
+	def _on_clear_waypoints(self):
+		self._view_container.clear_all_waypoints()
+		self._view_container.set_autopath([])
+		self._sidebar.set_autopath_waypoints(None)
+		self._view_container.clear_failure_point()
+		self._view_container.clear_sim_failure_point()
 
 	def _on_autopath_requested(self, payload: dict):
 		if self._current_path is None:

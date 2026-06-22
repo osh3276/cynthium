@@ -263,6 +263,10 @@ class ViewContainer(QWidget):
 		self.raster_view.remove_waypoint(index)
 		self.terrain_view.remove_waypoint(index)
 
+	def clear_all_waypoints(self):
+		self.raster_view.clear_all_waypoints()
+		self.terrain_view.clear_all_waypoints()
+
 	def get_waypoint_3d_points(self):
 		"""
 		Returns the waypoint 3d points.
