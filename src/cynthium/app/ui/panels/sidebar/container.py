@@ -21,6 +21,7 @@ class AppSidebar(QWidget):
 	map_generation_requested = Signal(str, str, str)
 	waypoint_added = Signal(float, float)
 	waypoint_removed = Signal(int)
+	waypoints_cleared = Signal()
 	autopath_requested = Signal(object)
 
 	def __init__(self):
@@ -65,6 +66,7 @@ class AppSidebar(QWidget):
 		self._planning_panel = PlanningPanel()
 		self._planning_panel.waypoint_added.connect(self.waypoint_added.emit)
 		self._planning_panel.waypoint_removed.connect(self.waypoint_removed.emit)
+		self._planning_panel.waypoints_cleared.connect(self.waypoints_cleared.emit)
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
 		scroll_layout.addWidget(self._planning_panel)
 		scroll_layout.addWidget(separator)

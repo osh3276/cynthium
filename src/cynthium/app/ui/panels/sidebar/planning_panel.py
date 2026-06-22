@@ -30,6 +30,7 @@ def _on_map_type_changed(map_type: str):
 class PlanningPanel(QWidget):
 	waypoint_added = Signal(float, float)
 	waypoint_removed = Signal(int)
+	waypoints_cleared = Signal()
 	autopath_requested = Signal(object)
 
 	def __init__(self):
@@ -75,6 +76,10 @@ class PlanningPanel(QWidget):
 		delete_button.clicked.connect(self._on_delete_waypoint)
 		delete_layout.addWidget(delete_button)
 		layout.addLayout(delete_layout)
+
+		clear_button = QPushButton("Clear path")
+		clear_button.clicked.connect(self._on_clear_path)
+		layout.addWidget(clear_button)
 
 		# Autopath
 		autopath_button = QPushButton("Autopath")
@@ -198,6 +203,14 @@ class PlanningPanel(QWidget):
 			self._refresh_waypoints_display()
 		else:
 			logger.error(f"Waypoint index {idx + 1} out of range")
+
+	def _on_clear_path(self):
+		if not self._waypoint_data:
+			return
+		self._waypoint_data.clear()
+		self.autopath_text.clear()
+		self.waypoints_text.clear()
+		self.waypoints_cleared.emit()
 
 	def _on_autopath(self):
 		if len(self._waypoint_data) < 2:
