@@ -1,7 +1,11 @@
 import numpy as np
 
 from cynthium.app.config import LUNAR_GRAVITY
-from cynthium.app.engine.simulation.path_sampling import sample_path_elevations
+from cynthium.app.engine.simulation.path_sampling import (
+	BICUBIC_RESOLUTION_M,
+	get_pixel_resolution_m,
+	sample_path_elevations,
+)
 from cynthium.app.engine.simulation.rover_physics import simulate_rover_over_path
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 
@@ -63,6 +67,7 @@ def compute_traversal_dynamics(
 	illumination_map: np.ndarray | None = None,
 	illumination_transform=None,
 	rover: RoverSettings,
+	use_bicubic: bool = False,
 ) -> dict[str, float]:
 	"""Physics-style rover traversal simulation.
 
@@ -89,9 +94,14 @@ def compute_traversal_dynamics(
 		}
 
 	if elevation_map is not None and transform is not None:
-		pts = sample_path_elevations(waypoints_xyz, elevation_map, transform)
+		pts = sample_path_elevations(waypoints_xyz, elevation_map, transform, use_bicubic=use_bicubic)
+		if use_bicubic:
+			resolution_m = float(BICUBIC_RESOLUTION_M)
+		else:
+			resolution_m = float(get_pixel_resolution_m(transform))
 	else:
 		pts = waypoints_xyz.astype(np.float64, copy=False)
+		resolution_m = 0.0
 
 	diffs = np.diff(pts, axis=0)
 	dist = np.linalg.norm(diffs, axis=1).astype(np.float64)
@@ -139,4 +149,5 @@ def compute_traversal_dynamics(
 		),
 		"failure_x": physics.get("failure_x"),
 		"failure_y": physics.get("failure_y"),
+		"simulation_resolution_m": float(resolution_m),
 	}

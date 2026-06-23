@@ -166,7 +166,7 @@ class Window(QMainWindow):
 			map_data_bundle = self._view_container.get_current_map_data()
 
 			# Validate-and-retry loop: pathfind, simulate, block failures, repeat
-			MAX_ATTEMPTS = 3
+			MAX_ATTEMPTS = 20
 			site_path_xy: list[tuple[float, float]] = []
 			all_blocked: set[tuple[int, int]] = set()
 			overall_feasible = False
@@ -190,6 +190,7 @@ class Window(QMainWindow):
 						algorithm=str(payload.get("algorithm", "A*")),
 						max_slope_deg=float(max_slope_deg),
 						blocked_cells=all_blocked if all_blocked else None,
+						use_bicubic=bool(payload.get("use_bicubic", False)),
 					)
 					if not seg or len(seg) < 2:
 						pathfind_failed = True
@@ -224,6 +225,7 @@ class Window(QMainWindow):
 						site_path_xy,
 						map_data_bundle,
 						rover=rover,
+						use_bicubic=bool(payload.get("use_bicubic", False)),
 					)
 					feasible = float(stats.get("traverse_feasible", 0.0)) >= 0.5
 				except Exception:
@@ -250,6 +252,7 @@ class Window(QMainWindow):
 
 			if not overall_feasible:
 				# Show the last attempted path so the failure point is visible
+				logger.info(f"Rendering failed path: {len(site_path_xy)} nodes")
 				self._view_container.set_autopath(site_path_xy)
 				QMessageBox.warning(
 					self, "Autopath",
@@ -326,6 +329,7 @@ class Window(QMainWindow):
 			manual_points,
 			tuple(map_data_bundle),
 			rover=rover,
+			use_bicubic=self._sidebar.get_bicubic_enabled(),
 		)
 		self._last_simulation_stats = manual_stats
 		self._last_simulation_points = manual_points_array
@@ -335,6 +339,7 @@ class Window(QMainWindow):
 				auto_points,
 				tuple(map_data_bundle),
 				rover=rover,
+				use_bicubic=self._sidebar.get_bicubic_enabled(),
 			)
 			self._last_autopath_stats = auto_stats
 			self._last_autopath_points = auto_points_array
