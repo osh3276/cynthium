@@ -65,9 +65,9 @@ where:
   (0 = low flux, 1 = high flux).
 * :math:`T_{\text{norm}}` — normalised temperature
   (0 = cold, 1 = hot).
-* :math:`w_{\text{sun}}` — sun weight (default 0.5).
-* :math:`w_{\text{flux}}` — meteor flux weight (default 0.2).
-* :math:`w_{\text{temp}}` — temperature weight (default 0.2).
+* :math:`w_{\text{sun}}` — sun weight (default 10.0).
+* :math:`w_{\text{flux}}` — meteor flux weight (default 5.0).
+* :math:`w_{\text{temp}}` — temperature weight (default 5.0).
 
 Grade penalty
 -------------
@@ -85,7 +85,7 @@ The grade penalty smoothly increases with steepness, and the simulation
 retry loop (see below) validates true physical feasibility.
 
 * :math:`\theta_{\max}` — maximum climbable slope (default 20°).
-* :math:`w_{\text{slope}}` — slope weight (default 1.0).
+* :math:`w_{\text{slope}}` — slope weight (default 100.0).
 * :math:`p` — grade power exponent.
 
 Cost strategy (minimax vs weighted cost)
@@ -156,6 +156,45 @@ waypoints and *resolution* is the GeoTIFF pixel size (e.g. 20 m).
 At each sample point, the elevation is read from the DEM via the affine
 transform, producing an :math:`(x, y, z)` polyline that follows the
 terrain surface pixel-by-pixel.
+
+Bicubic interpolation
+---------------------
+
+When the *Use bicubic interpolation* checkbox is enabled in the UI,
+two things change:
+
+**Pathfinding grid upsampling.**  The elevation raster and all cost/
+penalty rasters are upsampled 4× using
+:func:`scipy.ndimage.zoom` with cubic spline interpolation (``order=3``):
+
+.. math::
+
+   \text{elev}_{\text{fine}}[i, j] = f_{\text{cubic}}(\text{elev}, i/4, j/4)
+
+The search operates on a grid with an effective resolution of
+**5 m/px** (instead of the native 20 m/px), so A\*/Dijkstra can
+route around small terrain features that would fall between or
+along the edges of coarser cells.  The 4× upsampling ratio was
+chosen because 20 / 4 = 5 m matches the resolution of the legacy
+5 m/px tiles, giving comparable granularity.
+
+**Simulation elevation sampling.**  Path elevations are sampled at
+an effective 5 m step size using
+:func:`scipy.ndimage.map_coordinates` with bicubic interpolation
+(``order=3``), instead of nearest-neighbour snapping:
+
+.. math::
+
+   z = \text{map\_coordinates}(\text{elev}, [r, c], \text{order}=3)
+
+where :math:`(r, c)` are sub-pixel floating-point coordinates.  The
+bicubic kernel produces a :math:`C^1`-continuous elevation profile,
+which in turn yields smoother grade angles and avoids the
+quantisation noise that nearest-neighbour sampling can introduce
+on gentle slopes.
+
+Both modes share the same steady-state physics; only the spatial
+sampling changes.
 
 See :func:`cynthium.app.engine.simulation.path_sampling.sample_path_elevations`.
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.2.2b (2026-06-22)
+
+### New features
+
+- **Artemis SR rover preset** — added with mass=530 kg, power=0.72 hp,
+  wheel friction μ=0.7, rolling resistance Crr=0.15.
+- **"Clear path" button** — a single button clears all waypoints, autopath
+  results, and failure markers from both the 2D map and 3D terrain view.
+
+### Data & scripts
+
+- **All tile entries migrated to 20 m/px** — the data registry now only lists
+  `_20mpp_surf` elevation tiles. Remaining `_5mpp_surf` references removed.
+- **SPICE kernel registry reorganized** — kernel files (`de430.bsp`,
+  `moon_de440_250416.tf`, etc.) moved to a dedicated section in the registry.
+
 ## v1.2.1b (2026-06-16)
 
 ### Bug fixes

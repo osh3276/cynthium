@@ -20,12 +20,7 @@ Pathfinding
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: cynthium.app.engine.pathfinding.theta_star
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: cynthium.app.engine.pathfinding.dijkstra
+.. automodule:: cynthium.app.engine.pathfinding.astar
    :members:
    :undoc-members:
    :show-inheritance:

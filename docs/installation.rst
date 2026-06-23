@@ -49,6 +49,9 @@ Key Dependencies
 +------------------+----------------------------------------------+
 | ``spiceypy``     | NASA SPICE toolkit (ephemeris, frames)       |
 +------------------+----------------------------------------------+
+| ``scipy``        | Bicubic interpolation for path sampling and   |
+|                  | grid upsampling in pathfinding               |
++------------------+----------------------------------------------+
 | ``matplotlib``   | Colormaps and supplementary plotting         |
 +------------------+----------------------------------------------+
 
