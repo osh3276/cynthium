@@ -191,7 +191,7 @@ def get_slope_path(elevation_path: str | Path) -> Path:
 
 
 # --- Pathfinding cost weights ---
-ALPHA_SLOPE = 1.0  # weight for slope cost
-BETA_SHADOW = 0.5  # weight for shadow/illumination cost
-METEOR_FLUX_WEIGHT = 0.2  # weight for meteor flux cost (low flux preferred)
-TEMPERATURE_WEIGHT = 0.2  # weight for temperature cost (high temp preferred)
+ALPHA_SLOPE = 100.0  # weight for slope cost
+BETA_SHADOW = 10.0  # weight for shadow/illumination cost
+METEOR_FLUX_WEIGHT = 5.0  # weight for meteor flux cost (low flux preferred)
+TEMPERATURE_WEIGHT = 5.0  # weight for temperature cost (high temp preferred)

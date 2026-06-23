@@ -81,7 +81,7 @@ def a_star(
 	min_slope_deg: float = 0.0,
 	max_slope_deg: float = 20.0,
 	slope_weight: float = 1.0,
-	grade_power: float = 1.0,
+	grade_power: float = 2.0,
 	max_expanded: int = 500000,
 	blocked_pixels: set[tuple[int, int]] | None = None,
 	dijkstra: bool = False,
