@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QSplitter, QWidget
+from scipy.ndimage import zoom
 
 from cynthium.app.config import ensure_data_file_path
 from cynthium.app.engine.pathfinding.astar import a_star
@@ -322,6 +323,7 @@ class ViewContainer(QWidget):
 		pad_cells: int = 200,
 		max_expanded: int = 500000,
 		blocked_cells: set[tuple[int, int]] | None = None,
+		use_bicubic: bool = False,
 	) -> list[tuple[float, float]] | None:
 		if self._current_data is None or self._current_meta is None:
 			return None
@@ -354,12 +356,9 @@ class ViewContainer(QWidget):
 
 		# Pathfind at native resolution so slope checks are accurate.
 		stride = 1
+		upsample = 1
 
 		elev = self._current_data[r0:r1, c0:c1]
-
-		# Scale expansion limit to the window size so the search isn't
-		# cut off mid-way on large grids (e.g. Site20v2 at 1.3M cells).
-		max_expanded = max(int(max_expanded), int(elev.size))
 
 		# Always try daily illumination for path cost (more accurate)
 		illum_data = self._current_illumination_data
@@ -523,6 +522,32 @@ class ViewContainer(QWidget):
 
 		traversable = np.isfinite(elev)
 
+		# --- Bicubic upsampling for A* grid ---
+		if use_bicubic:
+			upsample = 4
+			elev = zoom(elev, upsample, order=3, mode="nearest")
+			cell_cost = np.repeat(np.repeat(cell_cost, upsample, axis=0), upsample, axis=1)
+			traversable = np.repeat(np.repeat(traversable, upsample, axis=0), upsample, axis=1)
+			# Scale blocked cells to upsampled grid and apply directly
+			if blocked_cells:
+				for rr, cc in blocked_cells:
+					br0 = (rr - r0) * upsample
+					bc0 = (cc - c0) * upsample
+					traversable[br0:br0 + upsample, bc0:bc0 + upsample] = False
+				blocked_cells = None
+			# Adjust start/goal to upsampled local coords
+			sr_u = (sr - r0) * upsample
+			sc_u = (sc - c0) * upsample
+			gr_u = (gr - r0) * upsample
+			gc_u = (gc - c0) * upsample
+			start_local = (sr_u, sc_u)
+			goal_local = (gr_u, gc_u)
+			res_x = float(abs(transform.a)) / upsample
+			res_y = float(abs(transform.e)) / upsample
+
+		# Scale expansion limit to the (possibly upsampled) grid size
+		max_expanded = max(int(max_expanded), int(elev.size))
+
 		# Block cells from previous failed simulation attempts
 		if blocked_cells:
 			for rr, cc in blocked_cells:
@@ -531,8 +556,9 @@ class ViewContainer(QWidget):
 				if 0 <= rr_local < traversable.shape[0] and 0 <= cc_local < traversable.shape[1]:
 					traversable[rr_local, cc_local] = False
 
-		start_local = (int((sr - r0) // stride), int((sc - c0) // stride))
-		goal_local = (int((gr - r0) // stride), int((gc - c0) // stride))
+		if not use_bicubic:
+			start_local = (int((sr - r0) // stride), int((sc - c0) // stride))
+			goal_local = (int((gr - r0) // stride), int((gc - c0) // stride))
 
 		# Always allow start/goal cells.
 		if 0 <= start_local[0] < traversable.shape[0] and 0 <= start_local[1] < traversable.shape[1]:
@@ -544,8 +570,9 @@ class ViewContainer(QWidget):
 			if not np.isfinite(cell_cost[goal_local[0], goal_local[1]]):
 				cell_cost[goal_local[0], goal_local[1]] = 1.0
 
-		res_x = float(abs(transform.a)) * float(stride)
-		res_y = float(abs(transform.e)) * float(stride)
+		if not use_bicubic:
+			res_x = float(abs(transform.a)) * float(stride)
+			res_y = float(abs(transform.e)) * float(stride)
 
 		use_dijkstra = str(algorithm).strip().lower() == "dijkstra"
 		result = a_star(
@@ -571,8 +598,12 @@ class ViewContainer(QWidget):
 		d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
 		xy: list[tuple[float, float]] = []
 		for r, c in result.path_rc:
-			grr = float(r0 + (int(r) * int(stride))) + (0.5 * float(stride))
-			gcc = float(c0 + (int(c) * int(stride))) + (0.5 * float(stride))
+			if use_bicubic:
+				grr = r0 + (r + 0.5) / upsample
+				gcc = c0 + (c + 0.5) / upsample
+			else:
+				grr = float(r0 + (int(r) * int(stride))) + (0.5 * float(stride))
+				gcc = float(c0 + (int(c) * int(stride))) + (0.5 * float(stride))
 			x = (a * gcc) + (b * grr) + c_
 			y = (d * gcc) + (e * grr) + f_
 			xy.append((float(x), float(y)))
@@ -580,6 +611,13 @@ class ViewContainer(QWidget):
 		if xy:
 			xy[0] = (float(start_xy[0]), float(start_xy[1]))
 			xy[-1] = (float(goal_xy[0]), float(goal_xy[1]))
+
+		if use_bicubic and xy:
+			logger.info(
+				f"Bicubic path: first=({xy[0][0]:.1f}, {xy[0][1]:.1f}), "
+				f"last=({xy[-1][0]:.1f}, {xy[-1][1]:.1f}), "
+				f"len={len(xy)}"
+			)
 
 		logger.info(
 			f"Autopath {alg_name}: nodes={len(result.path_rc)} expanded={result.expanded} cost={result.total_cost:.2f}"

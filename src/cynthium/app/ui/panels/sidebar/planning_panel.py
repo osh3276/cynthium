@@ -1,6 +1,7 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
 	QApplication,
+	QCheckBox,
 	QComboBox,
 	QHBoxLayout,
 	QLabel,
@@ -148,6 +149,13 @@ class PlanningPanel(QWidget):
 		cfg5.addWidget(self.path_mode_combo)
 		layout.addLayout(cfg5)
 
+		self.bicubic_checkbox = QCheckBox("Use bicubic interpolation (5 m/px)")
+		self.bicubic_checkbox.setToolTip(
+			"Sample simulation at 5 m resolution with bicubic elevation interpolation\n"
+			"for smoother grade profiles. Slower but more accurate."
+		)
+		layout.addWidget(self.bicubic_checkbox)
+
 		layout.addStretch(1)
 
 	def add_waypoint_direct(self, x: float, y: float):
@@ -243,6 +251,7 @@ class PlanningPanel(QWidget):
 			"algorithm": self.algorithm_combo.currentText(),
 			"cost_strategy": self.cost_strategy_combo.currentText(),
 			"path_mode": path_mode,
+			"use_bicubic": self.bicubic_checkbox.isChecked(),
 		}
 		self.autopath_text.setPlainText("Running autopath...")
 		QApplication.processEvents()
@@ -254,6 +263,9 @@ class PlanningPanel(QWidget):
 			return
 		for i, (x, y) in enumerate(points_xy):
 			self.autopath_text.append(f"({i + 1}). ({x:.2f}, {y:.2f})m")
+
+	def get_bicubic_enabled(self) -> bool:
+		return self.bicubic_checkbox.isChecked() if hasattr(self, "bicubic_checkbox") else False
 
 	def _refresh_waypoints_display(self):
 		self.waypoints_text.clear()

@@ -1,4 +1,5 @@
 
+scipy
 pyside6
 rasterio
 numpy

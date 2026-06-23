@@ -10,6 +10,7 @@ def calculate_simulation_stats(
 	map_data_bundle: tuple,
 	*,
 	rover: RoverSettings | None = None,
+	use_bicubic: bool = False,
 ) -> tuple[dict[str, float], np.ndarray]:
 	"""
 	Calculates the simulation stats.
@@ -65,6 +66,7 @@ def calculate_simulation_stats(
 				illumination_map=illumination_data,
 				illumination_transform=illumination_transform,
 				rover=rover,
+				use_bicubic=use_bicubic,
 			)
 		)
 
@@ -97,5 +99,6 @@ def format_simulation_stats(stats: dict[str, float]) -> str:
 		f"Traversal Time: {stats.get('traversal_time_s', 0.0):.2f} s\n"
 		f"Solar Energy (per m²): {stats.get('solar_energy_per_m2_j', 0.0):.2f} J/m²\n"
 		f"Avg Solar Illum (time-weighted): {stats.get('avg_solar_illumination_w_per_m2', 0.0):.2f} W/m²\n"
+		f"Simulation Step: {stats.get('simulation_resolution_m', 0.0):.1f} m\n"
 		f"Max Climbable Slope: {stats.get('max_climbable_slope_deg', 0.0):.2f}°"
 	)
