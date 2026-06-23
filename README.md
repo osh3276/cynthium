@@ -91,9 +91,12 @@ centre, and a **menu bar** at the top.
 3. **Plan a Path** — Click on the 2D map to place start and goal points, then
    click *Autopath*. The optimal route is overlaid on the map. You can tune
    pathfinding with weights for slope, sun, meteor flux, and temperature, and
-   choose between A\* and Dijkstra.
-4. **Configure the Rover** — Adjust mass, power, wheel friction, and rolling
-   resistance in the rover settings panel.
+   choose between A\* and Dijkstra, two cost strategies (Weighted cost / Minimax),
+   and two path modes (Waypoint-to-waypoint / Start-to-finish). Use *Clear path*
+   to remove all waypoints, autopath results, and failure markers at once.
+4. **Configure the Rover** — Select a preset (Curiosity, Perseverance,
+   Apollo LRV, or Artemis SR) or adjust mass, power, wheel friction, and rolling
+   resistance manually in the rover settings panel.
 5. **Run a Simulation** — Hit *Run Simulation* to execute a physics-based 1D
    rover traverse. Results include distance, velocity, traversal time, solar
    energy received, and feasibility.

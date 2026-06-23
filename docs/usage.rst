@@ -27,7 +27,7 @@ Simplified pipeline:
 #. Load a site raster
 #. Select a map overlay layer
 #. Place start and goal points on the map
-#. Configure rover parameters
+#. Configure rover parameters (preset or custom)
 #. Run pathfinding
 #. Run physics simulation
 #. Inspect the 3D terrain view
@@ -92,6 +92,9 @@ Each layer is a pre-computed raster stored alongside the elevation data.
    If the path fails physics validation, the last attempted route
    is shown in blue with a **red marker** at the point where the
    rover got stuck.
+#. Click *Clear path* at any time to remove all waypoints, autopath
+   results, and failure markers from both the 2D map and 3D terrain
+   view at once.
 
 **Pathfinding algorithm**: A\* (default) or Dijkstra (see :doc:`algorithms`).
 The algorithm minimises a weighted cost function that blends four terrain
@@ -122,19 +125,19 @@ settings:
      - Default
      - Description
    * - ``Slope weight``
-     - ``1.0``
+     - ``100.0``
      - How strongly steep uphill terrain is penalised.
        Higher values force the path to avoid climbs.
    * - ``Sun weight``
-     - ``0.5``
+     - ``10.0``
      - How strongly shadowed cells are penalised.
        Higher values bias the path toward sunlit areas.
    * - ``Meteor flux weight``
-     - ``0.2``
+     - ``5.0``
      - How strongly high meteor flux is penalised.
        Higher values bias the path toward low-flux areas.
    * - ``Temp weight``
-     - ``0.2``
+     - ``5.0``
      - How strongly cold cells are penalised.
        Higher values bias the path toward warmer areas.
    * - ``Algorithm``
@@ -156,6 +159,37 @@ settings:
          cost.  The path will go far out of its way to avoid
          any extreme value.
 
+   * - ``Path mode``
+     - ``Waypoint to waypoint``
+     - How multiple waypoints are routed:
+
+       * **Waypoint to waypoint** — a separate path is planned
+         between each consecutive pair of waypoints.
+       * **Start to finish** — a single path is planned from the
+         first waypoint to the last, ignoring intermediate
+         waypoints as routing constraints.
+
+   * - ``Bicubic interp.``
+     - ``Off``
+     - When enabled, the pathfinding search grid and
+       simulation elevation sampling both operate at an
+       effective **5 m/px resolution** using bicubic
+       interpolation (smooth cubic spline), rather than the
+       native 20 m/px nearest-neighbour lookup.
+
+       **Pathfinding**: the elevation and cost rasters are
+       upsampled 4× via ``scipy.ndimage.zoom``, so A*/
+       Dijkstra can navigate around small terrain features
+       that would be missed at native resolution.
+
+       **Simulation**: path elevations are sampled at 5 m
+       spacing using ``map_coordinates(order=3)``, giving
+       smoother grade profiles and more accurate physics.
+
+       Ticked via the checkbox below the pathfinding config.
+       Enabling it makes both autopath and simulation slower
+       but more accurate.
+
 .. tip::
 
    **Minimax** is useful for mission-critical routes where
@@ -166,24 +200,25 @@ settings:
 4. Configure the Rover
 **********************
 
-Select a rover preset from the dropdown (Curiosity, Perseverance, or
-Apollo LRV), or customise the parameters manually:
+Select a rover preset from the dropdown (Curiosity, Perseverance,
+Apollo LRV, or Artemis SR), or customise the parameters manually:
 
-+------------------------+--------------+------------------------------------+
-| Parameter              | Curiosity    | Description                        |
-+========================+==============+====================================+
-| Mass                   | 899 kg       | Rover mass (affects normal force)  |
-+------------------------+--------------+------------------------------------+
-| Power                  | 0.13 hp      | Motor power (max throttle)         |
-+------------------------+--------------+------------------------------------+
-| Wheel Friction         | 0.5          | Traction coefficient :math:`\mu`   |
-+------------------------+--------------+------------------------------------+
-| Rolling Resistance     | 0.02         | Regolith rolling resistance        |
-+------------------------+--------------+------------------------------------+
++------------------------+--------------+----------------+------------+------------------------------------+
+| Parameter              | Curiosity    | Perseverance   | Artemis SR | Description                        |
++========================+==============+================+============+====================================+
+| Mass                   | 899 kg       | 1025 kg        | 530 kg     | Rover mass (affects normal force)  |
++------------------------+--------------+----------------+------------+------------------------------------+
+| Power                  | 0.13 hp      | 0.14 hp        | 0.72 hp    | Motor power (max throttle)         |
++------------------------+--------------+----------------+------------+------------------------------------+
+| Wheel Friction         | 0.5          | 0.5            | 0.7        | Traction coefficient :math:`\mu`   |
++------------------------+--------------+----------------+------------+------------------------------------+
+| Rolling Resistance     | 0.02         | 0.02           | 0.15       | Regolith rolling resistance        |
++------------------------+--------------+----------------+------------+------------------------------------+
 
-The **Curiosity** preset (899 kg, 0.13 hp, :math:`\mu`=0.5, Crr=0.02) is
-selected by default.  **Perseverance** (1025 kg, 0.14 hp, :math:`\mu`=0.5,
-Crr=0.02) and **Apollo LRV** (210 kg, 1 hp, :math:`\mu`=0.6, Crr=0.021)
+The **Curiosity** preset (899 kg, 0.13 hp, :math:`\mu`=0.5, Crr=0.02) is
+selected by default.  **Perseverance** (1025 kg, 0.14 hp, :math:`\mu`=0.5,
+Crr=0.02), **Apollo LRV** (210 kg, 1 hp, :math:`\mu`=0.6, Crr=0.021),
+and **Artemis SR** (530 kg, 0.72 hp, :math:`\mu`=0.7, Crr=0.15)
 are also available.
 
 These map directly to the physics model described under :doc:`algorithms`.
