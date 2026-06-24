@@ -18,6 +18,7 @@ dependencies=[
 	"pyqtgraph",
 	"matplotlib",
 	"pyproj",
+	"scipy",
 	"spiceypy",
 	"vtk",
 	"pyvista[colormaps]",
