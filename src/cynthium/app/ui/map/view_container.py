@@ -358,7 +358,11 @@ class ViewContainer(QWidget):
 		stride = 1
 		upsample = 1
 
-		elev = self._current_data[r0:r1, c0:c1]
+		elev: np.ndarray = self._current_data[r0:r1, c0:c1]
+		start_local: tuple[float, float] | None = None
+		goal_local: tuple[float, float] | None = None
+		res_x: float = float(abs(transform.a)) * float(stride)
+		res_y: float = float(abs(transform.e)) * float(stride)
 
 		# Always try daily illumination for path cost (more accurate)
 		illum_data = self._current_illumination_data
@@ -525,7 +529,7 @@ class ViewContainer(QWidget):
 		# --- Bicubic upsampling for A* grid ---
 		if use_bicubic:
 			upsample = 4
-			elev = zoom(elev, upsample, order=3, mode="nearest")
+			elev = np.asarray(zoom(elev, upsample, order=3, mode="nearest"))
 			cell_cost = np.repeat(np.repeat(cell_cost, upsample, axis=0), upsample, axis=1)
 			traversable = np.repeat(np.repeat(traversable, upsample, axis=0), upsample, axis=1)
 			# Scale blocked cells to upsampled grid and apply directly
@@ -540,8 +544,8 @@ class ViewContainer(QWidget):
 			sc_u = (sc - c0) * upsample
 			gr_u = (gr - r0) * upsample
 			gc_u = (gc - c0) * upsample
-			start_local = (sr_u, sc_u)
-			goal_local = (gr_u, gc_u)
+			start_local = (float(sr_u), float(sc_u))
+			goal_local = (float(gr_u), float(gc_u))
 			res_x = float(abs(transform.a)) / upsample
 			res_y = float(abs(transform.e)) / upsample
 
@@ -557,30 +561,33 @@ class ViewContainer(QWidget):
 					traversable[rr_local, cc_local] = False
 
 		if not use_bicubic:
-			start_local = (int((sr - r0) // stride), int((sc - c0) // stride))
-			goal_local = (int((gr - r0) // stride), int((gc - c0) // stride))
+			start_local = (float((sr - r0) // stride), float((sc - c0) // stride))
+			goal_local = (float((gr - r0) // stride), float((gc - c0) // stride))
 
 		# Always allow start/goal cells.
-		if 0 <= start_local[0] < traversable.shape[0] and 0 <= start_local[1] < traversable.shape[1]:
-			traversable[start_local[0], start_local[1]] = True
-			if not np.isfinite(cell_cost[start_local[0], start_local[1]]):
-				cell_cost[start_local[0], start_local[1]] = 1.0
-		if 0 <= goal_local[0] < traversable.shape[0] and 0 <= goal_local[1] < traversable.shape[1]:
-			traversable[goal_local[0], goal_local[1]] = True
-			if not np.isfinite(cell_cost[goal_local[0], goal_local[1]]):
-				cell_cost[goal_local[0], goal_local[1]] = 1.0
-
-		if not use_bicubic:
-			res_x = float(abs(transform.a)) * float(stride)
-			res_y = float(abs(transform.e)) * float(stride)
+		if start_local is not None:
+			sl0, sl1 = int(start_local[0]), int(start_local[1])
+			if 0 <= sl0 < traversable.shape[0] and 0 <= sl1 < traversable.shape[1]:
+				traversable[sl0, sl1] = True
+				if not np.isfinite(cell_cost[sl0, sl1]):
+					cell_cost[sl0, sl1] = 1.0
+		if goal_local is not None:
+			gl0, gl1 = int(goal_local[0]), int(goal_local[1])
+			if 0 <= gl0 < traversable.shape[0] and 0 <= gl1 < traversable.shape[1]:
+				traversable[gl0, gl1] = True
+				if not np.isfinite(cell_cost[gl0, gl1]):
+					cell_cost[gl0, gl1] = 1.0
 
 		use_dijkstra = str(algorithm).strip().lower() == "dijkstra"
+		if start_local is None or goal_local is None:
+			return None
+
 		result = a_star(
-			start_rc=start_local,
-			goal_rc=goal_local,
+			start_rc=(int(start_local[0]), int(start_local[1])),
+			goal_rc=(int(goal_local[0]), int(goal_local[1])),
 			traversable=traversable,
 			cell_cost=cell_cost,
-			elev=elev,
+			elev=np.asarray(elev),
 			res_x=res_x,
 			res_y=res_y,
 			min_slope_deg=float(min_slope_deg),

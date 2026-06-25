@@ -220,6 +220,7 @@ class Window(QMainWindow):
 				site_path_xy = overall
 
 				# --- Validate with simulation ---
+				stats: dict[str, float] = {}
 				try:
 					stats, _ = calculate_simulation_stats(
 						site_path_xy,

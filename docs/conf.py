@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 
-from cynthium import __version__
+from cynthium import __version__  # type: ignore[import-unresolved]
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
