@@ -1,5 +1,55 @@
 # Changelog
 
+## v1.3.2b (2026-06-25)
+
+### Major changes
+
+- **Bicubic interpolation mode** — new checkbox in the planning panel that
+  enables smoother terrain sampling for both pathfinding and simulation:
+
+  - **Pathfinding**: elevation and cost rasters are upsampled 4× via
+    ``scipy.ndimage.zoom`` (cubic spline), giving an effective 5 m/px
+    search grid. A\*/Dijkstra can route around small features missed at
+    20 m/px native resolution.
+  - **Simulation**: path elevations sampled at 5m spacing using
+    ``map_coordinates(order=3)`` instead of nearest-neighbour, producing
+    smoother grade profiles and more accurate physics.
+
+- **Pathfinding cost weights retuned** — ``ALPHA_SLOPE`` raised from 1.0
+  to 100.0, ``BETA_SHADOW`` from 0.5 to 10.0, ``METEOR_FLUX_WEIGHT`` and
+  ``TEMPERATURE_WEIGHT`` from 0.2 to 5.0 each.  This dramatically increases
+  terrain-driven routing; paths now strongly avoid steep and shadowed cells.
+- **Grade power exponent changed** — default ``grade_power`` raised from
+  1.0 to 2.0 for a smoother quadratic penalty curve.
+
+### Bug fixes
+
+- **Map click handling** — non-left-button clicks and events already
+  accepted by scene items are now ignored, fixing inadvertent waypoint
+  placement when interacting with overlay controls.
+
+### UI / UX
+
+- **Simulation step display** — the simulation output now includes
+  ``Simulation Step: X.X m`` showing the effective sampling resolution
+  (5 m when bicubic, native pixel size otherwise).
+
+### Dependencies
+
+- **``scipy``** — added as a dependency for ``ndimage.zoom`` and
+  ``map_coordinates`` used by bicubic interpolation.
+
+### Documentation
+
+- ``docs/usage.rst`` — added bicubic interpolation section in pathfinding
+  config table, added Artemis SR rover preset table entry, updated default
+  cost weights in settings table.
+- ``docs/algorithms.rst`` — added full bicubic interpolation section with
+  maths, updated default cost weights.
+- ``docs/api/engine.rst`` — replaced removed ``theta_star`` and ``dijkstra``
+  module references with ``astar``.
+- ``docs/installation.rst`` — added ``scipy`` to key dependencies table.
+
 ## v1.2.2b (2026-06-22)
 
 ### New features
