@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pyqtgraph as pg
 from matplotlib.colors import LightSource
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from cynthium.app.engine.illumination.sun_position import sun_position
@@ -286,6 +286,11 @@ class MapView(QWidget):
 		self._autopath_line.setData(xs, ys)
 
 	def _on_click(self, event):
+		# Ignore clicks already handled by scene items (e.g. auto-range button)
+		if event.isAccepted():
+			return
+		if event.button() != Qt.MouseButton.LeftButton:
+			return
 		pos = event.scenePos()
 		mouse_point = self._plot.vb.mapSceneToView(pos)
 		x, y = mouse_point.x(), mouse_point.y()

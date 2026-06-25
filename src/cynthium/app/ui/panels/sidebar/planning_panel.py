@@ -270,7 +270,11 @@ class PlanningPanel(QWidget):
 	def _refresh_waypoints_display(self):
 		self.waypoints_text.clear()
 		for i, (x, y, longlat) in enumerate(self._waypoint_data):
+			lon, lat = float(longlat[0]), float(longlat[1])
+			lat_dir = "S" if lat < 0 else "N"
+			lon_dir = "W" if lon < 0 else "E"
 			display_text = (
-				f"({i + 1}). ({x:.2f}, {y:.2f})m, ({longlat[0]:.3f}°N, {longlat[1]:.3f}°E)\n"
+				f"({i + 1}). ({x:.2f}, {y:.2f})m, "
+				f"({abs(lat):.3f}°{lat_dir}, {abs(lon):.3f}°{lon_dir})\n"
 			)
 			self.waypoints_text.append(display_text)
