@@ -21,13 +21,13 @@ PATH_ELEVATION_OFFSET_METERS = 5.0
 
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 	def __init__(self):
-		self.AddObserver("LeftButtonDoubleClickEvent", self.on_left_double_click)
-		self.AddObserver("LeftButtonPressEvent", self.on_left_press)
-		self.AddObserver("LeftButtonReleaseEvent", self.on_left_release)
-		self.AddObserver("RightButtonPressEvent", self.on_right_press)
-		self.AddObserver("RightButtonReleaseEvent", self.on_right_release)
-		self.AddObserver("MiddleButtonPressEvent", lambda o, e: None)
-		self.AddObserver("MiddleButtonReleaseEvent", lambda o, e: None)
+		self.AddObserver("LeftButtonDoubleClickEvent", self.on_left_double_click)  # type: ignore[arg-type]
+		self.AddObserver("LeftButtonPressEvent", self.on_left_press)  # type: ignore[arg-type]
+		self.AddObserver("LeftButtonReleaseEvent", self.on_left_release)  # type: ignore[arg-type]
+		self.AddObserver("RightButtonPressEvent", self.on_right_press)  # type: ignore[arg-type]
+		self.AddObserver("RightButtonReleaseEvent", self.on_right_release)  # type: ignore[arg-type]
+		self.AddObserver("MiddleButtonPressEvent", lambda o, e: None)  # type: ignore[arg-type]
+		self.AddObserver("MiddleButtonReleaseEvent", lambda o, e: None)  # type: ignore[arg-type]
 
 	def on_left_press(self, obj, event):
 		self.StartPan()
@@ -47,7 +47,7 @@ class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 
 class TerrainView(QtInteractor):
 	def __init__(self, parent=None):
-		super().__init__(parent=parent)
+		super().__init__(parent=parent)  # type: ignore[arg-type]
 		self.interactor.SetInteractorStyle(CustomInteractorStyle())
 		self._resize_timer = QTimer(self)
 		self._resize_timer.setSingleShot(True)
@@ -62,8 +62,8 @@ class TerrainView(QtInteractor):
 		self._failure_actor = None
 		self._sim_failure_actor = None
 
-	def resizeEvent(self, event):
-		super().resizeEvent(event)
+	def resizeEvent(self, ev):
+		super().resizeEvent(ev)
 		self._resize_timer.start(50)
 
 	def _render_after_resize(self):
@@ -94,11 +94,12 @@ class TerrainView(QtInteractor):
 		if data is None:
 			from cynthium.app.io.reader import load_geotif
 			data, meta = load_geotif(path)
+		assert data is not None and meta is not None
 		self._build(data, utctime, meta)
 		self._loaded_path = path
 		self._loaded_utctime = utctime
 
-	def _build(self, data: np.ndarray, utctime: str, meta: dict = None):
+	def _build(self, data: np.ndarray, utctime: str, meta: dict | None = None):
 		"""
 		Renders a digital elevation model (DEM) from the input data.
 
