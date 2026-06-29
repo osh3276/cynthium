@@ -3,6 +3,7 @@
 *.sh
 
 data/
+export/
 
 scripts/
 

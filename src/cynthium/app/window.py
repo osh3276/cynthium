@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+import rasterio
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
 	QApplication,
@@ -11,7 +12,10 @@ from PySide6.QtWidgets import (
 	QVBoxLayout,
 	QWidget,
 )
+from rasterio.crs import CRS
 
+from cynthium.app.config import LUNAR_CRS_PROJ
+from cynthium.app.io.export.path_csv import write_path_csv
 from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.simulation_service import calculate_simulation_stats
 from cynthium.app.services.site_rasters import load_daily_avg_meteor_raster
@@ -104,7 +108,14 @@ class Window(QMainWindow):
 
 		:return: The resulting value.
 		"""
+		self._menubar.action_import_tif.triggered.connect(self._import_custom_tif)
 		self._menubar.action_open.triggered.connect(self._open_file_dialog)
+		self._menubar.action_export_manual_path.triggered.connect(
+			self._export_manual_path
+		)
+		self._menubar.action_export_autopath.triggered.connect(
+			self._export_autopath
+		)
 		self._menubar.action_export_simulation_data.triggered.connect(
 			self._export_simulation_data
 		)
@@ -475,6 +486,159 @@ class Window(QMainWindow):
 			self._load_site_with_datetime(
 				path, self._current_datetime, self._current_map_type
 			)
+
+	def _export_manual_path(self):
+		"""Export the user's manual waypoints as a CSV file."""
+		points = self._view_container.get_waypoint_3d_points()
+		if not points or len(points) < 2:
+			QMessageBox.warning(
+				self,
+				"No Manual Path",
+				"Place at least two waypoints before exporting the manual path.",
+			)
+			return
+
+		default_stem = "manual_path"
+		if self._current_path:
+			default_stem = f"{Path(self._current_path).stem}_manual_path"
+
+		path, _ = QFileDialog.getSaveFileName(
+			self,
+			"Export Manual Path",
+			f"{default_stem}.csv",
+			"CSV files (*.csv);;All files (*)",
+		)
+		if not path:
+			return
+
+		metadata = {
+			"site_path": self._current_path or "",
+			"datetime": self._current_datetime,
+			"map_type": self._current_map_type,
+			"path_type": "manual",
+		}
+		try:
+			write_path_csv(path, points, label="manual", metadata=metadata)
+		except OSError as exc:
+			logger.error(f"Failed to export manual path: {exc}")
+			QMessageBox.critical(self, "Export Failed", f"Failed to export manual path:\n{exc}")
+			return
+
+		self.statusBar().showMessage(f"Manual path exported to {path}")
+
+	def _export_autopath(self):
+		"""Export the computed autopath as a CSV file."""
+		points = self._view_container.get_autopath_3d_points()
+		if not points or len(points) < 2:
+			QMessageBox.warning(
+				self,
+				"No Auto Path",
+				"Compute an autopath before exporting it.",
+			)
+			return
+
+		default_stem = "auto_path"
+		if self._current_path:
+			default_stem = f"{Path(self._current_path).stem}_auto_path"
+
+		path, _ = QFileDialog.getSaveFileName(
+			self,
+			"Export Auto Path",
+			f"{default_stem}.csv",
+			"CSV files (*.csv);;All files (*)",
+		)
+		if not path:
+			return
+
+		metadata = {
+			"site_path": self._current_path or "",
+			"datetime": self._current_datetime,
+			"map_type": self._current_map_type,
+			"path_type": "auto",
+		}
+		try:
+			write_path_csv(path, points, label="auto", metadata=metadata)
+		except OSError as exc:
+			logger.error(f"Failed to export auto path: {exc}")
+			QMessageBox.critical(self, "Export Failed", f"Failed to export auto path:\n{exc}")
+			return
+
+		self.statusBar().showMessage(f"Auto path exported to {path}")
+
+	def _import_custom_tif(self):
+		"""Import a custom GeoTIFF with CRS validation.
+
+		The imported TIF must be in the lunar south-pole stereographic projection
+		(LUNAR_CRS_PROJ), matching the preset site rasters.
+		"""
+		path, _ = QFileDialog.getOpenFileName(
+			self,
+			"Import Custom GeoTIFF",
+			"",
+			"GeoTIFF files (*.tif *.tiff);;All files (*)",
+		)
+		if not path:
+			return
+
+		# Validate projection against the lunar stereographic CRS
+		try:
+			with rasterio.open(path) as src:
+				src_crs = src.crs
+		except Exception as exc:
+			QMessageBox.critical(
+				self,
+				"Import Failed",
+				f"Could not read the GeoTIFF file:\n{exc}",
+			)
+			return
+
+		expected_crs = CRS.from_string(LUNAR_CRS_PROJ)
+
+		if src_crs is None:
+			QMessageBox.warning(
+				self,
+				"Missing CRS",
+				"The selected GeoTIFF has no embedded CRS.\n\n"
+				"Only GeoTIFFs in the lunar south-pole stereographic projection\n"
+				"(+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m)\n"
+				"are supported. Load via File → Open to bypass CRS checks.",
+			)
+			return
+
+		try:
+			if not src_crs.is_exact_same(expected_crs):
+				# Also check if the CRS definition rounds to the same thing
+				# via to_epsg or projjson comparisons
+				src_str = src_crs.to_string()
+				expected_str = expected_crs.to_string()
+				if src_str != expected_str:
+					QMessageBox.warning(
+						self,
+						"Wrong Projection",
+						f"The selected GeoTIFF uses an unsupported CRS.\n\n"
+						f"Expected:\n{expected_str}\n\n"
+						f"Got:\n{src_str}\n\n"
+						"Only GeoTIFFs in the lunar south-pole stereographic projection\n"
+						"are supported. Load via File → Open to bypass CRS checks.",
+					)
+					return
+		except Exception:
+			# If CRS comparison itself fails, fall back to string comparison
+			src_str = str(src_crs).lower()
+			if "stere" not in src_str or "lat_0=-90" not in src_str:
+				QMessageBox.warning(
+					self,
+					"Wrong Projection",
+					"The selected GeoTIFF does not appear to be in the required\n"
+					"lunar south-pole stereographic projection.\n\n"
+					"Load via File → Open to bypass CRS checks.",
+				)
+				return
+
+		# Projection is valid — load the site
+		self._load_site_with_datetime(
+			path, self._current_datetime, self._current_map_type
+		)
 
 	def _load_site(self, path: str):
 		"""
