@@ -100,3 +100,60 @@ class AppSidebar(QWidget):
 
 	def get_bicubic_enabled(self) -> bool:
 		return self._planning_panel.get_bicubic_enabled() if hasattr(self, "_planning_panel") else False
+
+	def export_settings(self) -> dict:
+		"""Collect all current sidebar settings into a serialisable dict."""
+		rover_raw = self._rover_settings_panel.get_values()
+		rover_preset = self._rover_settings_panel.get_preset_name()
+		planning = self._planning_panel.get_planning_settings()
+
+		return {
+			"rover": {
+				"preset": rover_preset,
+				"mass_kg": rover_raw[0],
+				"power_hp": rover_raw[1],
+				"wheel_friction_coeff": rover_raw[2],
+				"rolling_resistance_coeff": rover_raw[3],
+			},
+			"autopath": {
+				"slope_weight": planning["slope_weight"],
+				"sun_weight": planning["sun_weight"],
+				"meteor_flux_weight": planning["meteor_flux_weight"],
+				"temperature_weight": planning["temperature_weight"],
+				"algorithm": planning["algorithm"],
+				"cost_strategy": planning["cost_strategy"],
+				"path_mode": planning["path_mode"],
+				"use_bicubic": planning["use_bicubic"],
+			},
+			"waypoints": planning["waypoints_xy"],
+		}
+
+	def import_settings(self, settings: dict) -> list[tuple[float, float]]:
+		"""Apply imported settings to the sidebar widgets.
+
+		Returns the list of (x, y) waypoint pairs that were added,
+		so the caller can sync the view container.
+		"""
+		# --- Rover ---
+		rover_data = settings.get("rover", {})
+		if rover_data.get("preset"):
+			self._rover_settings_panel.set_preset(str(rover_data["preset"]))
+		# Always set raw values so custom tweaks are also applied
+		self._rover_settings_panel.set_values(
+			rover_data.get("mass_kg", ""),
+			rover_data.get("power_hp", ""),
+			rover_data.get("wheel_friction_coeff", ""),
+			rover_data.get("rolling_resistance_coeff", ""),
+		)
+
+		# --- Autopath config ---
+		autopath_data = settings.get("autopath", {})
+		self._planning_panel.set_planning_config(autopath_data)
+
+		# --- Waypoints ---
+		waypoints_data = settings.get("waypoints", [])
+		# Emit waypoints_cleared so view container removes old 3D markers
+		self.waypoints_cleared.emit()
+		added = self._planning_panel.clear_and_set_waypoints(waypoints_data)
+
+		return added

@@ -16,6 +16,7 @@ from rasterio.crs import CRS
 
 from cynthium.app.config import LUNAR_CRS_PROJ
 from cynthium.app.io.export.path_csv import write_path_csv
+from cynthium.app.io.export.settings_json import write_settings_json
 from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.simulation_service import calculate_simulation_stats
 from cynthium.app.services.site_rasters import load_daily_avg_meteor_raster
@@ -109,12 +110,18 @@ class Window(QMainWindow):
 		:return: The resulting value.
 		"""
 		self._menubar.action_import_tif.triggered.connect(self._import_custom_tif)
+		self._menubar.action_import_settings.triggered.connect(
+			self._import_settings
+		)
 		self._menubar.action_open.triggered.connect(self._open_file_dialog)
 		self._menubar.action_export_manual_path.triggered.connect(
 			self._export_manual_path
 		)
 		self._menubar.action_export_autopath.triggered.connect(
 			self._export_autopath
+		)
+		self._menubar.action_export_settings.triggered.connect(
+			self._export_settings
 		)
 		self._menubar.action_export_simulation_data.triggered.connect(
 			self._export_simulation_data
@@ -565,6 +572,86 @@ class Window(QMainWindow):
 
 		self.statusBar().showMessage(f"Auto path exported to {path}")
 
+	def _export_settings(self):
+		"""Export all current settings (rover, autopath, waypoints, etc.) as JSON."""
+		settings = self._sidebar.export_settings()
+
+		# Add session-level info
+		settings["session"] = {
+			"site_path": self._current_path or "",
+			"datetime": self._current_datetime,
+			"map_type": self._current_map_type,
+		}
+
+		# Add autopath result if available
+		auto_points = self._view_container.get_autopath_3d_points()
+		if auto_points and len(auto_points) >= 2:
+			settings["autopath_result"] = [
+				[float(p[0]), float(p[1]), float(p[2])] for p in auto_points
+			]
+
+		default_stem = "settings"
+		if self._current_path:
+			default_stem = f"{Path(self._current_path).stem}_settings"
+
+		path, _ = QFileDialog.getSaveFileName(
+			self,
+			"Export Settings",
+			f"{default_stem}.json",
+			"JSON files (*.json);;All files (*)",
+		)
+		if not path:
+			return
+
+		try:
+			write_settings_json(path, settings)
+		except OSError as exc:
+			logger.error(f"Failed to export settings: {exc}")
+			QMessageBox.critical(self, "Export Failed", f"Failed to export settings:\n{exc}")
+			return
+
+	def _import_settings(self):
+		"""Import settings from a JSON file and apply them to the UI."""
+		path, _ = QFileDialog.getOpenFileName(
+			self,
+			"Import Settings",
+			"",
+			"JSON files (*.json);;All files (*)",
+		)
+		if not path:
+			return
+
+		import json
+		try:
+			with open(path) as f:
+				settings = json.load(f)
+		except (OSError, json.JSONDecodeError) as exc:
+			QMessageBox.critical(
+				self, "Import Failed", f"Could not read settings file:\n{exc}"
+			)
+			return
+
+		if not isinstance(settings, dict):
+			QMessageBox.critical(
+				self, "Import Failed", "Settings file must contain a JSON object."
+			)
+			return
+
+		# Apply settings to sidebar panels.
+		# import_settings emits waypoints_cleared then waypoint_added per waypoint,
+		# which auto-syncs the view container — no extra sync needed.
+		self._sidebar.import_settings(settings)
+
+		# If the settings include a session with a site path, load it
+		session = settings.get("session", {})
+		site_path = session.get("site_path", "")
+		if site_path and Path(site_path).exists():
+			dt = session.get("datetime", self._current_datetime)
+			mt = session.get("map_type", self._current_map_type)
+			self._load_site_with_datetime(site_path, dt, mt)
+
+		self.statusBar().showMessage(f"Settings imported from {path}")
+
 	def _import_custom_tif(self):
 		"""Import a custom GeoTIFF with CRS validation.
 
@@ -607,8 +694,6 @@ class Window(QMainWindow):
 
 		try:
 			if not src_crs.is_exact_same(expected_crs):
-				# Also check if the CRS definition rounds to the same thing
-				# via to_epsg or projjson comparisons
 				src_str = src_crs.to_string()
 				expected_str = expected_crs.to_string()
 				if src_str != expected_str:
@@ -623,7 +708,6 @@ class Window(QMainWindow):
 					)
 					return
 		except Exception:
-			# If CRS comparison itself fails, fall back to string comparison
 			src_str = str(src_crs).lower()
 			if "stere" not in src_str or "lat_0=-90" not in src_str:
 				QMessageBox.warning(
@@ -639,6 +723,7 @@ class Window(QMainWindow):
 		self._load_site_with_datetime(
 			path, self._current_datetime, self._current_map_type
 		)
+
 
 	def _load_site(self, path: str):
 		"""

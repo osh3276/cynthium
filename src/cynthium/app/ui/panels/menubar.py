@@ -15,6 +15,9 @@ class AppMenuBar(QMenuBar):
 		# --- Import ---
 		self.action_import_tif = file_menu.addAction("Import GeoTIFF...")
 		self.action_import_tif.setShortcut("Ctrl+I")
+		self.action_import_settings = file_menu.addAction(
+			"Import Settings..."
+		)
 
 		file_menu.addSeparator()
 
@@ -30,6 +33,9 @@ class AppMenuBar(QMenuBar):
 		)
 		self.action_export_autopath = file_menu.addAction(
 			"Export Auto Path"
+		)
+		self.action_export_settings = file_menu.addAction(
+			"Export Settings..."
 		)
 		self.action_export_simulation_data = file_menu.addAction(
 			"Export Simulation Data"

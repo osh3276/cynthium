@@ -264,6 +264,63 @@ class PlanningPanel(QWidget):
 		for i, (x, y) in enumerate(points_xy):
 			self.autopath_text.append(f"({i + 1}). ({x:.2f}, {y:.2f})m")
 
+	def set_planning_config(self, config: dict):
+		"""Set autopath config fields from a dict (keys match get_planning_settings output)."""
+		if "slope_weight" in config:
+			self.slope_weight_field.setText(str(config["slope_weight"]))
+		if "sun_weight" in config:
+			self.sun_weight_field.setText(str(config["sun_weight"]))
+		if "meteor_flux_weight" in config:
+			self.meteor_flux_weight_field.setText(str(config["meteor_flux_weight"]))
+		if "temperature_weight" in config:
+			self.temperature_weight_field.setText(str(config["temperature_weight"]))
+		if "algorithm" in config:
+			idx = self.algorithm_combo.findText(config["algorithm"])
+			if idx >= 0:
+				self.algorithm_combo.setCurrentIndex(idx)
+		if "cost_strategy" in config:
+			idx = self.cost_strategy_combo.findText(config["cost_strategy"])
+			if idx >= 0:
+				self.cost_strategy_combo.setCurrentIndex(idx)
+		if "path_mode" in config:
+			idx = self.path_mode_combo.findText(config["path_mode"])
+			if idx >= 0:
+				self.path_mode_combo.setCurrentIndex(idx)
+		if "use_bicubic" in config:
+			self.bicubic_checkbox.setChecked(bool(config["use_bicubic"]))
+
+	def clear_and_set_waypoints(self, waypoints_xy: list[list[float]]) -> list[tuple[float, float]]:
+		"""Replace all waypoints with a new list. Returns the added xy pairs."""
+		self._waypoint_data.clear()
+		self.waypoints_text.clear()
+		self.autopath_text.clear()
+
+		added = []
+		for xy in waypoints_xy:
+			x, y = float(xy[0]), float(xy[1])
+			self.add_waypoint_direct(x, y)
+			added.append((x, y))
+		return added
+
+	def get_planning_settings(self) -> dict:
+		"""Return all planning/autopath settings as a serialisable dict."""
+		waypoints_xy = []
+		if hasattr(self, "_waypoint_data"):
+			for x, y, _ll in self._waypoint_data:
+				waypoints_xy.append([float(x), float(y)])
+
+		return {
+			"slope_weight": self.slope_weight_field.text().strip(),
+			"sun_weight": self.sun_weight_field.text().strip(),
+			"meteor_flux_weight": self.meteor_flux_weight_field.text().strip(),
+			"temperature_weight": self.temperature_weight_field.text().strip(),
+			"algorithm": self.algorithm_combo.currentText(),
+			"cost_strategy": self.cost_strategy_combo.currentText(),
+			"path_mode": self.path_mode_combo.currentText(),
+			"use_bicubic": self.bicubic_checkbox.isChecked(),
+			"waypoints_xy": waypoints_xy,
+		}
+
 	def get_bicubic_enabled(self) -> bool:
 		return self.bicubic_checkbox.isChecked() if hasattr(self, "bicubic_checkbox") else False
 

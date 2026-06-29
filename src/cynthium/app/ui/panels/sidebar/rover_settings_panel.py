@@ -71,6 +71,31 @@ class RoverSettingsPanel(QWidget):
 		self.friction_field.setText(str(preset.wheel_friction_coeff))
 		self.rolling_resistance_field.setText(str(preset.rolling_resistance_coeff))
 
+	def set_preset(self, name: str):
+		"""Set the rover preset combo, triggering field updates."""
+		if name in ROVER_PRESETS:
+			idx = self.preset_combo.findText(name)
+			if idx >= 0:
+				self.preset_combo.setCurrentIndex(idx)
+				return
+		# Fallback: preset name not found, fill raw fields if they exist
+		logger = __import__("cynthium.app.utils.logger", fromlist=["get_logger"]).get_logger(__name__)
+		logger.warning(f"Rover preset '{name}' not found, using raw values if provided")
+
+	def set_values(self, mass_kg: str, power_hp: str, mu: str, crr: str):
+		"""Set rover field values directly (bypasses preset lookup)."""
+		if mass_kg:
+			self.mass_field.setText(str(mass_kg))
+		if power_hp:
+			self.power_field.setText(str(power_hp))
+		if mu:
+			self.friction_field.setText(str(mu))
+		if crr:
+			self.rolling_resistance_field.setText(str(crr))
+
+	def get_preset_name(self) -> str:
+		return self.preset_combo.currentText()
+
 	def get_values(self) -> tuple[str, str, str, str]:
 		return (
 			self.mass_field.text().strip(),
