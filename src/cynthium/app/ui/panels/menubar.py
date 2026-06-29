@@ -12,9 +12,25 @@ class AppMenuBar(QMenuBar):
 		self.addMenu("View")
 		self.addMenu("Help")
 
+		# --- Import ---
+		self.action_import_tif = file_menu.addAction("Import GeoTIFF...")
+		self.action_import_tif.setShortcut("Ctrl+I")
+
+		file_menu.addSeparator()
+
+		# --- Open (load preset or existing site) ---
 		self.action_open = file_menu.addAction("Open")
 		self.action_open.setShortcut("Ctrl+O")
 
+		file_menu.addSeparator()
+
+		# --- Export ---
+		self.action_export_manual_path = file_menu.addAction(
+			"Export Manual Path"
+		)
+		self.action_export_autopath = file_menu.addAction(
+			"Export Auto Path"
+		)
 		self.action_export_simulation_data = file_menu.addAction(
 			"Export Simulation Data"
 		)
