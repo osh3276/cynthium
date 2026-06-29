@@ -366,11 +366,10 @@ class Window(QMainWindow):
 				return None
 			if float(stats.get("traverse_feasible", 1.0)) < 0.5:
 				req_mu = float(stats.get("required_wheel_friction_coeff", 0.0))
-				req_angle = float(stats.get("required_climb_slope_deg", 0.0))
+				# req_angle = float(stats.get("required_climb_slope_deg", 0.0))
 				return (
 					f"{label} traversal failed.\n"
-					f"Required \u03bc: {req_mu:.3f}, "
-					f"required traction angle: {req_angle:.2f}\u00b0"
+					f"Required \u03bc: {req_mu:.3f}"
 				)
 			return None
 
