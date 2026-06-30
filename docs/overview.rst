@@ -18,8 +18,10 @@ Features
   specific lunar dates and times.
 * **Site Management**: Automated handling of lunar site rasters and data
   products.
-* **Data Export**: Export traversal statistics and simulation results for
-  further scientific analysis.
+* **Data Export**: Export waypoints, autopaths, simulation statistics, and
+  full application settings for further analysis.
+* **Custom Data Import**: Import GeoTIFF rasters with automatic CRS
+  validation, and restore complete sessions from exported settings files.
 
 Architecture
 ************

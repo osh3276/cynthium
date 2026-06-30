@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.4.0b (2026-06-30)
+
+### New features
+
+- **Import custom GeoTIFF** — File → Import GeoTIFF (Ctrl+I) opens any
+  GeoTIFF and validates its CRS matches the lunar south-pole stereographic
+  projection (`+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m`).
+  TIFs with a missing or mismatched projection are rejected with a clear
+  message. Use File → Open (Ctrl+O) to bypass CRS checks.
+- **Export manual path** — File → Export Manual Path writes the user-placed
+  waypoints (x, y, z) to a CSV file.
+- **Export auto path** — File → Export Auto Path writes the computed autopath
+  waypoints (x, y, z) to a CSV file.
+- **Export settings** — File → Export Settings... saves all current
+  configuration (rover preset and values, autopath weights/algorithm/strategy,
+  waypoints, session info, autopath result) as a JSON file.
+- **Import settings** — File → Import Settings... reads a previously exported
+  JSON settings file and restores the rover, autopath, and waypoint state.
+  If the settings include a valid site path, the site is loaded automatically.
+
+### UI / UX
+
+- Reorganised File menu — Import and Export sections are now separated by
+  menu dividers for clarity.
+
 ## v1.3.2b (2026-06-25)
 
 ### Major changes

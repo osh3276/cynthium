@@ -273,9 +273,34 @@ The 3D renderer uses PyVista (VTK); see
 7. Export Results
 *****************
 
-Use the *Export* menu item (or button) to save simulation statistics as CSV.
-The CSV contains one row per simulation run with all the statistics listed
-above, suitable for external analysis in Excel, MATLAB, or pandas.
+Use **File → Export Manual Path** to save the current waypoints (x, y, z)
+as a CSV file, or **File → Export Auto Path** to save the computed autopath
+coordinates.
+
+Use **File → Export Simulation Data** (Ctrl+E) to save the full simulation
+statistics and path waypoints as CSV. The CSV contains one row per
+simulation run with all the statistics listed above, suitable for external
+analysis in Excel, MATLAB, or pandas.
+
+Use **File → Export Settings...** to save all current configuration — rover
+preset and custom values, autopath weights/algorithm/strategy/path mode,
+bicubic flag, waypoints, and session info (site path, datetime, map type) —
+as a JSON file. This lets you restore a complete working session later.
+
+8. Import Custom Data
+*********************
+
+**File → Import GeoTIFF...** (Ctrl+I) opens a custom GeoTIFF elevation raster
+and validates that its coordinate reference system (CRS) matches the required
+lunar south-pole stereographic projection
+(``+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m``). If the CRS
+is missing or does not match, a warning is shown explaining the requirement.
+Use **File → Open** (Ctrl+O) to load a GeoTIFF without CRS validation.
+
+**File → Import Settings...** reads a previously exported JSON settings file
+and restores the rover parameters, autopath configuration, and waypoints. If
+the settings include a site path that still exists on disk, the site is
+loaded automatically.
 
 Troubleshooting
 ***************
