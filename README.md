@@ -17,6 +17,8 @@ accuracy, and reproducibility are critical.
 
 - **Multi-dimensional Visualization**: 2D map views and 3D terrain
   visualisation using GeoTIFF data (LOLA / LRO).
+- **Layer Manager**: Checkable, reorderable map layers with automatic refresh
+  when the visible layer or preset changes.
 - **Advanced Pathfinding**: Optimal path routing using A\* or Dijkstra,
   considering distance, terrain slope, solar illumination, meteor flux, and
   temperature.
@@ -26,8 +28,10 @@ accuracy, and reproducibility are critical.
   specific lunar dates and times using NASA SPICE.
 - **Site Management**: Automated handling of lunar site rasters and data
   products.
-- **Data Export**: Export traversal statistics and simulation results for
-  further scientific analysis.
+- **Data Export**: Export manual paths, autopaths, simulation statistics, and
+  full session settings for further scientific analysis.
+- **Custom Data Import**: Import GeoTIFF rasters with CRS validation, or load
+  custom sites directly through the file picker.
 
 <!--## Architecture
 
@@ -85,9 +89,11 @@ centre, and a **menu bar** at the top.
 ### Workflow
 
 1. **Load a Site** — In the sidebar, select a preset lunar site (e.g. *Haworth*,
-   *Shackleton rim*, *Nobile rim 1*). A 20 m/px elevation tile loads automatically.
-2. **Select a Map Layer** — Switch between visualisations: elevation, slope,
-   hillshade, solar illumination, meteor flux, or temperature.
+   *Shackleton rim*, *Nobile rim 1*). A 20 m/px elevation tile loads automatically,
+   and the display updates immediately.
+2. **Select a Map Layer** — Use the layer manager to toggle layer visibility and
+   reorder layers. Switching the active layer or preset updates the map
+   automatically.
 3. **Plan a Path** — Click on the 2D map to place start and goal points, then
    click *Autopath*. The optimal route is overlaid on the map. You can tune
    pathfinding with weights for slope, sun, meteor flux, and temperature, and
@@ -102,7 +108,8 @@ centre, and a **menu bar** at the top.
    energy received, and feasibility.
 6. **Inspect in 3D** — Switch to the 3D Terrain View tab to see the path draped
    over the digital elevation model.
-7. **Export Results** — Save simulation statistics as CSV for external analysis.
+7. **Export Results** — Save manual paths, autopaths, simulation statistics, or
+   full settings bundles for external analysis and later reuse.
 
 ### Troubleshooting
 
