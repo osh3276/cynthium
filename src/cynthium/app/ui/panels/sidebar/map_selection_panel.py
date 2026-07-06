@@ -1,13 +1,17 @@
 from datetime import datetime
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+	QAbstractItemView,
 	QComboBox,
 	QHBoxLayout,
 	QLabel,
 	QLineEdit,
+	QListWidget,
+	QListWidgetItem,
 	QMessageBox,
 	QPushButton,
+	QToolButton,
 	QVBoxLayout,
 	QWidget,
 )
@@ -27,6 +31,7 @@ class MapSelectionPanel(QWidget):
 		self._last_datetime = None
 		self._last_map_type = None
 		self._default_map_type = "Elevation"
+		self._last_active_map_type = None
 		self._build()
 
 	def _build(self):
@@ -36,17 +41,54 @@ class MapSelectionPanel(QWidget):
 
 		self.setMinimumWidth(180)
 
-		# Map types row
-		type_layout = QHBoxLayout()
-		type_label = QLabel("Map type:")
-		type_layout.addWidget(type_label)
+		# Layer manager
+		layer_label = QLabel("Map layers:")
+		layout.addWidget(layer_label)
 
-		self.type_chooser = QComboBox()
-		self.type_chooser.addItems(MAP_TYPES)
-		self.type_chooser.setCurrentText(self._default_map_type)
-		self.type_chooser.currentTextChanged.connect(self._on_map_type_changed)
-		type_layout.addWidget(self.type_chooser)
-		layout.addLayout(type_layout)
+		layers_layout = QHBoxLayout()
+		self.layer_list = QListWidget()
+		self.layer_list.setAlternatingRowColors(True)
+		self.layer_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+		self.layer_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+		self.layer_list.setDefaultDropAction(Qt.DropAction.MoveAction)
+		self.layer_list.setMinimumHeight(170)
+
+		for map_type in MAP_TYPES:
+			item = QListWidgetItem(map_type)
+			item.setFlags(
+				item.flags()
+				| Qt.ItemFlag.ItemIsUserCheckable
+				| Qt.ItemFlag.ItemIsSelectable
+				| Qt.ItemFlag.ItemIsEnabled
+				| Qt.ItemFlag.ItemIsDragEnabled
+			)
+			item.setCheckState(
+				Qt.CheckState.Checked
+				if map_type == self._default_map_type
+				else Qt.CheckState.Unchecked
+			)
+			self.layer_list.addItem(item)
+
+		default_row = MAP_TYPES.index(self._default_map_type)
+		self.layer_list.setCurrentRow(default_row)
+		self.layer_list.itemChanged.connect(self._on_layers_changed)
+		self.layer_list.model().rowsMoved.connect(self._on_layers_changed)
+		layers_layout.addWidget(self.layer_list)
+
+		layer_controls = QVBoxLayout()
+		self.layer_up_button = QToolButton()
+		self.layer_up_button.setText("Up")
+		self.layer_up_button.clicked.connect(lambda: self._move_selected_layer(-1))
+		layer_controls.addWidget(self.layer_up_button)
+
+		self.layer_down_button = QToolButton()
+		self.layer_down_button.setText("Down")
+		self.layer_down_button.clicked.connect(lambda: self._move_selected_layer(1))
+		layer_controls.addWidget(self.layer_down_button)
+		layer_controls.addStretch(1)
+		layers_layout.addLayout(layer_controls)
+
+		layout.addLayout(layers_layout)
 
 		# Preset maps row
 		preset_layout = QHBoxLayout()
@@ -96,7 +138,14 @@ class MapSelectionPanel(QWidget):
 			return
 
 		site_path = str(SITE_PRESET_PATHS[site_name])
-		map_type = self.type_chooser.currentText()
+		map_type = self._active_map_type()
+		if map_type is None:
+			QMessageBox.critical(
+				self,
+				"Error",
+				"At least one map layer must be visible.",
+			)
+			return
 		date_str = self.date_field.text().strip()
 		time_str = self.time_field.text().strip()
 
@@ -129,5 +178,31 @@ class MapSelectionPanel(QWidget):
 		self._last_map_type = map_type
 		self.map_generation_requested.emit(site_path, datetime_str, map_type)
 
-	def _on_map_type_changed(self, map_type: str):
-		logger.info(f"Map type changed: {map_type}; waiting for Generate Map")
+	def _active_map_type(self) -> str | None:
+		for row in range(self.layer_list.count()):
+			item = self.layer_list.item(row)
+			if item.checkState() == Qt.CheckState.Checked:
+				return item.text()
+		return None
+
+	def _move_selected_layer(self, delta: int):
+		current_row = self.layer_list.currentRow()
+		if current_row < 0:
+			return
+		new_row = current_row + int(delta)
+		if new_row < 0 or new_row >= self.layer_list.count():
+			return
+
+		item = self.layer_list.takeItem(current_row)
+		self.layer_list.insertItem(new_row, item)
+		self.layer_list.setCurrentRow(new_row)
+		self._on_layers_changed()
+
+	def _on_layers_changed(self, *args):
+		active = self._active_map_type()
+		if active != self._last_active_map_type:
+			if active is None:
+				logger.info("No active map layer selected; waiting for Generate Map")
+			else:
+				logger.info(f"Active map layer changed: {active}; waiting for Generate Map")
+			self._last_active_map_type = active
