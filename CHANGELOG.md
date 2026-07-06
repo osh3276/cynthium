@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.1b (2026-07-06)
+
+### UI / UX
+
+- **Map layer manager** — replaced the map type dropdown with a layer list
+  that supports visibility toggles and layer reordering.
+- **Automatic map refresh** — changing the visible layer or selecting a preset
+  map now updates the display immediately; the Generate Map button remains as a
+  manual fallback.
+
 ## v1.4.0b (2026-06-30)
 
 ### New features

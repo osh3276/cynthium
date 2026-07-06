@@ -47,8 +47,8 @@ covering each landing site region.
 2. Select a Map Layer
 *********************
 
-The layer dropdown lets you switch between visualisations of the same
-terrain:
+The layer manager lets you switch between visualisations of the same
+terrain, hide layers with checkboxes, and reorder them in the list:
 
 * **Elevation**: raw LOLA DEM, colour-mapped from low (blue) to high (red).
 * **Slope**: terrain steepness derived from the DEM.
@@ -81,6 +81,9 @@ terrain:
 * **Average Temperature**: modelled surface temperature.
 
 Each layer is a pre-computed raster stored alongside the elevation data.
+Changing the active layer or selecting a preset map updates the display
+automatically; the **Generate Map** button remains available as a manual
+fallback.
 
 3. Plan a Path
 **************

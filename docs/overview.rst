@@ -18,6 +18,8 @@ Features
   specific lunar dates and times.
 * **Site Management**: Automated handling of lunar site rasters and data
   products.
+* **Layer Manager**: Checkboxes and reordering for map layers, with automatic
+  refresh when the visible layer or preset changes.
 * **Data Export**: Export waypoints, autopaths, simulation statistics, and
   full application settings for further analysis.
 * **Custom Data Import**: Import GeoTIFF rasters with automatic CRS
