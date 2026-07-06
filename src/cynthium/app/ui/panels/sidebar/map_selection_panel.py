@@ -98,6 +98,7 @@ class MapSelectionPanel(QWidget):
 		self.preset_chooser = QComboBox()
 		self.preset_chooser.addItem("Select a map")
 		self.preset_chooser.addItems(sorted(SITE_PRESET_PATHS.keys()))
+		self.preset_chooser.currentTextChanged.connect(self._on_preset_changed)
 		preset_layout.addWidget(self.preset_chooser)
 		layout.addLayout(preset_layout)
 
@@ -131,20 +132,25 @@ class MapSelectionPanel(QWidget):
 		layout.addStretch(1)
 
 	def _on_generate_clicked(self):
+		self._request_map_generation(show_errors=True)
+
+	def _request_map_generation(self, *, show_errors: bool):
 		site_name = self.preset_chooser.currentText()
 		if site_name == "Select a map":
-			logger.warning("No site selected")
-			QMessageBox.critical(self, "Error", "No map has been selected.")
+			if show_errors:
+				logger.warning("No site selected")
+				QMessageBox.critical(self, "Error", "No map has been selected.")
 			return
 
 		site_path = str(SITE_PRESET_PATHS[site_name])
 		map_type = self._active_map_type()
 		if map_type is None:
-			QMessageBox.critical(
-				self,
-				"Error",
-				"At least one map layer must be visible.",
-			)
+			if show_errors:
+				QMessageBox.critical(
+					self,
+					"Error",
+					"At least one map layer must be visible.",
+				)
 			return
 		date_str = self.date_field.text().strip()
 		time_str = self.time_field.text().strip()
@@ -156,12 +162,13 @@ class MapSelectionPanel(QWidget):
 		try:
 			datetime.fromisoformat(datetime_str)
 		except ValueError:
-			logger.error(f"Invalid date/time format: {datetime_str}")
-			QMessageBox.critical(
-				self,
-				"Error",
-				f"Invalid date or time format: {datetime_str}\nPlease use yyyy-mm-dd and hh:mm:ss",
-			)
+			if show_errors:
+				logger.error(f"Invalid date/time format: {datetime_str}")
+				QMessageBox.critical(
+					self,
+					"Error",
+					f"Invalid date or time format: {datetime_str}\nPlease use yyyy-mm-dd and hh:mm:ss",
+				)
 			return
 
 		if (
@@ -206,3 +213,10 @@ class MapSelectionPanel(QWidget):
 			else:
 				logger.info(f"Active map layer changed: {active}; waiting for Generate Map")
 			self._last_active_map_type = active
+		self._request_map_generation(show_errors=False)
+
+	def _on_preset_changed(self, preset: str):
+		if preset == "Select a map":
+			return
+		logger.info(f"Preset map changed: {preset}; auto-generating map")
+		self._request_map_generation(show_errors=False)
