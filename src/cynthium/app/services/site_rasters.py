@@ -72,7 +72,7 @@ def _round_azimuth_deg_to_nearest_12(azimuth_deg: float) -> int:
 	az = float(azimuth_deg) % 360.0
 	angle = int(math.floor((az + 6.0) / 12.0)) * 12
 	angle = angle % 360
-	return 360 if angle == 0 else angle
+	return 0 if angle == 360 else angle
 
 
 def load_daily_avg_illumination_raster(
@@ -154,7 +154,7 @@ def load_daily_avg_meteor_raster(
 	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
 	angle_deg = _round_azimuth_deg_to_nearest_12(float(az_deg))
 	angle_path = ensure_data_file_path(
-		resolve_data_file_path(METEOR_ANGLES_DIR / f"meteor_angle_{angle_deg}.tif")
+		resolve_data_file_path(METEOR_ANGLES_DIR / f"meteor_energy_angle_{angle_deg}.tif")
 	)
 
 	if not angle_path.exists():
