@@ -82,7 +82,7 @@ AVERAGE_TEMPERATURE_RASTER_PATH = resolve_data_file_path(
 	TEMPERATURE_DIR / "polar_south_80_summer_avg-float.tif"
 )
 METEOR_FLUX_RASTER_PATH = resolve_data_file_path(
-	DATA_ROOT / "meteor_flux.tif"
+	DATA_ROOT / "meteor_energy.tif"
 )
 
 RASTER_LAYERS = {
@@ -90,7 +90,7 @@ RASTER_LAYERS = {
 	"elevation": resolve_data_file_path(DATA_DIR / "elevation.TIF"),
 	"illumination": ILLUMINATION_RASTER_PATH,
 	"average_temperature": AVERAGE_TEMPERATURE_RASTER_PATH,
-	"meteor_flux": resolve_data_file_path(DATA_DIR / "meteor_flux.tif"),
+	"meteor_flux": METEOR_FLUX_RASTER_PATH,
 	"ldem": resolve_data_file_path(DATA_DIR / "LDEM_80S_40MPP_ADJ.tiff"),
 	# add layers here as you acquire them
 }
