@@ -40,3 +40,8 @@ API Reference
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. automodule:: cynthium.app.site_tiles
+   :members:
+   :undoc-members:
+   :show-inheritance:
