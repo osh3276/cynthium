@@ -7,14 +7,17 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QSplitter, QWidget
 from scipy.ndimage import zoom
 
-from cynthium.app.config import ensure_data_file_path
+from cynthium.app.config import ensure_data_file_path, METEOR_NUMBER_RASTER_PATH
 from cynthium.app.engine.pathfinding.astar import a_star
 from cynthium.app.io.reader import load_geotif
 from cynthium.app.services.site_rasters import (
 	RasterPayload,
 	load_context_rasters,
+	load_cropped_context_raster,
 	load_daily_avg_illumination_raster,
 	load_daily_avg_meteor_raster,
+	load_daily_avg_meteor_number_raster,
+	load_psr_raster,
 	load_slope_raster,
 	select_display_raster,
 )
@@ -48,6 +51,10 @@ class ViewContainer(QWidget):
 		self._current_temperature_meta = None
 		self._current_meteor_data = None
 		self._current_meteor_meta = None
+		self._current_meteor_number_data = None
+		self._current_meteor_number_meta = None
+		self._current_psr_data = None
+		self._current_psr_meta = None
 
 		self._autopath_xy = []
 
@@ -105,6 +112,20 @@ class ViewContainer(QWidget):
 			(self._current_meteor_data, self._current_meteor_meta),
 		) = load_context_rasters(path_20)
 
+		try:
+			self._current_meteor_number_data, self._current_meteor_number_meta = load_cropped_context_raster(
+				METEOR_NUMBER_RASTER_PATH, path_20, "meteor_number"
+			)
+		except Exception as exc:
+			logger.warning(f"Failed to load meteor number raster: {exc}")
+			self._current_meteor_number_data, self._current_meteor_number_meta = None, None
+
+		try:
+			self._current_psr_data, self._current_psr_meta = load_psr_raster(path_20)
+		except Exception as exc:
+			logger.warning(f"Failed to load PSR raster: {exc}")
+			self._current_psr_data, self._current_psr_meta = None, None
+
 		self.set_autopath([])
 		self.display_map_type(map_type)
 		self.terrain_view.load(path_20, date, data=data, meta=meta)
@@ -153,6 +174,20 @@ class ViewContainer(QWidget):
 			if daily_meteor[0] is not None:
 				meteor_raster = daily_meteor
 
+		meteor_number_raster = self._meteor_number_raster
+		if map_key in {"meteor_number_day_avg", "meteor_number_daily_avg"} and self._current_path:
+			daily_number = load_daily_avg_meteor_number_raster(
+				reference_path=str(self._current_path),
+				reference_meta=self._current_meta,
+				reference_shape=(
+					int(self._current_data.shape[0]),
+					int(self._current_data.shape[1]),
+				),
+				utctime=str(self._current_datetime),
+			)
+			if daily_number[0] is not None:
+				meteor_number_raster = daily_number
+
 		display_data, display_meta = select_display_raster(
 			map_type,
 			self._elevation_raster,
@@ -160,6 +195,8 @@ class ViewContainer(QWidget):
 			illumination_raster,
 			self._temperature_raster,
 			meteor_raster,
+			meteor_number_raster,
+			self._psr_raster,
 		)
 		if display_data is None:
 			logger.warning(f"No raster data available for map type: {map_type}")
@@ -217,6 +254,16 @@ class ViewContainer(QWidget):
 		:return: The resulting value.
 		"""
 		return self._current_meteor_data, self._current_meteor_meta
+
+	@property
+	def _meteor_number_raster(self) -> RasterPayload:
+		"""Meteor number yearly-average raster."""
+		return self._current_meteor_number_data, self._current_meteor_number_meta
+
+	@property
+	def _psr_raster(self) -> RasterPayload:
+		"""Permanently shaded regions raster."""
+		return self._current_psr_data, self._current_psr_meta
 
 	def get_current_map_data(self):
 		"""
@@ -305,6 +352,57 @@ class ViewContainer(QWidget):
 		self.raster_view.clear_sim_failure_point()
 		self.terrain_view.clear_sim_failure_point()
 
+	def _sample_raster_to_grid(
+		self,
+		raster_data: np.ndarray | None,
+		raster_meta: dict | None,
+		elev: np.ndarray,
+		r0: int, r1: int,
+		c0: int, c1: int,
+		stride: int,
+		transform,
+		default_value: float = 0.5,
+	) -> np.ndarray:
+		"""Sample a raster into the elevation tile's grid and min-max normalize."""
+		sampled = np.full_like(elev, np.nan, dtype=np.float32)
+		if raster_data is not None and raster_meta is not None and "transform" in raster_meta:
+			it = raster_meta["transform"]
+			inv_it = ~it
+			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
+			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
+			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
+			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
+
+			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
+			for rr in range(int(r0), int(r1), int(stride)):
+				rowc = float(rr) + (0.5 * float(stride))
+				x = (a * cols) + (b * rowc) + c_
+				y = (d * cols) + (e * rowc) + f_
+				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
+				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
+
+				local_r = int((rr - r0) // int(stride))
+				valid = (
+					(ri >= 0)
+					& (ci >= 0)
+					& (ri < int(raster_data.shape[0]))
+					& (ci < int(raster_data.shape[1]))
+				)
+				if np.any(valid):
+					sampled[local_r, valid] = raster_data[ri[valid], ci[valid]]
+
+		normalized = np.full_like(sampled, default_value, dtype=np.float32)
+		finite = sampled[np.isfinite(sampled)]
+		if finite.size > 0:
+			lo = float(np.min(finite))
+			hi = float(np.max(finite))
+			if hi > lo:
+				normalized = ((sampled - lo) / (hi - lo)).astype(np.float32)
+				normalized = np.clip(normalized, 0.0, 1.0)
+				normalized[~np.isfinite(normalized)] = default_value
+
+		return normalized
+
 	def compute_autopath(
 		self,
 		*,
@@ -377,42 +475,9 @@ class ViewContainer(QWidget):
 			if daily[0] is not None:
 				illum_data, illum_meta = daily
 
-		illum_sampled = np.full_like(elev, np.nan, dtype=np.float32)
-		if illum_data is not None and illum_meta is not None and "transform" in illum_meta:
-			it = illum_meta["transform"]
-			inv_it = ~it
-			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
-			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
-			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
-			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
-
-			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
-			for rr in range(int(r0), int(r1), int(stride)):
-				rowc = float(rr) + (0.5 * float(stride))
-				x = (a * cols) + (b * rowc) + c_
-				y = (d * cols) + (e * rowc) + f_
-				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
-				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
-
-				local_r = int((rr - r0) // int(stride))
-				valid = (
-					(ri >= 0)
-					& (ci >= 0)
-					& (ri < int(illum_data.shape[0]))
-					& (ci < int(illum_data.shape[1]))
-				)
-				if np.any(valid):
-					illum_sampled[local_r, valid] = illum_data[ri[valid], ci[valid]]
-
-		illum_norm = np.full_like(illum_sampled, 0.5, dtype=np.float32)
-		finite_illum = illum_sampled[np.isfinite(illum_sampled)]
-		if finite_illum.size > 0:
-			lo = float(np.min(finite_illum))
-			hi = float(np.max(finite_illum))
-			if hi > lo:
-				illum_norm = ((illum_sampled - lo) / (hi - lo)).astype(np.float32)
-				illum_norm = np.clip(illum_norm, 0.0, 1.0)
-				illum_norm[~np.isfinite(illum_norm)] = 0.5
+		illum_norm = self._sample_raster_to_grid(
+			illum_data, illum_meta, elev, r0, r1, c0, c1, stride, transform,
+		)
 
 		# --- meteor flux sampling ---
 		meteor_data = self._current_meteor_data
@@ -426,82 +491,15 @@ class ViewContainer(QWidget):
 			)
 			if daily_meteor[0] is not None:
 				meteor_data, meteor_meta = daily_meteor
-		meteor_sampled = np.full_like(elev, np.nan, dtype=np.float32)
-		if meteor_data is not None and meteor_meta is not None and "transform" in meteor_meta:
-			it = meteor_meta["transform"]
-			inv_it = ~it
-			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
-			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
-			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
-			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
-
-			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
-			for rr in range(int(r0), int(r1), int(stride)):
-				rowc = float(rr) + (0.5 * float(stride))
-				x = (a * cols) + (b * rowc) + c_
-				y = (d * cols) + (e * rowc) + f_
-				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
-				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
-
-				local_r = int((rr - r0) // int(stride))
-				valid = (
-					(ri >= 0)
-					& (ci >= 0)
-					& (ri < int(meteor_data.shape[0]))
-					& (ci < int(meteor_data.shape[1]))
-				)
-				if np.any(valid):
-					meteor_sampled[local_r, valid] = meteor_data[ri[valid], ci[valid]]
-
-		meteor_norm = np.full_like(meteor_sampled, 0.5, dtype=np.float32)
-		finite_meteor = meteor_sampled[np.isfinite(meteor_sampled)]
-		if finite_meteor.size > 0:
-			lo = float(np.min(finite_meteor))
-			hi = float(np.max(finite_meteor))
-			if hi > lo:
-				meteor_norm = ((meteor_sampled - lo) / (hi - lo)).astype(np.float32)
-				meteor_norm = np.clip(meteor_norm, 0.0, 1.0)
-				meteor_norm[~np.isfinite(meteor_norm)] = 0.5
+		meteor_norm = self._sample_raster_to_grid(
+			meteor_data, meteor_meta, elev, r0, r1, c0, c1, stride, transform,
+		)
 
 		# --- temperature sampling ---
-		temp_data = self._current_temperature_data
-		temp_meta = self._current_temperature_meta
-		temp_sampled = np.full_like(elev, np.nan, dtype=np.float32)
-		if temp_data is not None and temp_meta is not None and "transform" in temp_meta:
-			it = temp_meta["transform"]
-			inv_it = ~it
-			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
-			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
-			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
-			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
-
-			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
-			for rr in range(int(r0), int(r1), int(stride)):
-				rowc = float(rr) + (0.5 * float(stride))
-				x = (a * cols) + (b * rowc) + c_
-				y = (d * cols) + (e * rowc) + f_
-				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
-				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
-
-				local_r = int((rr - r0) // int(stride))
-				valid = (
-					(ri >= 0)
-					& (ci >= 0)
-					& (ri < int(temp_data.shape[0]))
-					& (ci < int(temp_data.shape[1]))
-				)
-				if np.any(valid):
-					temp_sampled[local_r, valid] = temp_data[ri[valid], ci[valid]]
-
-		temp_norm = np.full_like(temp_sampled, 0.5, dtype=np.float32)
-		finite_temp = temp_sampled[np.isfinite(temp_sampled)]
-		if finite_temp.size > 0:
-			lo = float(np.min(finite_temp))
-			hi = float(np.max(finite_temp))
-			if hi > lo:
-				temp_norm = ((temp_sampled - lo) / (hi - lo)).astype(np.float32)
-				temp_norm = np.clip(temp_norm, 0.0, 1.0)
-				temp_norm[~np.isfinite(temp_norm)] = 0.5
+		temp_norm = self._sample_raster_to_grid(
+			self._current_temperature_data, self._current_temperature_meta,
+			elev, r0, r1, c0, c1, stride, transform,
+		)
 
 		# Cost-strategy powers.  Weighted cost = linear (1.0),
 		# Minimax = 4th power so a single bad cell dominates.

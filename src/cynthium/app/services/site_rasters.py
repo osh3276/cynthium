@@ -1,4 +1,3 @@
-import math
 import re
 from pathlib import Path
 
@@ -6,15 +5,21 @@ import numpy as np
 
 from cynthium.app.config import (
 	AVERAGE_TEMPERATURE_RASTER_PATH,
+	DATA_ROOT,
 	ILLUMINATION_ANGLES_DIR,
 	ILLUMINATION_RASTER_PATH,
 	METEOR_ANGLES_DIR,
 	METEOR_FLUX_RASTER_PATH,
+	METEOR_NUMBER_RASTER_PATH,
+	PSR_RASTER_PATH,
 	ensure_data_file_path,
 	get_slope_path,
 	resolve_data_file_path,
 )
-from cynthium.app.engine.illumination.sun_position import sun_position
+from cynthium.app.engine.illumination.sun_position import (
+	round_azimuth_to_nearest_12,
+	sun_position,
+)
 from cynthium.app.engine.raster.point_conversion import xy_to_longlat
 from cynthium.app.io.reader import load_geotif, load_geotif_cropped_to_reference
 from cynthium.app.utils.logger import get_logger
@@ -68,11 +73,7 @@ def load_context_rasters(reference_path: str) -> tuple[RasterPayload, RasterPayl
 	return illumination, temperature, meteor_flux
 
 
-def _round_azimuth_deg_to_nearest_12(azimuth_deg: float) -> int:
-	az = float(azimuth_deg) % 360.0
-	angle = int(math.floor((az + 6.0) / 12.0)) * 12
-	angle = angle % 360
-	return 0 if angle == 360 else angle
+
 
 
 def load_daily_avg_illumination_raster(
@@ -103,7 +104,7 @@ def load_daily_avg_illumination_raster(
 		time_for_az = f"{utctime.split('T', 1)[0]}T12:00:00"
 
 	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
-	angle_deg = _round_azimuth_deg_to_nearest_12(float(az_deg))
+	angle_deg = round_azimuth_to_nearest_12(float(az_deg))
 	angle_path = ensure_data_file_path(
 		resolve_data_file_path(ILLUMINATION_ANGLES_DIR / f"illum_angle_{angle_deg}.tif")
 	)
@@ -124,21 +125,19 @@ def load_daily_avg_illumination_raster(
 	return data, meta
 
 
-def load_daily_avg_meteor_raster(
+def _load_daily_avg_angle_raster(
 	*,
 	reference_path: str,
 	reference_meta: dict | None,
 	reference_shape: tuple[int, int],
 	utctime: str,
+	angle_dir: Path,
+	angle_prefix: str,
+	label: str,
 ) -> RasterPayload:
-	"""Load a daily-avg meteor flux map by snapping sun azimuth to 12° bins.
-
-	- Computes sun azimuth for the *center* of the reference raster at `utctime`.
-	- Rounds to the nearest multiple of 12 degrees.
-	- Loads `data/meteor/angles/meteor_angle_{bin}.tif` cropped to the reference raster.
-	"""
+	"""Load a daily-avg raster by snapping sun azimuth to 12° bins."""
 	if not reference_meta or "transform" not in reference_meta:
-		logger.warning("Cannot compute daily meteor flux: reference raster has no transform")
+		logger.warning(f"Cannot compute daily {label}: reference raster has no transform")
 		return None, None
 
 	transform = reference_meta["transform"]
@@ -152,25 +151,70 @@ def load_daily_avg_meteor_raster(
 		time_for_az = f"{utctime.split('T', 1)[0]}T12:00:00"
 
 	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
-	angle_deg = _round_azimuth_deg_to_nearest_12(float(az_deg))
+	angle_deg = round_azimuth_to_nearest_12(float(az_deg))
 	angle_path = ensure_data_file_path(
-		resolve_data_file_path(METEOR_ANGLES_DIR / f"meteor_energy_angle_{angle_deg}.tif")
+		resolve_data_file_path(angle_dir / f"{angle_prefix}_{angle_deg}.tif")
 	)
 
 	if not angle_path.exists():
-		logger.warning(f"Missing daily meteor angle raster: {angle_path}")
+		logger.warning(f"Missing daily {label} angle raster: {angle_path}")
 		return None, None
 
 	try:
 		data, meta = load_geotif_cropped_to_reference(str(angle_path), reference_path)
 	except ValueError as exc:
-		logger.warning(f"Failed to crop daily meteor raster {angle_path}: {exc}")
+		logger.warning(f"Failed to crop daily {label} raster {angle_path}: {exc}")
 		return None, None
 
 	logger.info(
-		f"Daily meteor flux: azimuth={float(az_deg):.2f}°, snapped={angle_deg}°, raster={angle_path.name}"
+		f"Daily {label}: azimuth={float(az_deg):.2f}°, snapped={angle_deg}°, raster={angle_path.name}"
 	)
 	return data, meta
+
+
+def load_daily_avg_meteor_raster(
+	*,
+	reference_path: str,
+	reference_meta: dict | None,
+	reference_shape: tuple[int, int],
+	utctime: str,
+) -> RasterPayload:
+	"""Load a daily-avg meteor flux map by snapping sun azimuth to 12° bins."""
+	return _load_daily_avg_angle_raster(
+		reference_path=reference_path,
+		reference_meta=reference_meta,
+		reference_shape=reference_shape,
+		utctime=utctime,
+		angle_dir=METEOR_ANGLES_DIR,
+		angle_prefix="meteor_energy_angle",
+		label="meteor flux",
+	)
+
+
+def load_daily_avg_meteor_number_raster(
+	*,
+	reference_path: str,
+	reference_meta: dict | None,
+	reference_shape: tuple[int, int],
+	utctime: str,
+) -> RasterPayload:
+	"""Load a daily-avg meteor number map by snapping sun azimuth to 12° bins."""
+	return _load_daily_avg_angle_raster(
+		reference_path=reference_path,
+		reference_meta=reference_meta,
+		reference_shape=reference_shape,
+		utctime=utctime,
+		angle_dir=DATA_ROOT,
+		angle_prefix="meteor_number_angle",
+		label="meteor number",
+	)
+
+
+def load_psr_raster(reference_path: str) -> RasterPayload:
+	"""Load the permanently shaded regions raster, cropped to the reference."""
+	return load_cropped_context_raster(
+		PSR_RASTER_PATH, reference_path, "psr"
+	)
 
 
 def load_cropped_context_raster(
@@ -218,6 +262,8 @@ def select_display_raster(
 	illumination: RasterPayload,
 	temperature: RasterPayload,
 	meteor_flux: RasterPayload = (None, None),
+	meteor_number: RasterPayload = (None, None),
+	psr: RasterPayload = (None, None),
 ) -> RasterPayload:
 	"""
 	Selects the display raster.
@@ -250,6 +296,12 @@ def select_display_raster(
 
 	if map_key.startswith("meteor_flux"):
 		return _fallback_if_missing(meteor_flux, elevation, "Meteor Flux")
+
+	if map_key.startswith("meteor_number"):
+		return _fallback_if_missing(meteor_number, elevation, "Meteor Number")
+
+	if map_key in {"permanently_shaded_regions", "psr"}:
+		return _fallback_if_missing(psr, elevation, "PSR")
 
 	return elevation
 
