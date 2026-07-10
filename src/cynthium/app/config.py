@@ -76,13 +76,19 @@ def ensure_data_file_path(path: Path) -> Path:
 
 
 ILLUMINATION_RASTER_PATH = resolve_data_file_path(
-	ILLUMINATION_DIR / "Illumination_mask_80mpp_FULL_GEO.tif"
+	DATA_ROOT / "illum.tif"
 )
 AVERAGE_TEMPERATURE_RASTER_PATH = resolve_data_file_path(
 	TEMPERATURE_DIR / "polar_south_80_summer_avg-float.tif"
 )
 METEOR_FLUX_RASTER_PATH = resolve_data_file_path(
 	DATA_ROOT / "meteor_energy.tif"
+)
+METEOR_NUMBER_RASTER_PATH = resolve_data_file_path(
+	DATA_ROOT / "meteor_number.tif"
+)
+PSR_RASTER_PATH = resolve_data_file_path(
+	DATA_ROOT / "psr.tif"
 )
 
 RASTER_LAYERS = {
@@ -99,11 +105,14 @@ MAP_TYPES = [
 	"Elevation",
 	"Slope",
 	"Hillshade",
-	"Solar Illumination (yr. avg.)",
+	"Solar Illumination (mo. avg.)",
 	"Solar Illumination (day avg.)",
-	"Meteor Flux (yr. avg.)",
+	"Meteor Flux (mo. avg.)",
 	"Meteor Flux (day avg.)",
+	"Meteor Number (mo. avg.)",
+	"Meteor Number (day avg.)",
 	"Average Temperature",
+	"Permanently Shaded Regions",
 ]
 
 # --- Lunar CRS ---
