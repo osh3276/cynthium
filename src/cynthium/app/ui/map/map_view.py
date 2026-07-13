@@ -184,7 +184,9 @@ class MapView(QWidget):
 			"slope": "Slope (deg)",
 			"solar_illumination": "Solar Illumination (W/m²)",
 			"meteor_flux": "Meteor Flux (J/yr*m²)",
+			"meteor_number": "Meteor Number",
 			"average_temperature": "Average Temperature (K)",
+			"permanently_shaded_regions": "PSR",
 		}
 		map_key = map_type.strip().lower()
 		map_key = re.sub(r"[^a-z0-9]+", "_", map_key)
@@ -195,6 +197,10 @@ class MapView(QWidget):
 			label = labels["solar_illumination"]
 		if label is None and map_key.startswith("meteor_flux"):
 			label = labels["meteor_flux"]
+		if label is None and map_key.startswith("meteor_number"):
+			label = labels["meteor_number"]
+		if label is None and map_key in {"permanently_shaded_regions", "psr"}:
+			label = labels["permanently_shaded_regions"]
 
 		self._colorbar.setLabel("right", label or map_type)
 

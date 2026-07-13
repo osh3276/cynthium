@@ -1,7 +1,18 @@
+import math
+
 import numpy as np
 import spiceypy as spice
 
 from cynthium.app import data as data_store
+
+
+def round_azimuth_to_nearest_12(azimuth_deg: float) -> int:
+	"""Round sun azimuth to the nearest 12-degree bin (0, 12, 24, ... 348)."""
+	az = float(azimuth_deg) % 360.0
+	angle = int(math.floor((az + 6.0) / 12.0)) * 12
+	angle = angle % 360
+	return 0 if angle == 360 else angle
+
 
 _kernels_loaded = False
 
