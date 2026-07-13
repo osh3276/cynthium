@@ -65,7 +65,7 @@ REGISTRY = {
 		"Site42_final_adj_20mpp_slp.tif": "sha256:224326645c4ca76ab3519086eeab9799779ffcb8a0cb1b9812628a5a6c3f82be",
 		"Summer_Illumination_mask_80mpp_SPole_GEO.tif": "sha256:e0c19ec2283779667fbba1c4eb67c6f15beb1833e4a61b0ee1312c7ac786e518",
 		"Winter_Illumination_mask_80mpp_SPole_GEO.tif": "sha256:a6fec52f4d5669870ea47379d5d8e28558fbb6aad011af211949edea6353305b",
-		"illum.tif": "sha256:b1dc09f6839ca9b8e8df6577d87ad5006156fe48177dd2ba51d7ac463e184459",
+		"illum.tif": "sha256:9977e5a3b31189841f3081994cb9748b8beedddeebdbb30b2aa9b5e86231d102",
 		"illum_angle_0.tif": "sha256:367ec96ddd7af8f43730b67e03acf69bf536a93aef8992fe7cf0888e2d1f7eff",
 		"illum_angle_108.tif": "sha256:9310cb02de5dd292477072c056507eab5f67eb7fe2e59504b4ca88ce3319d6d2",
 		"illum_angle_12.tif": "sha256:900a451a6e779c9158f3bfbcbd0b8528d283c573025154dff143a427d67b0ef7",
@@ -96,7 +96,7 @@ REGISTRY = {
 		"illum_angle_72.tif": "sha256:c57afb749bbd842cf6990bc74d7fc91221ebd434fe5a54678bd987324e410192",
 		"illum_angle_84.tif": "sha256:7205095a72475b89094b35f4db22347ab9953abb5d7e0016d1805a6e0810f12c",
 		"illum_angle_96.tif": "sha256:54ac606135133890ba83b13dd25108253bc605a1f063dc6d907fd5ce460b0f58",
-		"meteor_energy.tif": "sha256:3f11b4b55aa61f8268d526dd7a1b8d3efea5209381890d3322455d668d90e1e1",
+		"meteor_energy.tif": "sha256:9cf99b8c259fa7f76afa48da96d60f72035c7a8656f77901f7796c2c67ebefba",
 		"meteor_energy_angle_0.tif": "sha256:aeae09e36968847c93384025ac732b4a49ad93d33d879f91fb32779bb6622a0a",
 		"meteor_energy_angle_108.tif": "sha256:d213b2e7d93ae770d3f56ba571cb13862e6366edbf2057241a10fd695abd80e7",
 		"meteor_energy_angle_12.tif": "sha256:0e259ee6aa929728d18d843161b7b47be54e25d87989070a4db21db9016b4d8f",
@@ -127,7 +127,7 @@ REGISTRY = {
 		"meteor_energy_angle_72.tif": "sha256:65026db294b7ca510dd1131acd104c7deed2dd4b2cdcf69e2564dab10bfe17b6",
 		"meteor_energy_angle_84.tif": "sha256:f3624285422773d4ca1e7c15f561c01601bd6d5fe62eb6e25c7d97c13ca058e6",
 		"meteor_energy_angle_96.tif": "sha256:7b24fe7418428f97c57f6b4efa84327d7225eb4d1a56c7e22f04f5e01891cd62",
-		"meteor_number.tif": "sha256:9aab8b0c60aefdbb66f9a5198096e8719df1d230705106850c1ffc28698ae8b7",
+		"meteor_number.tif": "sha256:d98acb6cc235b1b89f1ca9fda5c349c1e101ee960145b30b3d2173500bb24d09",
 		"meteor_number_angle_0.tif": "sha256:7601c351ed2c9429f0ce1a1ff748bd34e2fcf009d2a3d4fd1e2cbd49e51f0050",
 		"meteor_number_angle_108.tif": "sha256:bf20724cee03d6c31e61f5b8d1958e8a518a701fe68847d3b03ea838f9ccac41",
 		"meteor_number_angle_12.tif": "sha256:9e64e5823542c6586447cec8d8cee0e839e41114bf11d9f1d686663936ea920a",
@@ -169,6 +169,7 @@ REGISTRY = {
 		"moon_pa_de440_200625.bpc": "sha256:60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f",
 		"moon_de440_250416.tf": "sha256:a47c71e9c9f33796bdafb2c9d69a7ee447b6016ecad80f71cd6f3e479f9cf768",
 		"pck00011.tpc": "sha256:3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1",
+			"psr.tif": "sha256:e331998869b7d1b653bb6f01fc7c60910409f565eba4b4625e24eccdad26cdbe",
 }
 
 SPICE_KERNELS = (
