@@ -16,6 +16,8 @@ class RoverSettings:
     rolling_resistance_coeff: float
     wheel_radius_m: float = 0.5
     motor_peak_torque_nm: float | None = None
+    track_width_m: float = 1.0
+    wheelbase_m: float = 1.5
 
     @property
     def power_w(self) -> float:
@@ -45,6 +47,10 @@ class RoverSettings:
             raise ValueError("Wheel radius must be > 0")
         if self.motor_peak_torque_nm is not None and self.motor_peak_torque_nm <= 0:
             raise ValueError("Motor peak torque must be > 0 when provided")
+        if not (self.track_width_m > 0):
+            raise ValueError("Track width must be > 0")
+        if not (self.wheelbase_m > 0):
+            raise ValueError("Wheelbase must be > 0")
 
 
 ROVER_PRESETS: dict[str, RoverSettings] = {
