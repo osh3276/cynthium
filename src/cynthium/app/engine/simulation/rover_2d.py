@@ -67,6 +67,8 @@ def simulate_unicycle(
     p_w = float(power_w)
     g = float(g_mps2)
     crr = float(rover.rolling_resistance_coeff)
+    wheel_r = float(rover.wheel_radius_m)
+    motor_torque = rover.motor_peak_torque_nm
 
     path_xy = pts_xyz[:, :2].copy()
     resolution_m = _estimate_resolution(pts_xyz)
@@ -191,7 +193,14 @@ def simulate_unicycle(
         # Power-limited drive force
         v_eff = max(speed, v_min_power_mps)
         f_power = p_w / v_eff
-        f_drive = min(f_power * throttle, f_trac_max)
+
+        # Torque-limited force from motor peak torque and wheel radius
+        if motor_torque is not None:
+            f_torque_max = motor_torque / wheel_r
+        else:
+            f_torque_max = float("inf")
+
+        f_drive = min(f_power * throttle, f_torque_max, f_trac_max)
 
         # Grade resistance (+ uphill, - downhill)
         f_grade = m * g * sin(pitch)
