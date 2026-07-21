@@ -81,6 +81,9 @@ ILLUMINATION_RASTER_PATH = resolve_data_file_path(
 AVERAGE_TEMPERATURE_RASTER_PATH = resolve_data_file_path(
 	TEMPERATURE_DIR / "polar_south_80_summer_avg-float.tif"
 )
+WINTER_TEMPERATURE_RASTER_PATH = resolve_data_file_path(
+	TEMPERATURE_DIR / "polar_south_80_winter_avg-float.tif"
+)
 METEOR_FLUX_RASTER_PATH = resolve_data_file_path(
 	DATA_ROOT / "meteor_energy.tif"
 )
