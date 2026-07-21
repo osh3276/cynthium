@@ -1,5 +1,7 @@
 """Orchestrates path sampling, physics simulation, and result assembly."""
 
+from typing import Any
+
 import numpy as np
 
 from cynthium.app.config import LUNAR_GRAVITY
@@ -21,7 +23,7 @@ def compute_traversal_dynamics(
 	illumination_transform=None,
 	rover: RoverSettings,
 	use_bicubic: bool = False,
-) -> dict[str, float]:
+) -> dict[str, Any]:
 	"""Run the physics simulation once and return results."""
 
 	mu = float(rover.wheel_friction_coeff)
@@ -38,8 +40,13 @@ def compute_traversal_dynamics(
 			"avg_solar_illumination_w_per_m2": 0.0,
 			"max_climbable_slope_deg": max_climbable,
 			"traverse_feasible": 1.0,
-			"required_wheel_friction_coeff": 0.0,
-			"required_climb_slope_deg": 0.0,
+			"failure_x": None,
+			"failure_y": None,
+			"simulation_resolution_m": 0.0,
+			"rollover_occurred": False,
+			"max_lateral_accel_mps2": 0.0,
+			"braking_events": 0,
+			"max_braking_decel_mps2": 0.0,
 		}
 
 	if elevation_map is not None and transform is not None:
@@ -70,8 +77,6 @@ def compute_traversal_dynamics(
 		"avg_solar_illumination_w_per_m2": float(physics["avg_solar_illumination_w_per_m2"]),
 		"max_climbable_slope_deg": max_climbable,
 		"traverse_feasible": float(physics["traverse_feasible"]),
-		"required_wheel_friction_coeff": float(mu),
-		"required_climb_slope_deg": float(np.degrees(np.arctan(max(0.001, mu - crr)))),
 		"failure_x": physics.get("failure_x"),
 		"failure_y": physics.get("failure_y"),
 		"simulation_resolution_m": float(resolution_m),
