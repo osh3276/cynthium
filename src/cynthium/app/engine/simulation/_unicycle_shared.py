@@ -40,30 +40,78 @@ def _normalise_angle(a: float) -> float:
     return a
 
 
-# ── Speed controller ──────────────────────────────────────────────────────────
+# ── PID speed controller ──────────────────────────────────────────────────────
 
 
-def _speed_controller(
-    speed: float,
-    target: float,
-    m: float,
-    p_w: float,
-    v_min: float,
-    g: float,
-    crr: float,
-    pitch: float,
-    mu: float,
-) -> tuple[float, float]:
-    """Compute throttle (0-1) and braking deceleration.
+class SpeedPIDController:
+    """PID speed controller for rover throttle/brake.
 
-    Returns (throttle, brake_decel) where brake_decel is an acceleration
-    magnitude (m/s²) to subtract from the net forward acceleration.
+    Maps speed error to throttle (0-1) when below target, or brake
+    deceleration (0-2 m/s²) when above target.
     """
-    if speed <= target:
-        return 1.0, 0.0
-    brake_needed = (speed - target) * 0.5 + 0.5
-    brake_needed = min(brake_needed, 2.0)
-    return 0.0, brake_needed
+
+    def __init__(
+        self,
+        Kp: float = 8.0,
+        Ki: float = 0.4,
+        Kd: float = 0.6,
+        integral_limit: float = 5.0,
+    ):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.integral_limit = integral_limit
+        self._integral = 0.0
+        self._prev_error = 0.0
+
+    def reset(self) -> None:
+        """Reset integral and derivative state (e.g. after a corner stop)."""
+        self._integral = 0.0
+        self._prev_error = 0.0
+
+    def update(self, speed: float, target: float, dt: float) -> tuple[float, float]:
+        """Compute (throttle, brake_decel) for one timestep.
+
+        Parameters
+        ----------
+        speed : float
+            Current rover speed (m/s).
+        target : float
+            Desired speed (m/s).
+        dt : float
+            Time delta for this step (s).
+
+        Returns
+        -------
+        throttle : float
+            Throttle 0-1 applied to drive force.
+        brake_decel : float
+            Braking deceleration (m/s²), 0 when throttling.
+        """
+        error = target - speed
+
+        # Integrate with anti-windup
+        self._integral += error * dt
+        self._integral = max(
+            -self.integral_limit, min(self.integral_limit, self._integral)
+        )
+
+        # Derivative on error (filtered)
+        derivative = (error - self._prev_error) / max(dt, 1e-6)
+        self._prev_error = error
+
+        # PID output
+        output = (
+            self.Kp * error
+            + self.Ki * self._integral
+            + self.Kd * derivative
+        )
+
+        # Map to throttle (positive) or brake (negative)
+        if output >= 0.0:
+            return min(1.0, output), 0.0
+        else:
+            return 0.0, min(2.0, -output * 2.0)
 
 
 # ── Pure pursuit path following ────────────────────────────────────────────────
@@ -270,6 +318,7 @@ def _empty_result() -> dict[str, Any]:
         "avg_solar_illumination_w_per_m2": 0.0,
         "failure_x": None,
         "failure_y": None,
+        "failure_reason": None,
         "rollover_occurred": False,
         "max_lateral_accel_mps2": 0.0,
         "braking_events": 0,

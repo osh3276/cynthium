@@ -376,12 +376,8 @@ class Window(QMainWindow):
 			if stats is None:
 				return None
 			if float(stats.get("traverse_feasible", 1.0)) < 0.5:
-				req_mu = float(stats.get("required_wheel_friction_coeff", 0.0))
-				# req_angle = float(stats.get("required_climb_slope_deg", 0.0))
-				return (
-					f"{label} traversal failed.\n"
-					f"Required \u03bc: {req_mu:.3f}"
-				)
+				reason = stats.get("failure_reason", "Unknown error")
+				return f"{label} traversal failed.\n{reason}"
 			return None
 
 		manual_warning = _feasible_warning(manual_stats, "Manual path")
@@ -392,8 +388,7 @@ class Window(QMainWindow):
 			QMessageBox.warning(
 				self,
 				"Traverse not feasible",
-				"Some paths failed under the dynamic rover model.\n\n"
-				+ "\n".join(warnings),
+				"\n\n".join(warnings),
 			)
 
 		self.statusBar().showMessage("Simulation complete")
