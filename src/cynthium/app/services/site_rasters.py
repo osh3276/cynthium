@@ -47,12 +47,38 @@ def load_slope_raster(elevation_path: str) -> RasterPayload:
 	return None, None
 
 
-def load_context_rasters(reference_path: str) -> tuple[RasterPayload, RasterPayload, RasterPayload]:
+def _select_temperature_raster(utctime: str | None = None) -> Path:
+	"""Select summer or winter temperature raster based on lunar season."""
+	from cynthium.app.config import WINTER_TEMPERATURE_RASTER_PATH
+
+	if utctime is None:
+		return AVERAGE_TEMPERATURE_RASTER_PATH
+
+	try:
+		from cynthium.app.engine.illumination.sun_position import sub_solar_latitude
+		sub_lat = sub_solar_latitude(utctime)
+		is_summer = sub_lat < 0.0  # sun in southern hemisphere
+		logger.info(
+			f"Lunar sub-solar latitude: {sub_lat:.2f}° → "
+			f"{'summer' if is_summer else 'winter'} at south pole"
+		)
+		return AVERAGE_TEMPERATURE_RASTER_PATH if is_summer else WINTER_TEMPERATURE_RASTER_PATH
+	except Exception as exc:
+		logger.warning(f"Could not determine lunar season, defaulting to summer: {exc}")
+		return AVERAGE_TEMPERATURE_RASTER_PATH
+
+
+def load_context_rasters(
+	reference_path: str,
+	utctime: str | None = None,
+) -> tuple[RasterPayload, RasterPayload, RasterPayload]:
 	"""
 	Loads the context rasters: illumination, temperature, and meteor flux.
 
 	:param reference_path: Path to the reference file.
 	:type reference_path: str
+	:param utctime: UTC time string for seasonal temperature selection.
+	:type utctime: str | None
 	:return: Tuple of (illumination, temperature, meteor_flux) payloads.
 	"""
 	illumination = load_cropped_context_raster(
@@ -60,8 +86,9 @@ def load_context_rasters(reference_path: str) -> tuple[RasterPayload, RasterPayl
 		reference_path,
 		"illumination",
 	)
+	temperature_path = _select_temperature_raster(utctime)
 	temperature = load_cropped_context_raster(
-		AVERAGE_TEMPERATURE_RASTER_PATH,
+		temperature_path,
 		reference_path,
 		"temperature",
 	)
