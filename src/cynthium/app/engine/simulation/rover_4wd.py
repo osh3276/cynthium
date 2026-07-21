@@ -17,19 +17,19 @@ from typing import Any
 import numpy as np
 
 from cynthium.app.engine.simulation._unicycle_shared import (
-    DT_MAX,
-    DT_MIN,
-    SPEED_EPS,
-    _clamp,
-    _compute_target_speeds,
-    _detect_corners,
-    _empty_result,
-    _estimate_resolution,
-    _normalise_angle,
-    _pure_pursuit_yaw_rate,
-    _sample_pitch,
-    _sample_target_speed,
-    _speed_controller,
+	DT_MAX,
+	DT_MIN,
+	SPEED_EPS,
+	_clamp,
+	_compute_target_speeds,
+	_detect_corners,
+	_empty_result,
+	_estimate_resolution,
+	_normalise_angle,
+	_pure_pursuit_yaw_rate,
+	_sample_pitch,
+	_sample_target_speed,
+	SpeedPIDController,
 )
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 
@@ -189,6 +189,7 @@ def simulate_rover_4wd(
     diverge_counter = 0
     last_dist_to_end = cum_dists[-1]
     completed = False
+    failure_reason: str | None = None
 
     # Path geometry
     lookahead = max(path_total_len * 0.1, 2.0)
@@ -201,6 +202,9 @@ def simulate_rover_4wd(
     win_size = 20
     last_seg = 0
     step = 0
+
+    # PID speed controller
+    _pid = SpeedPIDController()
 
     for step in range(max_steps):
         # ── 1. Nearest point on path (sliding window) ──
@@ -243,10 +247,8 @@ def simulate_rover_4wd(
             x, y, heading, speed, path_xy, lookahead, last_seg, win_size,
         )
 
-        # ── 4. Speed control ──
-        throttle, brake = _speed_controller(
-            speed, target_speed, m, p_w / 2.0, v_min_power_mps, g, crr, pitch, mu,
-        )
+        # ── 4. Speed control (PID) ──
+        throttle, brake = _pid.update(speed, target_speed, dt)
         if brake > 0:
             braking_events += 1
 
@@ -358,14 +360,19 @@ def simulate_rover_4wd(
             diverge_counter = 0
         last_dist_to_end = dist_to_end
         if diverge_counter > 50:
+            failure_reason = "Lost path following — rover deviated from route"
             break
 
         if step_dist < 0.0001:
             stagnation += 1
             if stagnation > 5000:
+                failure_reason = "Insufficient traction — rover cannot make progress"
                 break
         else:
             stagnation = 0
+
+    if failure_reason is None and not completed:
+        failure_reason = "Could not complete traverse in time"
 
         # ── 12. Energy ──
         if inv_illum is not None:
@@ -410,6 +417,7 @@ def simulate_rover_4wd(
         "avg_solar_illumination_w_per_m2": float(avg_illum),
         "failure_x": float(x) if not completed else None,
         "failure_y": float(y) if not completed else None,
+        "failure_reason": failure_reason,
         "rollover_occurred": False,
         "max_lateral_accel_mps2": float(max_lateral_accel),
         "braking_events": braking_events,

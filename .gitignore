@@ -3,7 +3,6 @@
 *.sh
 
 data/
-
 scripts/
 
 # Sphinx

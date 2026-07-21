@@ -156,14 +156,15 @@ class SimulationResultsPanel(QWidget):
 		feasible_manual = float(manual_stats.get("traverse_feasible", 1.0))
 		feasible_auto = float(auto_stats.get("traverse_feasible", 1.0))
 		if feasible_manual < 0.5 or feasible_auto < 0.5:
-			req_mu_manual = float(manual_stats.get("required_wheel_friction_coeff", 0.0))
-			req_mu_auto = float(auto_stats.get("required_wheel_friction_coeff", 0.0))
-			status = (
-				f"Traverse failed (dynamic model). "
-				f"Manual path: required \u03bc={req_mu_manual:.3f}, "
-				f"Auto path: required \u03bc={req_mu_auto:.3f}."
-				f"Failure point marked in red."
-			)
+			manual_reason = manual_stats.get("failure_reason", "Unknown error")
+			auto_reason = auto_stats.get("failure_reason", "Unknown error")
+			parts = ["Traverse failed (dynamic model)."]
+			if feasible_manual < 0.5:
+				parts.append(f"Manual path: {manual_reason}")
+			if feasible_auto < 0.5:
+				parts.append(f"Auto path: {auto_reason}")
+			parts.append("Failure point marked in red.")
+			status = " ".join(parts)
 
 		self._status.setText(status)
 		self._apply_stats(self._manual_labels, manual_stats)
