@@ -155,7 +155,7 @@ class ViewContainer(QWidget):
 					self._current_illumination_data, self._current_illumination_meta = reloaded[0]
 					self._current_temperature_data, self._current_temperature_meta = reloaded[1]
 					self._current_meteor_data, self._current_meteor_meta = reloaded[2]
-					ilumination_raster = self._illumination_raster
+					illumination_raster = self._illumination_raster
 					logger.info("Reloaded context rasters (illumination, temperature, meteor)")
 
 		is_daily_illum = map_key in {"solar_illumination_day_avg", "solar_illumination_daily_avg"}
@@ -173,7 +173,7 @@ class ViewContainer(QWidget):
 				utctime=str(self._current_datetime),
 			)
 			if daily[0] is not None:
-				ilumination_raster = daily
+				illumination_raster = daily
 
 		meteor_raster = self._meteor_raster
 		is_daily_meteor = map_key in {"meteor_flux_day_avg", "meteor_flux_daily_avg"}
