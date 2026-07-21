@@ -54,12 +54,12 @@ Simulation
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: cynthium.app.engine.simulation.rover_dynamics
+.. automodule:: cynthium.app.engine.simulation.sim_orchestrator
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: cynthium.app.engine.simulation.rover_physics
+.. automodule:: cynthium.app.engine.simulation.rover_4wd
    :members:
    :undoc-members:
    :show-inheritance:

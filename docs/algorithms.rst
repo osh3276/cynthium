@@ -310,8 +310,8 @@ Lunar parameters
 
 See:
 
-* :func:`cynthium.app.engine.simulation.rover_dynamics.compute_traversal_dynamics`
-* :func:`cynthium.app.engine.simulation.rover_physics.simulate_rover_over_path`
+* :func:`cynthium.app.engine.simulation.sim_orchestrator.compute_traversal_dynamics`
+* :func:`cynthium.app.engine.simulation.rover_4wd.simulate_rover_4wd`
 
 Path Statistics
 ===============
