@@ -57,6 +57,7 @@ class Window(QMainWindow):
 		self._last_simulation_points = None
 		self._last_autopath_stats = None
 		self._last_autopath_points = None
+		self._rover_settings_override = None
 
 		# self.addToolBar(create_toolbar(self))
 
@@ -128,6 +129,9 @@ class Window(QMainWindow):
 			self._export_simulation_data
 		)
 		self._menubar.action_exit.triggered.connect(self.close)
+		self._menubar.action_rover_settings.triggered.connect(
+			self._on_open_rover_settings
+		)
 		self._sidebar.map_generation_requested.connect(self._load_site_with_datetime)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
 		self._view_container.raster_view.waypoint_added.connect(
@@ -136,6 +140,9 @@ class Window(QMainWindow):
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
 		self._sidebar.waypoints_cleared.connect(self._on_clear_waypoints)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
+		self._sidebar.rover_settings_requested.connect(
+			self._on_open_rover_settings
+		)
 		self._results_panel.simulation_started.connect(self._on_start_simulation)
 
 	def _on_clear_waypoints(self):
@@ -144,6 +151,49 @@ class Window(QMainWindow):
 		self._sidebar.set_autopath_waypoints(None)
 		self._view_container.clear_failure_point()
 		self._view_container.clear_sim_failure_point()
+
+	def _get_rover_settings(self):
+		"""Return RoverSettings, merging sidebar panel values with dialog override."""
+		base = self._sidebar.get_rover_settings()
+		override = self._rover_settings_override
+		if override is not None:
+			from cynthium.app.engine.simulation.rover_settings import RoverSettings
+			base = RoverSettings(
+				mass_kg=base.mass_kg,
+				power_hp=base.power_hp,
+				wheel_friction_coeff=base.wheel_friction_coeff,
+				rolling_resistance_coeff=base.rolling_resistance_coeff,
+				wheel_radius_m=override.wheel_radius_m,
+				motor_peak_torque_nm=override.motor_peak_torque_nm,
+				track_width_m=override.track_width_m,
+				wheelbase_m=override.wheelbase_m,
+			)
+		return base
+
+	def _on_open_rover_settings(self):
+		from cynthium.app.ui.panels.rover_settings_dialog import RoverSettingsDialog
+
+		# Get current rover settings from sidebar
+		try:
+			current = self._sidebar.get_rover_settings()
+		except Exception:
+			current = None
+		# Merge stored override into current for pre-fill
+		if current is not None and self._rover_settings_override is not None:
+			current = self._rover_settings_override
+
+		dlg = RoverSettingsDialog(current=current, parent=self)
+		if dlg.exec():
+			updated = dlg.get_settings()
+			if updated is not None:
+				self._rover_settings_override = updated
+				# Sync basic fields back to sidebar panel
+				self._sidebar._rover_settings_panel.set_values(
+					str(updated.mass_kg),
+					str(updated.power_hp),
+					str(updated.wheel_friction_coeff),
+					str(updated.rolling_resistance_coeff),
+				)
 
 	def _on_autopath_requested(self, payload: dict):
 		if self._current_path is None:
@@ -165,7 +215,7 @@ class Window(QMainWindow):
 				user_wps.append((float(wp[0]), float(wp[1])))
 
 			try:
-				rover = self._sidebar.get_rover_settings()
+				rover = self._get_rover_settings()
 			except (ValueError, KeyError, TypeError) as exc:
 				QMessageBox.warning(
 					self, "Autopath",
@@ -261,7 +311,7 @@ class Window(QMainWindow):
 			return
 
 		try:
-			rover = self._sidebar.get_rover_settings()
+			rover = self._get_rover_settings()
 		except ValueError as exc:
 			self._results_panel.set_error(str(exc))
 			self.statusBar().showMessage("Ready")

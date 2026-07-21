@@ -10,6 +10,11 @@ class AppMenuBar(QMenuBar):
 		file_menu = self.addMenu("File")
 		self.addMenu("Edit")
 		self.addMenu("View")
+
+		settings_menu = self.addMenu("Settings")
+		self.action_rover_settings = settings_menu.addAction("Rover...")
+		self.action_rover_settings.setShortcut("Ctrl+R")
+
 		self.addMenu("Help")
 
 		# --- Import ---

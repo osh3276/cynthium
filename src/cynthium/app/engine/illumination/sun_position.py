@@ -27,6 +27,20 @@ def _ensure_kernels_loaded() -> None:
 	_kernels_loaded = True
 
 
+def sub_solar_latitude(utctime: str) -> float:
+	"""Return the sub-solar point latitude (degrees) at the given UTC time.
+
+	Negative = sun in southern hemisphere (summer at south pole).
+	Positive = sun in northern hemisphere (winter at south pole).
+	"""
+	_ensure_kernels_loaded()
+	et = spice.utc2et(utctime)
+	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
+	pos = state[:3]
+	_, lon, lat = spice.reclat(pos)
+	return float(np.degrees(lat))
+
+
 def sun_position(lat, lon, time):
 	"""
 	lat, lon: selenographic degrees
