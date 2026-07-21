@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import atan, degrees
+from math import asin, atan, atan2, cos, degrees, radians, sin, sqrt
 
+G_MPS2 = 1.625  # lunar gravity
 _HP_TO_W = 745.699872
+_MIN_CLIMB_V_MPS = 0.1  # minimum speed for power-limited climb
 
 
 @dataclass(frozen=True)
@@ -25,14 +27,47 @@ class RoverSettings:
 
     @property
     def max_climbable_slope_deg(self) -> float:
-        """Maximum sustainable slope accounting for rolling resistance.
+        """Maximum sustainable slope considering traction, power-to-mass, and torque.
 
-        Steady-state force balance:  μ·m·g·cos(θ) = m·g·sin(θ) + Crr·m·g·cos(θ)
-        Simplifies to:  tan(θ) = μ − Crr
+        Returns the minimum of three limits:
+          1. Traction:  wheels slip when tan(θ) > μ − Crr
+          2. Power:     P / v ≥ m·g·(sin(θ) + Crr·cos(θ))  at v = 0.1 m/s
+          3. Torque:    T / r ≥ m·g·(sin(θ) + Crr·cos(θ))
         """
         mu = self.wheel_friction_coeff
         crr = self.rolling_resistance_coeff
-        return float(degrees(atan(max(0.001, mu - crr))))
+        m = self.mass_kg
+        g = G_MPS2
+
+        # ── 1. Traction limit ──
+        traction = degrees(atan(max(0.001, mu - crr)))
+
+        # ── 2. Power limit ──
+        # P / (v·m·g) = sin(θ) + Crr·cos(θ)
+        p_w = self.power_w
+        a_power = p_w / (_MIN_CLIMB_V_MPS * m * g)
+        power = self._solve_slope(a_power, crr) if a_power > 0 else 0.0
+
+        # ── 3. Torque limit ──
+        # T / (r·m·g) = sin(θ) + Crr·cos(θ)
+        torque = 90.0  # no torque limit
+        if self.motor_peak_torque_nm is not None and self.motor_peak_torque_nm > 0:
+            a_torque = self.motor_peak_torque_nm / (self.wheel_radius_m * m * g)
+            torque = self._solve_slope(a_torque, crr) if a_torque > 0 else 0.0
+
+        return float(min(traction, power, torque))
+
+    @staticmethod
+    def _solve_slope(a: float, crr: float) -> float:
+        """Solve  A = sin(θ) + Crr·cos(θ)  for θ in degrees.
+
+        Uses the identity  sin(θ) + k·cos(θ) = R·sin(θ + φ)
+        where  R = √(1 + k²)  and  φ = atan2(k, 1).
+        """
+        r = sqrt(1.0 + crr * crr)
+        phi = atan2(crr, 1.0)
+        clipped = max(-1.0, min(1.0, a / r))
+        return float(degrees(asin(clipped) - phi))
 
     def validate(self):
         if not (self.mass_kg > 0):
@@ -96,6 +131,8 @@ def rover_settings_from_strings(
     rolling_resistance_coeff: str,
     wheel_radius_m: str = "0.5",
     motor_peak_torque_nm: str | None = None,
+    track_width_m: str = "1.0",
+    wheelbase_m: str = "1.5",
 ) -> RoverSettings:
     m = float(mass_kg)
     p = float(power_hp)
@@ -103,6 +140,8 @@ def rover_settings_from_strings(
     crr = float(rolling_resistance_coeff)
     r = float(wheel_radius_m)
     torque = float(motor_peak_torque_nm) if motor_peak_torque_nm is not None else None
+    tw = float(track_width_m)
+    wb = float(wheelbase_m)
     settings = RoverSettings(
         mass_kg=m,
         power_hp=p,
@@ -110,6 +149,8 @@ def rover_settings_from_strings(
         rolling_resistance_coeff=crr,
         wheel_radius_m=r,
         motor_peak_torque_nm=torque,
+        track_width_m=tw,
+        wheelbase_m=wb,
     )
     settings.validate()
     return settings

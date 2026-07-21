@@ -2,6 +2,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
 	QFrame,
 	QLabel,
+	QPushButton,
 	QScrollArea,
 	QVBoxLayout,
 	QWidget,
@@ -23,6 +24,7 @@ class AppSidebar(QWidget):
 	waypoint_removed = Signal(int)
 	waypoints_cleared = Signal()
 	autopath_requested = Signal(object)
+	rover_settings_requested = Signal()
 
 	def __init__(self):
 		"""
@@ -70,7 +72,14 @@ class AppSidebar(QWidget):
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
 		scroll_layout.addWidget(self._planning_panel)
 		scroll_layout.addWidget(separator)
+
+		rover_btn = QPushButton("Rover Settings...")
+		rover_btn.clicked.connect(self.rover_settings_requested.emit)
+		scroll_layout.addWidget(rover_btn)
+
+		# Hidden panel — keeps data access for get/export/import
 		self._rover_settings_panel = RoverSettingsPanel()
+		self._rover_settings_panel.setVisible(False)
 		scroll_layout.addWidget(self._rover_settings_panel)
 
 		scroll_layout.addStretch(1)
