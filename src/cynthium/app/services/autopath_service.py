@@ -6,7 +6,7 @@ from typing import Callable
 
 import numpy as np
 
-from cynthium.app.engine.simulation.rover_dynamics import compute_traversal_dynamics
+from cynthium.app.engine.simulation.sim_orchestrator import compute_traversal_dynamics
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 from cynthium.app.engine.simulation.stats import calculate_path_stats
 

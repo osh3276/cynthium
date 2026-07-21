@@ -1,8 +1,7 @@
-"""Shared constants and helper functions for the unicycle rover models.
+"""Shared constants and helper functions for the rover simulations.
 
-This module consolidates all common logic used by ``rover_2d.py`` and
-``rover_physics.py`` so that bug-fixes and improvements automatically
-benefit both simulation paths.
+Consolidates common logic used by the unicycle and 4WD simulation
+models so that bug-fixes and improvements benefit both paths.
 """
 
 from __future__ import annotations

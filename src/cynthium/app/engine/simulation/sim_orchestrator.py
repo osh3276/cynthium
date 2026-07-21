@@ -10,7 +10,7 @@ from cynthium.app.engine.simulation.path_sampling import (
 	get_pixel_resolution_m,
 	sample_path_elevations,
 )
-from cynthium.app.engine.simulation.rover_physics import simulate_rover_over_path
+from cynthium.app.engine.simulation.rover_4wd import simulate_rover_4wd
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 
 
@@ -57,17 +57,18 @@ def compute_traversal_dynamics(
 		pts = waypoints_xyz.astype(np.float64, copy=False)
 		resolution_m = 0.0
 
-	physics = simulate_rover_over_path(
-		pts_xyz=pts,
-		rover=rover,
-		wheel_friction_coeff=mu,
-		power_w=float(rover.power_w),
-		illumination_map=illumination_map,
-		illumination_transform=illumination_transform,
-		g_mps2=float(LUNAR_GRAVITY),
-		v0_mps=0.0,
-		v_min_power_mps=0.001,
-	)
+	physics = simulate_rover_4wd(
+			pts_xyz=pts,
+			waypoints_xy=waypoints_xyz[:, :2],
+			rover=rover,
+			wheel_friction_coeff=mu,
+			power_w=float(rover.power_w),
+			illumination_map=illumination_map,
+			illumination_transform=illumination_transform,
+			g_mps2=float(LUNAR_GRAVITY),
+			v0_mps=0.0,
+			v_min_power_mps=0.001,
+		)
 
 	return {
 		"average_velocity_mps": float(physics["average_velocity_mps"]),
