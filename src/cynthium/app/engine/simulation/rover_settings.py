@@ -20,6 +20,8 @@ class RoverSettings:
     motor_peak_torque_nm: float | None = None
     track_width_m: float = 1.0
     wheelbase_m: float = 1.5
+    battery_capacity_wh: float = 500.0
+    max_brake_decel_mps2: float = 2.0
 
     @property
     def power_w(self) -> float:
@@ -68,6 +70,10 @@ class RoverSettings:
         phi = atan2(crr, 1.0)
         clipped = max(-1.0, min(1.0, a / r))
         return float(degrees(asin(clipped) - phi))
+
+    @property
+    def battery_capacity_j(self) -> float:
+        return self.battery_capacity_wh * 3600.0
 
     def validate(self):
         if not (self.mass_kg > 0):
@@ -133,6 +139,8 @@ def rover_settings_from_strings(
     motor_peak_torque_nm: str | None = None,
     track_width_m: str = "1.0",
     wheelbase_m: str = "1.5",
+    battery_capacity_wh: str = "500.0",
+    max_brake_decel_mps2: str = "2.0",
 ) -> RoverSettings:
     m = float(mass_kg)
     p = float(power_hp)
@@ -142,6 +150,8 @@ def rover_settings_from_strings(
     torque = float(motor_peak_torque_nm) if motor_peak_torque_nm is not None else None
     tw = float(track_width_m)
     wb = float(wheelbase_m)
+    batt = float(battery_capacity_wh)
+    brak = float(max_brake_decel_mps2)
     settings = RoverSettings(
         mass_kg=m,
         power_hp=p,
@@ -151,6 +161,8 @@ def rover_settings_from_strings(
         motor_peak_torque_nm=torque,
         track_width_m=tw,
         wheelbase_m=wb,
+        battery_capacity_wh=batt,
+        max_brake_decel_mps2=brak,
     )
     settings.validate()
     return settings

@@ -321,5 +321,8 @@ def _empty_result() -> dict[str, Any]:
         "rollover_occurred": False,
         "max_lateral_accel_mps2": 0.0,
         "braking_events": 0,
-        "max_braking_decel_mps2": 0.0,
-    }
+        		"max_braking_decel_mps2": 0.0,
+        		"battery_energy_used_j": 0.0,
+        		"battery_remaining_pct": 100.0,
+        		"battery_capacity_wh": 0.0,
+        	}

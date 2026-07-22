@@ -134,9 +134,10 @@ def simulate_rover_4wd(
 		inv_illum = ~illumination_transform
 
 	# Accumulators
-	total_time = 0.0
-	total_dist = 0.0
-	energy_j_per_m2 = 0.0
+		total_time = 0.0
+		total_dist = 0.0
+		energy_j_per_m2 = 0.0
+		battery_energy_used_j = 0.0
 	min_v = float("inf") if v0_mps > 0 else 0.0
 	max_v = float(v0_mps)
 	prev_pos = np.array([x, y])
@@ -176,6 +177,7 @@ def simulate_rover_4wd(
 				braking_events += 1
 
 			# Force stopping
+			brake = min(brake, rover.max_brake_decel_mps2)
 			f_desired_total = -(brake * m)
 			f_grade = m * g * sin_pitch
 			f_roll = crr * m * g * cos_pitch
@@ -229,6 +231,9 @@ def simulate_rover_4wd(
 			speed = 0.0
 			yaw_rate *= 0.95  # damping
 
+			# Battery drain during pivot (power used by opposing thrusts)
+			battery_energy_used_j += p_w * 0.3 * dt
+
 			total_time += dt
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
 			continue
@@ -236,6 +241,10 @@ def simulate_rover_4wd(
 		# ── DRIVE mode force calculations ──
 		target_speed = _sample_target_speed_waypoint(dist_to_wp, p_w, crr, m, g)
 		throttle, brake = _pid.update(speed, target_speed, dt)
+		brake = min(brake, rover.max_brake_decel_mps2)
+
+		# ── Battery drain ──
+		battery_energy_used_j += p_w * throttle * dt
 		if brake > 0:
 			braking_events += 1
 
@@ -339,12 +348,17 @@ def simulate_rover_4wd(
 		avg_v = total_dist / total_time
 		avg_illum = energy_j_per_m2 / total_time
 
+	# Battery stats
+	batt_cap_j = rover.battery_capacity_j
+	batt_remaining_pct = max(0.0, (batt_cap_j - battery_energy_used_j) / max(batt_cap_j, 1.0) * 100.0) if batt_cap_j > 0 else 100.0
+
 	t_elapsed = time.perf_counter() - t_start
 	status = "completed" if completed else "failed"
 	print(
 		f"[simulate_rover_4wd] {status} — "
 		f"{t_elapsed:.3f}s wall time, {total_time:.1f}s sim time, "
-		f"{step + 1} steps, {total_dist:.0f}m travelled"
+		f"{step + 1} steps, {total_dist:.0f}m travelled, "
+		f"battery {batt_remaining_pct:.0f}%"
 	)
 
 	return {
@@ -362,6 +376,9 @@ def simulate_rover_4wd(
 		"max_lateral_accel_mps2": float(max_lateral_accel),
 		"braking_events": braking_events,
 		"max_braking_decel_mps2": float(max_braking_decel),
+		"battery_energy_used_j": float(battery_energy_used_j),
+		"battery_remaining_pct": float(batt_remaining_pct),
+		"battery_capacity_wh": float(rover.battery_capacity_wh),
 	}
 
 
