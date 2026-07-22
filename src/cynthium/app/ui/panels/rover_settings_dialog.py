@@ -83,6 +83,16 @@ class RoverSettingsDialog(QDialog):
 		self._wheelbase_field.setPlaceholderText("m")
 		form.addRow("Wheelbase (m):", self._wheelbase_field)
 
+		form.addRow(QLabel(""))  # spacer
+
+		self._battery_field = QLineEdit()
+		self._battery_field.setPlaceholderText("Wh")
+		form.addRow("Battery capacity (Wh):", self._battery_field)
+
+		self._brake_field = QLineEdit()
+		self._brake_field.setPlaceholderText("m/s\u00b2")
+		form.addRow("Max brake decel (m/s\u00b2):", self._brake_field)
+
 		layout.addLayout(form)
 
 		self._max_slope_label = QLabel()
@@ -106,6 +116,8 @@ class RoverSettingsDialog(QDialog):
 				self._torque_field.setText(str(current.motor_peak_torque_nm))
 			self._track_width_field.setText(str(current.track_width_m))
 			self._wheelbase_field.setText(str(current.wheelbase_m))
+			self._battery_field.setText(str(current.battery_capacity_wh))
+			self._brake_field.setText(str(current.max_brake_decel_mps2))
 			self._update_max_slope_direct(
 				current.wheel_friction_coeff,
 				current.rolling_resistance_coeff,
@@ -128,6 +140,8 @@ class RoverSettingsDialog(QDialog):
 			self._torque_field.clear()
 		self._track_width_field.setText(str(preset.track_width_m))
 		self._wheelbase_field.setText(str(preset.wheelbase_m))
+		self._battery_field.setText(str(preset.battery_capacity_wh))
+		self._brake_field.setText(str(preset.max_brake_decel_mps2))
 		self._update_max_slope_direct(
 			preset.wheel_friction_coeff,
 			preset.rolling_resistance_coeff,
@@ -170,6 +184,8 @@ class RoverSettingsDialog(QDialog):
 				motor_peak_torque_nm=torque_str if torque_str else None,
 				track_width_m=self._track_width_field.text().strip() or "1.0",
 				wheelbase_m=self._wheelbase_field.text().strip() or "1.5",
+				battery_capacity_wh=self._battery_field.text().strip() or "500.0",
+				max_brake_decel_mps2=self._brake_field.text().strip() or "2.0",
 			)
 			self._result = settings
 			self.accept()

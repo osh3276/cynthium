@@ -34,8 +34,9 @@ _PATH_FIELDS = [
 	_Field("Traversal time", "traversal_time_s", "{}"),
 	_Field("Max climbable slope", "max_climbable_slope_deg", "{:.2f}\u00b0"),
 	_Field("Traverse feasible", "traverse_feasible", "{}"),
-	_Field("Required wheel friction (dynamic)", "required_wheel_friction_coeff", "{:.3f}"),
-	_Field("Equivalent traction angle", "required_climb_slope_deg", "{:.2f}\u00b0"),
+	_Field("Battery remaining", "battery_remaining_pct", "{:.1f}%"),
+	_Field("Energy consumed", "battery_energy_used_j", "{:.0f} J"),
+	_Field("Battery capacity", "battery_capacity_wh", "{:.0f} Wh"),
 ]
 
 _SLOPE_FIELDS = [
@@ -222,8 +223,9 @@ def _find_fmt_for_key(key: str) -> str | None:
 		"min_velocity_mps": "{:.2f} m/s",
 		"max_velocity_mps": "{:.2f} m/s",
 		"max_climbable_slope_deg": "{:.2f}\u00b0",
-		"required_wheel_friction_coeff": "{:.3f}",
-		"required_climb_slope_deg": "{:.2f}\u00b0",
+		"battery_energy_used_j": "{:.0f} J",
+		"battery_remaining_pct": "{:.1f}%",
+		"battery_capacity_wh": "{:.0f} Wh",
 		"rover_mass_kg": "{:.2f} kg",
 		"rover_power_hp": "{:.3f} hp",
 		"rover_mu": "{:.3f}",

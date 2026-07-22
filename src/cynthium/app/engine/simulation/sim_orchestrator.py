@@ -48,6 +48,9 @@ def compute_traversal_dynamics(
 			"max_lateral_accel_mps2": 0.0,
 			"braking_events": 0,
 			"max_braking_decel_mps2": 0.0,
+			"battery_energy_used_j": 0.0,
+			"battery_remaining_pct": 100.0,
+			"battery_capacity_wh": 0.0,
 		}
 
 	if elevation_map is not None and transform is not None:
@@ -87,4 +90,7 @@ def compute_traversal_dynamics(
 		"max_lateral_accel_mps2": float(physics.get("max_lateral_accel_mps2", 0.0)),
 		"braking_events": int(physics.get("braking_events", 0)),
 		"max_braking_decel_mps2": float(physics.get("max_braking_decel_mps2", 0.0)),
+		"battery_energy_used_j": float(physics.get("battery_energy_used_j", 0.0)),
+		"battery_remaining_pct": float(physics.get("battery_remaining_pct", 100.0)),
+		"battery_capacity_wh": float(physics.get("battery_capacity_wh", 0.0)),
 	}
