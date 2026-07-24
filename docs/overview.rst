@@ -20,6 +20,13 @@ Features
   products.
 * **Layer Manager**: Checkboxes and reordering for map layers, with automatic
   refresh when the visible layer or preset changes.
+* **Waypoint Management**: Editable waypoint table with coordinate cells,
+  per-waypoint pause durations, and live map updates.
+* **Cursor Value Tooltip**: Displays the raster value and unit under the
+  mouse cursor (with scientific notation for large numbers).
+* **Battery Simulation**: Battery drain modelling including motor power
+  consumption and constant idle drain, with remaining charge and total
+  energy consumed in results.
 * **Data Export**: Export waypoints, autopaths, simulation statistics, and
   full application settings for further analysis.
 * **Custom Data Import**: Import GeoTIFF rasters with automatic CRS
@@ -38,17 +45,23 @@ The application is organised into several subpackages under
      - Responsibility
    * - :mod:`cynthium.app.engine`
      - Core algorithms: pathfinding (A\*, Dijkstra), illumination (sun
-       position, shadows), rover simulation (dynamics, physics).
-   * - :mod:`cynthium.app.rendering`
-     - 2D heightmap and 3D terrain rendering via ``pyqtgraph`` and ``PyVista``.
+       position, shadows), rover simulation (4WD skid-steer, PID speed
+       control, resistive motor model, battery drain).
    * - :mod:`cynthium.app.services`
-     - High-level orchestration: site raster management, simulation lifecycle.
+     - High-level orchestration: site raster management, autopath
+       validation loop, simulation lifecycle.
    * - :mod:`cynthium.app.ui`
-     - PySide6-based graphical interface: map views, sidebar panels, dialogs.
+     - PySide6-based graphical interface: 2D map and 3D terrain views,
+       sidebar panels, rover settings dialog, simulation results panel.
    * - :mod:`cynthium.app.io`
-     - Data reading (GeoTIFF) and export (CSV).
+     - Data reading (GeoTIFF with CRS validation), CSV/JSON export.
    * - :mod:`cynthium.app.utils`
      - Logging and general utilities.
+   * - :mod:`cynthium.app.config`
+     - Application configuration, data paths, site presets.
+   * - :mod:`cynthium.app.data`
+     - Pooch-based file registry with SHA256 hashes for automatic
+       download of data products from GitHub releases.
 
 Related Work
 ************

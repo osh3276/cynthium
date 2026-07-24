@@ -24,11 +24,12 @@ numerical accuracy, and reproducibility are critical.
 
    api/index
    api/engine
-   api/rendering
    api/services
    api/ui
    api/io
    api/utils
+   api/config
+   api/data
 
 .. toctree::
    :maxdepth: 1

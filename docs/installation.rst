@@ -7,18 +7,22 @@ Prerequisites
 * Python 3.12 or newer.
 * A working C/C++ compiler toolchain (required by ``rasterio``).
 
-pip Install (from PyPI)
-***********************
+Install from Source
+*******************
 
 .. code-block:: bash
 
-   pip install cynthium
+   git clone https://github.com/osh3276/cynthium.git
+   cd cynthium
+   pip install -e .
 
-Alternatively, install from pipx:
+Or using pipx for isolation:
 
 .. code-block:: bash
 
    pipx install cynthium
+   # Or from a local checkout:
+   pipx install -e .
 
 Editable Install (from source)
 ******************************
