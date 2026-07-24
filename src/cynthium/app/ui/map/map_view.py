@@ -10,6 +10,28 @@ from cynthium.app.engine.illumination.sun_position import sun_position
 from cynthium.app.engine.raster.point_conversion import xy_to_longlat
 
 
+def _unit_for_map_type(map_type_label: str) -> str:
+	"""Return a short unit string for the displayed map type."""
+	key = map_type_label.strip().lower()
+	if "elevation" in key:
+		return "m"
+	if "slope" in key:
+		return "deg"
+	if "hillshade" in key:
+		return ""
+	if "illumination" in key:
+		return "W/m\u00b2"
+	if "meteor flux" in key or "meteor_flux" in key:
+		return "J/yr\u00b7m\u00b2"
+	if "meteor number" in key or "meteor_number" in key:
+		return "#/yr"
+	if "temperature" in key:
+		return "K"
+	if "psr" in key or "permanently" in key:
+		return ""
+	return ""
+
+
 class MapView(QWidget):
 	waypoint_added = Signal(float, float)
 
@@ -63,6 +85,7 @@ class MapView(QWidget):
 		self._waypoints.setZValue(20)
 		self._plot.addItem(self._waypoints)
 		self._waypoint_list = []
+		self._waypoint_labels: list[pg.TextItem] = []
 
 		self._failure_point = pg.ScatterPlotItem(
 			size=14,
@@ -79,6 +102,18 @@ class MapView(QWidget):
 		)
 		self._sim_failure_point.setZValue(25)
 		self._plot.addItem(self._sim_failure_point)
+
+		self._raw_data: np.ndarray | None = None
+		self._raster_transform = None
+		self._map_type_label = ""
+		self._cursor_label = pg.TextItem(
+			text="", color=(255, 255, 255),
+			fill=pg.mkBrush(0, 0, 0, 180), anchor=(-0.1, 1.1),
+		)
+		self._cursor_label.setZValue(50)
+		self._cursor_label.setVisible(False)
+		self._plot.addItem(self._cursor_label)
+		self._plot.scene().sigMouseMoved.connect(self._on_mouse_moved)
 
 		self.setStyleSheet("border-right: 1px solid #cccccc;")
 
@@ -154,6 +189,9 @@ class MapView(QWidget):
 			self._set_colorbar_label(map_type)
 			self._colorbar.setVisible(True)
 
+		self._raw_data = data
+		self._raster_transform = meta.get("transform") if meta else None
+		self._map_type_label = map_type
 		self._img.setImage(np.flipud(rendered).T, autoLevels=False)
 
 		if meta:
@@ -203,6 +241,37 @@ class MapView(QWidget):
 			label = labels["permanently_shaded_regions"]
 
 		self._colorbar.setLabel("right", label or map_type)
+
+	def _on_mouse_moved(self, pos):
+		"""Show raster value under the cursor."""
+		if self._raw_data is None or self._raster_transform is None:
+			self._cursor_label.setVisible(False)
+			return
+		mouse_point = self._plot.vb.mapSceneToView(pos)
+		mx, my = mouse_point.x(), mouse_point.y()
+		tr = self._raster_transform
+		# Check if cursor is within the image geographic bounds
+		x0, y0 = tr.c, tr.f + self._raw_data.shape[0] * tr.e
+		x1, y1 = tr.c + self._raw_data.shape[1] * tr.a, tr.f
+		if not (min(x0, x1) <= mx <= max(x0, x1) and min(y0, y1) <= my <= max(y0, y1)):
+			self._cursor_label.setVisible(False)
+			return
+		col = (mx - tr.c) / tr.a
+		row = (my - tr.f) / tr.e
+		ci, ri = int(round(col)), int(round(row))
+		if 0 <= ri < self._raw_data.shape[0] and 0 <= ci < self._raw_data.shape[1]:
+			val = float(self._raw_data[ri, ci])
+			if np.isfinite(val):
+				unit = _unit_for_map_type(self._map_type_label)
+				if abs(val) >= 10000 or (abs(val) > 0 and abs(val) < 0.001):
+					text = f"{val:.2e} {unit}"
+				else:
+					text = f"{val:.4f} {unit}"
+				self._cursor_label.setText(text)
+				self._cursor_label.setPos(mx, my)
+				self._cursor_label.setVisible(True)
+				return
+		self._cursor_label.setVisible(False)
 
 	def _set_colorbar_levels(self, data: np.ndarray):
 		"""
@@ -262,6 +331,22 @@ class MapView(QWidget):
 			if self._waypoint_list
 			else np.empty((0, 2))
 		)
+
+		# Update waypoint number labels
+		for label in self._waypoint_labels:
+			self._plot.removeItem(label)
+		self._waypoint_labels.clear()
+		for i, (x, y) in enumerate(self._waypoint_list):
+			label = pg.TextItem(
+				text=str(i + 1),
+				color=(255, 255, 255),
+				fill=pg.mkBrush(0, 0, 0, 180),
+				anchor=(1, 0.0),
+			)
+			label.setPos(x, y)
+			label.setZValue(21)
+			self._plot.addItem(label)
+			self._waypoint_labels.append(label)
 
 		if len(self._waypoint_list) > 1:
 			xs = [p[0] for p in self._waypoint_list]

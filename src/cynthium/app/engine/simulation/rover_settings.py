@@ -21,7 +21,11 @@ class RoverSettings:
     track_width_m: float = 1.0
     wheelbase_m: float = 1.5
     battery_capacity_wh: float = 500.0
-    max_brake_decel_mps2: float = 2.0
+    motor_max_rpm: float = 200.0
+    target_cruise_speed_mps: float = 2.0
+    wheel_inertia_kgm2: float = 0.1
+    motor_damping: float = 5.0
+    coulomb_friction_nm: float = 0.5
 
     @property
     def power_w(self) -> float:
@@ -74,6 +78,11 @@ class RoverSettings:
     @property
     def battery_capacity_j(self) -> float:
         return self.battery_capacity_wh * 3600.0
+
+    @property
+    def max_wheel_speed_mps(self) -> float:
+        """Max wheel speed from motor RPM and wheel radius."""
+        return float(self.motor_max_rpm * (3.14159 / 30.0) * self.wheel_radius_m)
 
     def validate(self):
         if not (self.mass_kg > 0):
@@ -140,7 +149,11 @@ def rover_settings_from_strings(
     track_width_m: str = "1.0",
     wheelbase_m: str = "1.5",
     battery_capacity_wh: str = "500.0",
-    max_brake_decel_mps2: str = "2.0",
+    motor_max_rpm: str = "200.0",
+    target_cruise_speed_mps: str = "2.0",
+    wheel_inertia_kgm2: str = "0.1",
+    motor_damping: str = "5.0",
+    coulomb_friction_nm: str = "0.5",
 ) -> RoverSettings:
     m = float(mass_kg)
     p = float(power_hp)
@@ -151,7 +164,11 @@ def rover_settings_from_strings(
     tw = float(track_width_m)
     wb = float(wheelbase_m)
     batt = float(battery_capacity_wh)
-    brak = float(max_brake_decel_mps2)
+    rpm = float(motor_max_rpm)
+    cruise = float(target_cruise_speed_mps)
+    inert = float(wheel_inertia_kgm2)
+    damp = float(motor_damping)
+    coul = float(coulomb_friction_nm)
     settings = RoverSettings(
         mass_kg=m,
         power_hp=p,
@@ -162,7 +179,11 @@ def rover_settings_from_strings(
         track_width_m=tw,
         wheelbase_m=wb,
         battery_capacity_wh=batt,
-        max_brake_decel_mps2=brak,
+        motor_max_rpm=rpm,
+        target_cruise_speed_mps=cruise,
+        wheel_inertia_kgm2=inert,
+        motor_damping=damp,
+        coulomb_friction_nm=coul,
     )
     settings.validate()
     return settings
