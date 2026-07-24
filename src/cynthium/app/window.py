@@ -20,7 +20,10 @@ from cynthium.app.io.export.settings_json import write_settings_json
 from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.autopath_service import compute_validated_path
 from cynthium.app.services.simulation_service import calculate_simulation_stats
-from cynthium.app.services.site_rasters import load_daily_avg_meteor_raster
+from cynthium.app.services.site_rasters import (
+		load_daily_avg_meteor_number_raster,
+		load_daily_avg_meteor_raster,
+)
 from cynthium.app.ui.panels.sidebar.container import AppSidebar
 from cynthium.app.utils.logger import get_logger
 
@@ -337,6 +340,20 @@ class Window(QMainWindow):
 			if daily_meteor[0] is not None:
 				map_data_bundle[7] = daily_meteor[0]
 				map_data_bundle[8] = daily_meteor[1]
+
+			# Also load daily-averaged meteor number
+			daily_meteor_number = load_daily_avg_meteor_number_raster(
+				reference_path=str(current_path),
+				reference_meta=current_meta,
+				reference_shape=(
+					int(current_data.shape[0]),
+					int(current_data.shape[1]),
+				),
+				utctime=str(self._current_datetime),
+			)
+			if daily_meteor_number[0] is not None:
+				map_data_bundle[9] = daily_meteor_number[0]
+				map_data_bundle[10] = daily_meteor_number[1]
 
 		pause_durs = self._sidebar.get_pause_durations()
 		manual_stats, manual_points_array = calculate_simulation_stats(

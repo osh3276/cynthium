@@ -9,246 +9,279 @@ from cynthium.app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 EMPTY_PATH_STATS = {
-	"total_distance": 0.0,
-	"total_distance_travelled": 0.0,
-	"total_displacement": 0.0,
-	"total_elevation_gain": 0.0,
-	"net_elevation_change": 0.0,
-	"average_slope": 0.0,
-	"max_slope": 0.0,
-	"min_slope": 0.0,
-	"surface_average_slope": 0.0,
-	"surface_max_slope": 0.0,
-	"surface_min_slope": 0.0,
-	"average_meteor_flux": 0.0,
-	"max_meteor_flux": 0.0,
-	"min_meteor_flux": 0.0,
-	"max_temperature": 0.0,
-	"min_temperature": 0.0,
-	"average_temperature": 0.0,
-	"percent_illumination": 0.0,
-}
+		"total_distance": 0.0,
+		"total_distance_travelled": 0.0,
+		"total_displacement": 0.0,
+		"total_elevation_gain": 0.0,
+		"net_elevation_change": 0.0,
+		"average_slope": 0.0,
+		"max_slope": 0.0,
+		"min_slope": 0.0,
+		"surface_average_slope": 0.0,
+		"surface_max_slope": 0.0,
+		"surface_min_slope": 0.0,
+		"average_meteor_flux": 0.0,
+		"max_meteor_flux": 0.0,
+		"min_meteor_flux": 0.0,
+		"average_meteor_number": 0.0,
+		"max_meteor_number": 0.0,
+		"min_meteor_number": 0.0,
+		"max_temperature": 0.0,
+		"min_temperature": 0.0,
+		"average_temperature": 0.0,
+		"percent_illumination": 0.0,
+	}
 
 
 def calculate_path_stats(
-	points: np.ndarray,
-	elevation_map: np.ndarray | None = None,
-	transform=None,
-	slope_map: np.ndarray | None = None,
-	temperature_map: np.ndarray | None = None,
-	temperature_transform=None,
-	illumination_map: np.ndarray | None = None,
-	illumination_transform=None,
-	meteor_map: np.ndarray | None = None,
-	meteor_transform=None,
+		points: np.ndarray,
+		elevation_map: np.ndarray | None = None,
+		transform=None,
+		slope_map: np.ndarray | None = None,
+		temperature_map: np.ndarray | None = None,
+		temperature_transform=None,
+		illumination_map: np.ndarray | None = None,
+		illumination_transform=None,
+		meteor_map: np.ndarray | None = None,
+		meteor_transform=None,
+		meteor_number_map: np.ndarray | None = None,
+		meteor_number_transform=None,
 ) -> dict[str, float]:
-	"""
-	Calculate statistics for a path of 3D points.
+		"""
+		Calculate statistics for a path of 3D points.
 
-	If elevation_map and transform are provided, it integrates over the path
-	by sampling elevation at every pixel step along the segments.
-	If slope_map is provided, it also calculates slope statistics.
-	If temperature_map or illumination_map are provided, it samples them along
-	the traversed path using their own raster transforms.
-	"""
-	if len(points) < 2:
-		return EMPTY_PATH_STATS.copy()
+		If elevation_map and transform are provided, it integrates over the path
+		by sampling elevation at every pixel step along the segments.
+		If slope_map is provided, it also calculates slope statistics.
+		If temperature_map or illumination_map are provided, it samples them along
+		the traversed path using their own raster transforms.
+		"""
+		if len(points) < 2:
+			return EMPTY_PATH_STATS.copy()
 
-	if elevation_map is not None and transform is not None:
-		return _calculate_integrated_stats(
-			points,
-			elevation_map,
-			transform,
-			slope_map,
+		if elevation_map is not None and transform is not None:
+			return _calculate_integrated_stats(
+				points,
+				elevation_map,
+				transform,
+				slope_map,
+				temperature_map,
+				temperature_transform,
+				illumination_map,
+				illumination_transform,
+				meteor_map,
+				meteor_transform,
+				meteor_number_map=meteor_number_map,
+				meteor_number_transform=meteor_number_transform,
+			)
+
+		stats = _calculate_stats_from_points(points)
+		_add_context_stats(
+			stats,
+			points[:, :2],
 			temperature_map,
 			temperature_transform,
 			illumination_map,
 			illumination_transform,
 			meteor_map,
 			meteor_transform,
+			meteor_number_map=meteor_number_map,
+			meteor_number_transform=meteor_number_transform,
 		)
-
-	stats = _calculate_stats_from_points(points)
-	_add_context_stats(
-		stats,
-		points[:, :2],
-		temperature_map,
-		temperature_transform,
-		illumination_map,
-		illumination_transform,
-		meteor_map,
-		meteor_transform,
-	)
-	return stats
+		return stats
 
 
 def _calculate_integrated_stats(
-	waypoints: np.ndarray,
-	elevation_map: np.ndarray,
-	transform,
-	slope_map: np.ndarray | None = None,
-	temperature_map: np.ndarray | None = None,
-	temperature_transform=None,
-	illumination_map: np.ndarray | None = None,
-	illumination_transform=None,
-	meteor_map: np.ndarray | None = None,
-	meteor_transform=None,
+		waypoints: np.ndarray,
+		elevation_map: np.ndarray,
+		transform,
+		slope_map: np.ndarray | None = None,
+		temperature_map: np.ndarray | None = None,
+		temperature_transform=None,
+		illumination_map: np.ndarray | None = None,
+		illumination_transform=None,
+		meteor_map: np.ndarray | None = None,
+		meteor_transform=None,
+		meteor_number_map: np.ndarray | None = None,
+		meteor_number_transform=None,
 ) -> dict[str, float]:
-	"""
-	Calculates the integrated stats.
+		"""
+		Calculates the integrated stats.
 
-	:param waypoints: Parameter value.
-	:type waypoints: np.ndarray
-	:param elevation_map: Parameter value.
-	:type elevation_map: np.ndarray
-	:param transform: Raster transform.
-	:param slope_map: Parameter value.
-	:type slope_map: np.ndarray | None
-	:param temperature_map: Parameter value.
-	:type temperature_map: np.ndarray | None
-	:param temperature_transform: Parameter value.
-	:param illumination_map: Parameter value.
-	:type illumination_map: np.ndarray | None
-	:param illumination_transform: Parameter value.
-	:param meteor_map: Parameter value.
-	:type meteor_map: np.ndarray | None
-	:param meteor_transform: Parameter value.
-	:return: The resulting value.
-	"""
-	sampled_points, _ = _sample_path_data(waypoints, elevation_map, transform, None)
-	stats = _calculate_stats_from_points(sampled_points)
-	pixel_res = _get_pixel_resolution(transform)
-	stats["average_resolution"] = pixel_res
+		:param waypoints: Parameter value.
+		:type waypoints: np.ndarray
+		:param elevation_map: Parameter value.
+		:type elevation_map: np.ndarray
+		:param transform: Raster transform.
+		:param slope_map: Parameter value.
+		:type slope_map: np.ndarray | None
+		:param temperature_map: Parameter value.
+		:type temperature_map: np.ndarray | None
+		:param temperature_transform: Parameter value.
+		:param illumination_map: Parameter value.
+		:type illumination_map: np.ndarray | None
+		:param illumination_transform: Parameter value.
+		:param meteor_map: Parameter value.
+		:type meteor_map: np.ndarray | None
+		:param meteor_transform: Parameter value.
+		:param meteor_number_map: Parameter value.
+		:type meteor_number_map: np.ndarray | None
+		:param meteor_number_transform: Parameter value.
+		:return: The resulting value.
+		"""
+		sampled_points, _ = _sample_path_data(waypoints, elevation_map, transform, None)
+		stats = _calculate_stats_from_points(sampled_points)
+		pixel_res = _get_pixel_resolution(transform)
+		stats["average_resolution"] = pixel_res
 
-	# Traversal slope: use ~20m steps to avoid boulder-scale spike artifacts
-	slope_step = max(1, int(round(20.0 / pixel_res)))
-	if slope_step > 1 and len(sampled_points) > slope_step + 1:
-		slope_indices = list(range(0, len(sampled_points), slope_step))
-		if slope_indices[-1] != len(sampled_points) - 1:
-			slope_indices.append(len(sampled_points) - 1)
-		slope_pts = sampled_points[slope_indices]
-	else:
-		slope_pts = sampled_points
+		# Traversal slope: use ~20m steps to avoid boulder-scale spike artifacts
+		slope_step = max(1, int(round(20.0 / pixel_res)))
+		if slope_step > 1 and len(sampled_points) > slope_step + 1:
+			slope_indices = list(range(0, len(sampled_points), slope_step))
+			if slope_indices[-1] != len(sampled_points) - 1:
+				slope_indices.append(len(sampled_points) - 1)
+			slope_pts = sampled_points[slope_indices]
+		else:
+			slope_pts = sampled_points
 
-	if len(slope_pts) > 1:
-		diffs = np.diff(slope_pts, axis=0)
-		horizontal_distances = np.linalg.norm(diffs[:, :2], axis=1)
-		z_diffs = diffs[:, 2]
+		if len(slope_pts) > 1:
+			diffs = np.diff(slope_pts, axis=0)
+			horizontal_distances = np.linalg.norm(diffs[:, :2], axis=1)
+			z_diffs = diffs[:, 2]
 
-		mask = horizontal_distances > 0
-		if np.any(mask):
-			slopes = np.degrees(np.arctan2(z_diffs[mask], horizontal_distances[mask]))
-			stats["average_slope"] = float(np.mean(slopes))
-			# Filter out near-zero slope segments (grid-artifact flat steps)
-			# so min/max reflect the true incline of the terrain.
-			non_flat = np.abs(slopes) > 0.05
-			if np.any(non_flat):
-				stats["max_slope"] = float(np.max(slopes[non_flat]))
-				stats["min_slope"] = float(np.min(slopes[non_flat]))
+			mask = horizontal_distances > 0
+			if np.any(mask):
+				slopes = np.degrees(np.arctan2(z_diffs[mask], horizontal_distances[mask]))
+				stats["average_slope"] = float(np.mean(slopes))
+				# Filter out near-zero slope segments (grid-artifact flat steps)
+				# so min/max reflect the true incline of the terrain.
+				non_flat = np.abs(slopes) > 0.05
+				if np.any(non_flat):
+					stats["max_slope"] = float(np.max(slopes[non_flat]))
+					stats["min_slope"] = float(np.min(slopes[non_flat]))
+				else:
+					stats["max_slope"] = 0.0
+					stats["min_slope"] = 0.0
 			else:
+				stats["average_slope"] = 0.0
 				stats["max_slope"] = 0.0
 				stats["min_slope"] = 0.0
 		else:
 			stats["average_slope"] = 0.0
 			stats["max_slope"] = 0.0
 			stats["min_slope"] = 0.0
-	else:
-		stats["average_slope"] = 0.0
-		stats["max_slope"] = 0.0
-		stats["min_slope"] = 0.0
 
-	# Surface slope: raw terrain slope sampled from the slope raster along the path
-	_surface_slopes = _sample_raster_values(
-		sampled_points[:, :2], slope_map, transform
-	)
-	if _surface_slopes.size > 0:
-		stats["surface_average_slope"] = float(np.mean(_surface_slopes))
-		stats["surface_max_slope"] = float(np.max(_surface_slopes))
-		stats["surface_min_slope"] = float(np.min(_surface_slopes))
-	else:
-		stats["surface_average_slope"] = 0.0
-		stats["surface_max_slope"] = 0.0
-		stats["surface_min_slope"] = 0.0
+		# Surface slope: raw terrain slope sampled from the slope raster along the path
+		_surface_slopes = _sample_raster_values(
+			sampled_points[:, :2], slope_map, transform
+		)
+		if _surface_slopes.size > 0:
+			stats["surface_average_slope"] = float(np.mean(_surface_slopes))
+			stats["surface_max_slope"] = float(np.max(_surface_slopes))
+			stats["surface_min_slope"] = float(np.min(_surface_slopes))
+		else:
+			stats["surface_average_slope"] = 0.0
+			stats["surface_max_slope"] = 0.0
+			stats["surface_min_slope"] = 0.0
 
-	_add_context_stats(
-		stats,
-		sampled_points[:, :2],
-		temperature_map,
-		temperature_transform,
-		illumination_map,
-		illumination_transform,
-		meteor_map,
-		meteor_transform,
-	)
-	return stats
+		_add_context_stats(
+			stats,
+			sampled_points[:, :2],
+			temperature_map,
+			temperature_transform,
+			illumination_map,
+			illumination_transform,
+			meteor_map,
+			meteor_transform,
+			meteor_number_map=meteor_number_map,
+			meteor_number_transform=meteor_number_transform,
+		)
+		return stats
 
 
 def _add_context_stats(
-	stats: dict[str, float],
-	points_xy: np.ndarray,
-	temperature_map: np.ndarray | None,
-	temperature_transform,
-	illumination_map: np.ndarray | None = None,
-	illumination_transform=None,
-	meteor_map: np.ndarray | None = None,
-	meteor_transform=None,
-):
-	"""
-	Adds the context stats.
-
-	:param stats: Simulation statistics.
-	:type stats: dict[str, float]
-	:param points_xy: Parameter value.
-	:type points_xy: np.ndarray
-	:param temperature_map: Parameter value.
-	:type temperature_map: np.ndarray | None
-	:param temperature_transform: Parameter value.
-	:param illumination_map: Parameter value.
-	:type illumination_map: np.ndarray | None
-	:param illumination_transform: Parameter value.
-	:param meteor_map: Parameter value.
-	:type meteor_map: np.ndarray | None
-	:param meteor_transform: Parameter value.
-	:return: None
-	"""
-	temperature_values = _sample_raster_values(
-		points_xy,
-		temperature_map,
+		stats: dict[str, float],
+		points_xy: np.ndarray,
+		temperature_map: np.ndarray | None,
 		temperature_transform,
-	)
-	if temperature_values.size:
-		stats["max_temperature"] = float(np.max(temperature_values))
-		stats["min_temperature"] = float(np.min(temperature_values))
-		stats["average_temperature"] = float(np.mean(temperature_values))
-	else:
-		stats["max_temperature"] = 0.0
-		stats["min_temperature"] = 0.0
-		stats["average_temperature"] = 0.0
+		illumination_map: np.ndarray | None = None,
+		illumination_transform=None,
+		meteor_map: np.ndarray | None = None,
+		meteor_transform=None,
+		meteor_number_map: np.ndarray | None = None,
+		meteor_number_transform=None,
+):
+		"""
+		Adds the context stats.
 
-	illumination_values = _sample_raster_values(
-		points_xy,
-		illumination_map,
-		illumination_transform,
-	)
-	if illumination_values.size:
-		illuminated_count = np.count_nonzero(illumination_values > 0)
-		stats["percent_illumination"] = float(
-			illuminated_count / illumination_values.size * 100.0
+		:param stats: Simulation statistics.
+		:type stats: dict[str, float]
+		:param points_xy: Parameter value.
+		:type points_xy: np.ndarray
+		:param temperature_map: Parameter value.
+		:type temperature_map: np.ndarray | None
+		:param temperature_transform: Parameter value.
+		:param illumination_map: Parameter value.
+		:type illumination_map: np.ndarray | None
+		:param illumination_transform: Parameter value.
+		:param meteor_map: Parameter value.
+		:type meteor_map: np.ndarray | None
+		:param meteor_transform: Parameter value.
+		:param meteor_number_map: Parameter value.
+		:type meteor_number_map: np.ndarray | None
+		:param meteor_number_transform: Parameter value.
+		:return: None
+		"""
+		temperature_values = _sample_raster_values(
+			points_xy,
+			temperature_map,
+			temperature_transform,
 		)
-	else:
-		stats["percent_illumination"] = 0.0
+		if temperature_values.size:
+			stats["max_temperature"] = float(np.max(temperature_values))
+			stats["min_temperature"] = float(np.min(temperature_values))
+			stats["average_temperature"] = float(np.mean(temperature_values))
+		else:
+			stats["max_temperature"] = 0.0
+			stats["min_temperature"] = 0.0
+			stats["average_temperature"] = 0.0
 
-	meteor_values = _sample_raster_values(
-		points_xy, meteor_map, meteor_transform
-	)
-	if meteor_values.size:
-		stats["average_meteor_flux"] = float(np.mean(meteor_values))
-		stats["max_meteor_flux"] = float(np.max(meteor_values))
-		stats["min_meteor_flux"] = float(np.min(meteor_values))
-	else:
-		stats["average_meteor_flux"] = 0.0
-		stats["max_meteor_flux"] = 0.0
-		stats["min_meteor_flux"] = 0.0
+		illumination_values = _sample_raster_values(
+			points_xy,
+			illumination_map,
+			illumination_transform,
+		)
+		if illumination_values.size:
+			illuminated_count = np.count_nonzero(illumination_values > 0)
+			stats["percent_illumination"] = float(
+				illuminated_count / illumination_values.size * 100.0
+			)
+		else:
+			stats["percent_illumination"] = 0.0
+
+		meteor_values = _sample_raster_values(
+			points_xy, meteor_map, meteor_transform
+		)
+		if meteor_values.size:
+			stats["average_meteor_flux"] = float(np.mean(meteor_values))
+			stats["max_meteor_flux"] = float(np.max(meteor_values))
+			stats["min_meteor_flux"] = float(np.min(meteor_values))
+		else:
+			stats["average_meteor_flux"] = 0.0
+			stats["max_meteor_flux"] = 0.0
+			stats["min_meteor_flux"] = 0.0
+
+		meteor_number_values = _sample_raster_values(
+			points_xy, meteor_number_map, meteor_number_transform
+		)
+		if meteor_number_values.size:
+			stats["average_meteor_number"] = float(np.mean(meteor_number_values))
+			stats["max_meteor_number"] = float(np.max(meteor_number_values))
+			stats["min_meteor_number"] = float(np.min(meteor_number_values))
+		else:
+			stats["average_meteor_number"] = 0.0
+			stats["max_meteor_number"] = 0.0
+			stats["min_meteor_number"] = 0.0
 
 
 def _sample_raster_values(

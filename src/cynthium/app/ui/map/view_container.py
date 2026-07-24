@@ -287,22 +287,24 @@ class ViewContainer(QWidget):
 		return self._current_psr_data, self._current_psr_meta
 
 	def get_current_map_data(self):
-		"""
-		Returns the current map data.
+			"""
+			Returns the current map data.
 
-		:return: The resulting value.
-		"""
-		return (
-			self._current_data,
-			self._current_meta,
-			self._current_slope_data,
-			self._current_temperature_data,
-			self._current_temperature_meta,
-			self._current_illumination_data,
-			self._current_illumination_meta,
-			self._current_meteor_data,
-			self._current_meteor_meta,
-		)
+			:return: The resulting value.
+			"""
+			return (
+				self._current_data,
+				self._current_meta,
+				self._current_slope_data,
+				self._current_temperature_data,
+				self._current_temperature_meta,
+				self._current_illumination_data,
+				self._current_illumination_meta,
+				self._current_meteor_data,
+				self._current_meteor_meta,
+				self._current_meteor_number_data,
+				self._current_meteor_number_meta,
+			)
 
 	def add_waypoint(self, x: float, y: float):
 		"""
