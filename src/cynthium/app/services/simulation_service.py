@@ -6,73 +6,80 @@ from cynthium.app.engine.simulation.stats import calculate_path_stats
 
 
 def calculate_simulation_stats(
-	points: list,
-	map_data_bundle: tuple,
-	*,
-	rover: RoverSettings | None = None,
-	use_bicubic: bool = False,
-	pause_durations: list[float] | None = None,
+		points: list,
+		map_data_bundle: tuple,
+		*,
+		rover: RoverSettings | None = None,
+		use_bicubic: bool = False,
+		pause_durations: list[float] | None = None,
 ) -> tuple[dict[str, float], np.ndarray]:
-	"""
-	Calculates the simulation stats.
+		"""
+		Calculates the simulation stats.
 
-	:param points: Point data.
-	:type points: list
-	:param map_data_bundle: Parameter value.
-	:type map_data_bundle: tuple
-	:return: The resulting value.
-	"""
-	(
-		map_data,
-		map_meta,
-		slope_data,
-		temperature_data,
-		temperature_meta,
-		illumination_data,
-		illumination_meta,
-		meteor_data,
-		meteor_meta,
-	) = map_data_bundle
-	transform = map_meta.get("transform") if map_meta else None
-	temperature_transform = (
-		temperature_meta.get("transform") if temperature_meta else None
-	)
-	illumination_transform = (
-		illumination_meta.get("transform") if illumination_meta else None
-	)
-	meteor_transform = (
-		meteor_meta.get("transform") if meteor_meta else None
-	)
-
-	points_array = np.array(points)
-	stats = calculate_path_stats(
-		points_array,
-		map_data,
-		transform,
-		slope_data,
-		temperature_data,
-		temperature_transform,
-		illumination_data,
-		illumination_transform,
-		meteor_data,
-		meteor_transform,
-	)
-
-	if rover is not None:
-		stats.update(
-			compute_traversal_dynamics(
-				waypoints_xyz=points_array,
-				elevation_map=map_data,
-				transform=transform,
-				illumination_map=illumination_data,
-				illumination_transform=illumination_transform,
-				rover=rover,
-				use_bicubic=use_bicubic,
-				pause_durations=pause_durations,
-			)
+		:param points: Point data.
+		:type points: list
+		:param map_data_bundle: Parameter value.
+		:type map_data_bundle: tuple
+		:return: The resulting value.
+		"""
+		(
+			map_data,
+			map_meta,
+			slope_data,
+			temperature_data,
+			temperature_meta,
+			illumination_data,
+			illumination_meta,
+			meteor_data,
+			meteor_meta,
+			meteor_number_data,
+			meteor_number_meta,
+		) = map_data_bundle
+		transform = map_meta.get("transform") if map_meta else None
+		temperature_transform = (
+			temperature_meta.get("transform") if temperature_meta else None
+		)
+		illumination_transform = (
+			illumination_meta.get("transform") if illumination_meta else None
+		)
+		meteor_transform = (
+			meteor_meta.get("transform") if meteor_meta else None
+		)
+		meteor_number_transform = (
+			meteor_number_meta.get("transform") if meteor_number_meta else None
 		)
 
-	return stats, points_array
+		points_array = np.array(points)
+		stats = calculate_path_stats(
+			points_array,
+			map_data,
+			transform,
+			slope_data,
+			temperature_data,
+			temperature_transform,
+			illumination_data,
+			illumination_transform,
+			meteor_data,
+			meteor_transform,
+			meteor_number_map=meteor_number_data,
+			meteor_number_transform=meteor_number_transform,
+		)
+
+		if rover is not None:
+			stats.update(
+				compute_traversal_dynamics(
+					waypoints_xyz=points_array,
+					elevation_map=map_data,
+					transform=transform,
+					illumination_map=illumination_data,
+					illumination_transform=illumination_transform,
+					rover=rover,
+					use_bicubic=use_bicubic,
+					pause_durations=pause_durations,
+				)
+			)
+
+		return stats, points_array
 
 
 def format_simulation_stats(stats: dict[str, float]) -> str:
