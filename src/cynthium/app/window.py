@@ -138,6 +138,7 @@ class Window(QMainWindow):
 			self._sidebar.add_waypoint_direct
 		)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
+		self._sidebar.waypoint_edited.connect(self._view_container.edit_waypoint)
 		self._sidebar.waypoints_cleared.connect(self._on_clear_waypoints)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
 		self._sidebar.rover_settings_requested.connect(
@@ -337,11 +338,13 @@ class Window(QMainWindow):
 				map_data_bundle[7] = daily_meteor[0]
 				map_data_bundle[8] = daily_meteor[1]
 
+		pause_durs = self._sidebar.get_pause_durations()
 		manual_stats, manual_points_array = calculate_simulation_stats(
 			manual_points,
 			tuple(map_data_bundle),
 			rover=rover,
 			use_bicubic=self._sidebar.get_bicubic_enabled(),
+			pause_durations=pause_durs,
 		)
 		self._last_simulation_stats = manual_stats
 		self._last_simulation_points = manual_points_array
@@ -352,6 +355,7 @@ class Window(QMainWindow):
 				tuple(map_data_bundle),
 				rover=rover,
 				use_bicubic=self._sidebar.get_bicubic_enabled(),
+				pause_durations=pause_durs,
 			)
 			self._last_autopath_stats = auto_stats
 			self._last_autopath_points = auto_points_array
@@ -391,7 +395,22 @@ class Window(QMainWindow):
 				"\n\n".join(warnings),
 			)
 
-		self.statusBar().showMessage("Simulation complete")
+		# Show completion popup
+		feasible = float(manual_stats.get("traverse_feasible", 1.0)) >= 0.5
+		t_sec = float(manual_stats.get("traversal_time_s", 0.0))
+		if t_sec >= 3600:
+			time_str = f"{t_sec/3600:.1f}h"
+		elif t_sec >= 60:
+			time_str = f"{t_sec/60:.1f}m"
+		else:
+			time_str = f"{t_sec:.0f}s"
+		dist = float(manual_stats.get("total_distance_travelled", 0.0))
+		batt = float(manual_stats.get("battery_remaining_pct", 100.0))
+		msg = f"Simulation completed: {time_str}, {dist:.0f}m, battery {batt:.0f}%"
+		if not feasible:
+			msg += " (failed)"
+		self.statusBar().showMessage(msg)
+		QMessageBox.information(self, "Simulation Complete", msg)
 
 	def _export_simulation_data(self):
 		"""

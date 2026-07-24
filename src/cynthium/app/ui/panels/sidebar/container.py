@@ -22,25 +22,16 @@ class AppSidebar(QWidget):
 	map_generation_requested = Signal(str, str, str)
 	waypoint_added = Signal(float, float)
 	waypoint_removed = Signal(int)
+	waypoint_edited = Signal(int, float, float)
 	waypoints_cleared = Signal()
 	autopath_requested = Signal(object)
 	rover_settings_requested = Signal()
 
 	def __init__(self):
-		"""
-		Initializes the AppSidebar instance.
-
-		:return: None
-		"""
 		super().__init__()
 		self._build()
 
 	def _build(self):
-		"""
-		Builds the result.
-
-		:return: The resulting value.
-		"""
 		layout = QVBoxLayout(self)
 		layout.setContentsMargins(0, 0, 0, 0)
 
@@ -70,6 +61,7 @@ class AppSidebar(QWidget):
 		self._planning_panel.waypoint_removed.connect(self.waypoint_removed.emit)
 		self._planning_panel.waypoints_cleared.connect(self.waypoints_cleared.emit)
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
+		self._planning_panel.waypoint_edited.connect(self.waypoint_edited.emit)
 		scroll_layout.addWidget(self._planning_panel)
 		scroll_layout.addWidget(separator)
 
@@ -77,7 +69,6 @@ class AppSidebar(QWidget):
 		rover_btn.clicked.connect(self.rover_settings_requested.emit)
 		scroll_layout.addWidget(rover_btn)
 
-		# Hidden panel — keeps data access for get/export/import
 		self._rover_settings_panel = RoverSettingsPanel()
 		self._rover_settings_panel.setVisible(False)
 		scroll_layout.addWidget(self._rover_settings_panel)
@@ -87,16 +78,6 @@ class AppSidebar(QWidget):
 		layout.addWidget(scroll)
 
 	def add_waypoint_direct(self, x: float, y: float):
-		"""
-		Adds a waypoint directly from map click coordinates,
-		routing through the planning panel's full data flow.
-
-		:param x: X coordinate.
-		:type x: float
-		:param y: Y coordinate.
-		:type y: float
-		:return: None
-		"""
 		self._planning_panel.add_waypoint_direct(x, y)
 
 	def set_autopath_waypoints(self, points_xy: list[tuple[float, float]] | None):
@@ -110,12 +91,13 @@ class AppSidebar(QWidget):
 	def get_bicubic_enabled(self) -> bool:
 		return self._planning_panel.get_bicubic_enabled() if hasattr(self, "_planning_panel") else False
 
+	def get_pause_durations(self) -> list[float]:
+		return self._planning_panel.get_pause_durations() if hasattr(self, "_planning_panel") else []
+
 	def export_settings(self) -> dict:
-		"""Collect all current sidebar settings into a serialisable dict."""
 		rover_raw = self._rover_settings_panel.get_values()
 		rover_preset = self._rover_settings_panel.get_preset_name()
 		planning = self._planning_panel.get_planning_settings()
-
 		return {
 			"rover": {
 				"preset": rover_preset,
@@ -138,31 +120,18 @@ class AppSidebar(QWidget):
 		}
 
 	def import_settings(self, settings: dict) -> list[tuple[float, float]]:
-		"""Apply imported settings to the sidebar widgets.
-
-		Returns the list of (x, y) waypoint pairs that were added,
-		so the caller can sync the view container.
-		"""
-		# --- Rover ---
 		rover_data = settings.get("rover", {})
 		if rover_data.get("preset"):
 			self._rover_settings_panel.set_preset(str(rover_data["preset"]))
-		# Always set raw values so custom tweaks are also applied
 		self._rover_settings_panel.set_values(
 			rover_data.get("mass_kg", ""),
 			rover_data.get("power_hp", ""),
 			rover_data.get("wheel_friction_coeff", ""),
 			rover_data.get("rolling_resistance_coeff", ""),
 		)
-
-		# --- Autopath config ---
 		autopath_data = settings.get("autopath", {})
 		self._planning_panel.set_planning_config(autopath_data)
-
-		# --- Waypoints ---
 		waypoints_data = settings.get("waypoints", [])
-		# Emit waypoints_cleared so view container removes old 3D markers
 		self.waypoints_cleared.emit()
 		added = self._planning_panel.clear_and_set_waypoints(waypoints_data)
-
 		return added

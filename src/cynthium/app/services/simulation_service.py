@@ -11,6 +11,7 @@ def calculate_simulation_stats(
 	*,
 	rover: RoverSettings | None = None,
 	use_bicubic: bool = False,
+	pause_durations: list[float] | None = None,
 ) -> tuple[dict[str, float], np.ndarray]:
 	"""
 	Calculates the simulation stats.
@@ -67,6 +68,7 @@ def calculate_simulation_stats(
 				illumination_transform=illumination_transform,
 				rover=rover,
 				use_bicubic=use_bicubic,
+				pause_durations=pause_durations,
 			)
 		)
 

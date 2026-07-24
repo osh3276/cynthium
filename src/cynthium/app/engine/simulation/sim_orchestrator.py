@@ -23,6 +23,7 @@ def compute_traversal_dynamics(
 	illumination_transform=None,
 	rover: RoverSettings,
 	use_bicubic: bool = False,
+	pause_durations: list[float] | None = None,
 ) -> dict[str, Any]:
 	"""Run the physics simulation once and return results."""
 
@@ -71,6 +72,7 @@ def compute_traversal_dynamics(
 			g_mps2=float(LUNAR_GRAVITY),
 			v0_mps=0.0,
 			v_min_power_mps=0.001,
+			pause_durations=pause_durations,
 		)
 
 	return {
