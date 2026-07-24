@@ -203,75 +203,96 @@ See :func:`cynthium.app.engine.simulation.path_sampling.sample_path_elevations`.
 Rover Dynamics & Physics
 ========================
 
-The simulation models the rover as a **1D point mass** moving along the
-sampled path. It is always at **maximum throttle** (no PID, no steering).
+The simulation models the rover as a **4-wheel skid-steer vehicle** with a
+rigid rectangular chassis.  Steering is achieved by differential thrust
+between left and right sides.  The rover follows a **stop-pivot-go**
+navigation: it drives toward the next waypoint, stops, pivots in place
+to face the next one, then drives again.
 
-Forces
-------
+**Stop-Pivot-Go state machine:**
 
-For each segment of the path:
+1. **DRIVE** \u2014 target speed comes from the configured cruise speed
+   (ramped down over the last 10\u2009m for a smooth approach).  A PID
+   controller outputs throttle 0\u20131.
+2. **STOP** \u2014 once within 3\u2009m of the waypoint, target speed \u2192 0.
+   The rover coasts to a stop via motor resistance \u2014 no brake.
+3. **PAUSE** (optional) \u2014 waits for the configured per-waypoint
+   pause duration before pivoting.
+4. **PIVOT** \u2014 applies opposing left/right thrusts to rotate in
+   place until the heading aligns with the next waypoint.
+
+Motor model
+-----------
+
+Each wheel has a DC motor directly coupled to it (no freewheel). The
+motor provides both drive torque (when accelerating) and resistive
+torque from back-EMF (when coasting or overspeed):
 
 .. math::
 
-   F_{\text{net}} = F_{\text{drive}} - F_{\text{grade}} - F_{\text{roll}}
+   I \cdot \frac{d\omega}{dt} = -b \cdot \omega - \tau_c \cdot \text{sign}(\omega)
 
 where:
 
-* **Tractive force** (power-limited, capped by traction):
+* :math:`\omega` = wheel angular velocity (rad/s)
+* :math:`I` = wheel rotational inertia (kg\u00b7m\u00b2)
+* :math:`b` = motor damping coefficient (N\u00b7m\u00b7s, back-EMF)
+* :math:`\tau_c` = Coulomb friction torque (N\u00b7m)
 
-  .. math::
-
-     F_{\text{drive}} = \min\left(
-         \frac{P}{v_{\text{eff}}},\;
-         \mu \, m \, g \, |\cos\theta|
-     \right)
-
-  with :math:`v_{\text{eff}} = \max(v, v_{\text{min}})` to avoid the
-  :math:`P/v` singularity at zero velocity.
-
-* **Gravity component** (uphill positive / downhill negative):
-
-  .. math::
-
-     F_{\text{grade}} = m \, g \, \sin\theta
-
-* **Rolling resistance**:
-
-  .. math::
-
-     F_{\text{roll}} = C_{rr} \, m \, g \, |\cos\theta|
-
-Velocity integration
---------------------
-
-Given :math:`F_{\text{net}}`, the acceleration is :math:`a = F_{\text{net}} / m`.
-Velocity is integrated via the kinematic equation:
+The resistive force at the wheel contact patch is:
 
 .. math::
 
-   v_{\text{next}}^2 = v^2 + 2 a \Delta s
+   F_{\text{resist}} = \frac{b \cdot \omega + \tau_c}{r}
 
-If :math:`v_{\text{next}}^2 \leq 0`, the rover stops mid-segment; the
-traverse is **infeasible** (the rover got stuck).
+where :math:`r` is the wheel radius.  This force always opposes motion,
+so the rover naturally decelerates when the motor is not powered \u2014
+no separate brake needed.
 
-The time for each segment is:
+Max wheel speed is determined by the motor's no-load RPM and wheel
+radius:
 
 .. math::
 
-   \Delta t = \frac{2 \Delta s}{v + v_{\text{next}}}
+   v_{\text{max}} = \frac{\text{RPM} \cdot \pi}{30} \cdot r
+
+At speeds above :math:`v_{\text{max}}`, the motor generates negative
+torque (regenerative braking), preventing runaway.
+
+**Drive torque** (from power-limited motor) is split per side, capped
+by:
+
+* Power limit: :math:`F_{\text{power}} = P_{\text{side}} / v_{\text{side}}`
+* Torque limit: :math:`F_{\text{torque}} = T_{\text{peak}} / r`
+* Traction limit: :math:`F_{\text{trac}} = \frac{1}{2} \mu \cdot m \cdot g \cdot |\cos\theta|`
+
+Per-side forces are summed, a yaw differential from heading error is
+added, then integrated to update vehicle speed, position, and heading.
+
+Battery drain
+-------------
+
+Battery energy is consumed by the drive motors and a constant idle
+drain:
+
+.. math::
+
+   E_{\text{battery}} = \int (P_{\text{throttle}} + P_{\text{idle}}) \, dt
+
+* When driving: :math:`P_{\text{throttle}} = P_{\text{max}} \cdot \text{throttle}`
+* When pivoting: :math:`P_{\text{pivot}} = 0.3 \cdot P_{\text{max}}`
+* Idle drain is always active (computers, sensors, avionics):
+  :math:`P_{\text{idle}}`
 
 Solar energy accumulation
 -------------------------
 
-At each segment midpoint, the illumination raster is sampled. The solar
-energy received is:
+At each timestep, the illumination raster is sampled at the rover's
+current position:
 
 .. math::
 
-   E_{\text{solar}} = \int I(t) \, dt \quad (\text{J/m}^2)
-
-where :math:`I(t)` is the local solar irradiance (W/m²) from the
-illumination map, assumed constant over the short segment duration.
+   E_{\text{solar}} = \sum I \cdot \Delta t \quad (\text{J/m}^2)
 
 Key outputs
 ===========
@@ -282,15 +303,17 @@ Key outputs
    * - Output
      - Meaning
    * - ``traverse_feasible``
-     - 1 if rover never stopped, 0 otherwise
+     - 1 if rover reached the final waypoint, 0 otherwise
    * - ``traversal_time_s``
-     - Total time from start to goal
+     - Total time including stops and pauses
    * - ``average_velocity_mps``
      - :math:`\text{distance} / \text{time}`
-   * - ``solar_energy_per_m2_j``
-     - Total solar dose received
-   * - ``required_friction``
-     - Min :math:`\mu` needed to complete traverse
+   * - ``failure_reason``
+     - Text description of why the traverse failed (traction, divergence, timeout)
+   * - ``battery_energy_used_j``
+     - Total energy drawn from battery (J)
+   * - ``battery_remaining_pct``
+     - Remaining battery charge (%)
 
 Lunar parameters
 ================
@@ -302,11 +325,14 @@ Lunar parameters
      - Value
      - Source
    * - Lunar gravity
-     - 1.625 m/s²
+     - 1.625\u2009m/s\u00b2
      - Standard value
    * - Max climbable slope
      - :math:`\arctan(\mu - C_{rr})`
      - Derived from rover friction & rolling resistance
+   * - Max wheel speed
+     - :math:`\text{RPM} \cdot \pi / 30 \cdot r`
+     - From motor max RPM and wheel radius
 
 See:
 

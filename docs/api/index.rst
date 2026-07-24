@@ -36,12 +36,22 @@ API Reference
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: cynthium.app.controllers
+.. automodule:: cynthium.app.engine.simulation
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: cynthium.app.site_tiles
+.. automodule:: cynthium.app.engine.simulation.rover_settings
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: cynthium.app.services.site_rasters
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: cynthium.app.engine.illumination.sun_position
    :members:
    :undoc-members:
    :show-inheritance:
