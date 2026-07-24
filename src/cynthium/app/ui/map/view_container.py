@@ -110,7 +110,7 @@ class ViewContainer(QWidget):
 			(self._current_illumination_data, self._current_illumination_meta),
 			(self._current_temperature_data, self._current_temperature_meta),
 			(self._current_meteor_data, self._current_meteor_meta),
-		) = load_context_rasters(path_20)
+		) = load_context_rasters(path_20, utctime=date)
 
 		try:
 			self._current_meteor_number_data, self._current_meteor_number_meta = load_cropped_context_raster(
@@ -147,7 +147,22 @@ class ViewContainer(QWidget):
 		map_key = re.sub(r"_+", "_", map_key).strip("_")
 
 		illumination_raster = self._illumination_raster
-		if map_key in {"solar_illumination_day_avg", "solar_illumination_daily_avg"} and self._current_path:
+		# Retry loading context rasters if they failed initially.
+		if illumination_raster[0] is None or self._temperature_raster[0] is None or self._meteor_raster[0] is None:
+			if self._current_path:
+				reloaded = load_context_rasters(self._current_path, utctime=str(self._current_datetime))
+				if reloaded[0][0] is not None:
+					self._current_illumination_data, self._current_illumination_meta = reloaded[0]
+					self._current_temperature_data, self._current_temperature_meta = reloaded[1]
+					self._current_meteor_data, self._current_meteor_meta = reloaded[2]
+					illumination_raster = self._illumination_raster
+					logger.info("Reloaded context rasters (illumination, temperature, meteor)")
+
+		is_daily_illum = map_key in {"solar_illumination_day_avg", "solar_illumination_daily_avg"}
+		is_monthly_illum = map_key in {"solar_illumination", "solar_illumination_mo_avg", "solar_illumination_monthly_avg"}
+
+		# For daily avg, or monthly avg when monthly raster is unavailable, load daily angle.
+		if (is_daily_illum or (is_monthly_illum and illumination_raster[0] is None)) and self._current_path:
 			daily = load_daily_avg_illumination_raster(
 				reference_path=str(self._current_path),
 				reference_meta=self._current_meta,
@@ -161,7 +176,10 @@ class ViewContainer(QWidget):
 				illumination_raster = daily
 
 		meteor_raster = self._meteor_raster
-		if map_key in {"meteor_flux_day_avg", "meteor_flux_daily_avg"} and self._current_path:
+		is_daily_meteor = map_key in {"meteor_flux_day_avg", "meteor_flux_daily_avg"}
+		is_monthly_meteor = map_key in {"meteor_flux", "meteor_flux_mo_avg", "meteor_flux_monthly_avg"}
+
+		if (is_daily_meteor or (is_monthly_meteor and meteor_raster[0] is None)) and self._current_path:
 			daily_meteor = load_daily_avg_meteor_raster(
 				reference_path=str(self._current_path),
 				reference_meta=self._current_meta,
@@ -175,7 +193,10 @@ class ViewContainer(QWidget):
 				meteor_raster = daily_meteor
 
 		meteor_number_raster = self._meteor_number_raster
-		if map_key in {"meteor_number_day_avg", "meteor_number_daily_avg"} and self._current_path:
+		is_daily_number = map_key in {"meteor_number_day_avg", "meteor_number_daily_avg"}
+		is_monthly_number = map_key in {"meteor_number", "meteor_number_mo_avg", "meteor_number_monthly_avg"}
+
+		if (is_daily_number or (is_monthly_number and meteor_number_raster[0] is None)) and self._current_path:
 			daily_number = load_daily_avg_meteor_number_raster(
 				reference_path=str(self._current_path),
 				reference_meta=self._current_meta,
@@ -266,22 +287,24 @@ class ViewContainer(QWidget):
 		return self._current_psr_data, self._current_psr_meta
 
 	def get_current_map_data(self):
-		"""
-		Returns the current map data.
+			"""
+			Returns the current map data.
 
-		:return: The resulting value.
-		"""
-		return (
-			self._current_data,
-			self._current_meta,
-			self._current_slope_data,
-			self._current_temperature_data,
-			self._current_temperature_meta,
-			self._current_illumination_data,
-			self._current_illumination_meta,
-			self._current_meteor_data,
-			self._current_meteor_meta,
-		)
+			:return: The resulting value.
+			"""
+			return (
+				self._current_data,
+				self._current_meta,
+				self._current_slope_data,
+				self._current_temperature_data,
+				self._current_temperature_meta,
+				self._current_illumination_data,
+				self._current_illumination_meta,
+				self._current_meteor_data,
+				self._current_meteor_meta,
+				self._current_meteor_number_data,
+				self._current_meteor_number_meta,
+			)
 
 	def add_waypoint(self, x: float, y: float):
 		"""
@@ -297,6 +320,13 @@ class ViewContainer(QWidget):
 		self.clear_sim_failure_point()
 		self.raster_view.add_waypoint(x, y)
 		self.terrain_view.add_waypoint(x, y)
+
+	def edit_waypoint(self, index: int, x: float, y: float):
+		"""Move an existing waypoint to new coordinates on both views."""
+		self.clear_failure_point()
+		self.clear_sim_failure_point()
+		self.raster_view.edit_waypoint(index, x, y)
+		self.terrain_view.edit_waypoint(index, x, y)
 
 	def remove_waypoint(self, index: int):
 		"""

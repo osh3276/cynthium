@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-	QFormLayout,
 	QFrame,
+	QGridLayout,
 	QHBoxLayout,
 	QLabel,
 	QPushButton,
@@ -29,13 +29,13 @@ _PATH_FIELDS = [
 	_Field("Net elevation change", "net_elevation_change", "{:.2f} m"),
 	_Field("Avg resolution", "average_resolution", "{:.2f} m/px"),
 	_Field("Average velocity", "average_velocity_mps", "{:.2f} m/s"),
-	_Field("Min velocity", "min_velocity_mps", "{:.2f} m/s"),
 	_Field("Max velocity", "max_velocity_mps", "{:.2f} m/s"),
 	_Field("Traversal time", "traversal_time_s", "{}"),
 	_Field("Max climbable slope", "max_climbable_slope_deg", "{:.2f}\u00b0"),
 	_Field("Traverse feasible", "traverse_feasible", "{}"),
-	_Field("Required wheel friction (dynamic)", "required_wheel_friction_coeff", "{:.3f}"),
-	_Field("Equivalent traction angle", "required_climb_slope_deg", "{:.2f}\u00b0"),
+	_Field("Battery remaining", "battery_remaining_pct", "{:.1f}%"),
+	_Field("Energy consumed", "battery_energy_used_j", "{:.1f} kJ"),
+	_Field("Battery capacity", "battery_capacity_wh", "{:.0f} Wh"),
 ]
 
 _SLOPE_FIELDS = [
@@ -54,9 +54,12 @@ _ENV_FIELDS = [
 	_Field("Illumination (yearly avg)", "percent_illumination", "{:.2f}%"),
 	_Field("Avg solar illum (time-weighted)", "avg_solar_illumination_w_per_m2", "{:.2f} W/m\u00b2"),
 	_Field("Solar energy (per m\u00b2)", "solar_energy_per_m2_j", "{:.2f} J/m\u00b2"),
-	_Field("Meteor flux (avg)", "average_meteor_flux", "{:.2f} J/yr*m\u00b2"),
-	_Field("Meteor flux (max)", "max_meteor_flux", "{:.2f} J/yr*m\u00b2"),
-	_Field("Meteor flux (min)", "min_meteor_flux", "{:.2f} J/yr*m\u00b2"),
+	_Field("Meteor flux (avg)", "average_meteor_flux", "{:.2e} J/yr\u00b7m\u00b2"),
+	_Field("Meteor flux (max)", "max_meteor_flux", "{:.2e} J/yr\u00b7m\u00b2"),
+	_Field("Meteor flux (min)", "min_meteor_flux", "{:.2e} J/yr\u00b7m\u00b2"),
+	_Field("Meteor number (avg)", "average_meteor_number", "{:.2e}"),
+	_Field("Meteor number (max)", "max_meteor_number", "{:.2e}"),
+	_Field("Meteor number (min)", "min_meteor_number", "{:.2e}"),
 ]
 
 
@@ -83,11 +86,20 @@ def _build_tab_group(parent: QWidget, fields_list: list[list[_Field]], label_sto
 	tab_names = ["Path", "Slope", "Environment"]
 	for tab_name, fields in zip(tab_names, fields_list):
 		tab = QWidget()
-		form = QFormLayout(tab)
-		for field in fields:
+		grid = QGridLayout(tab)
+		grid.setContentsMargins(6, 6, 6, 6)
+		grid.setSpacing(4)
+		n_fields = len(fields)
+		cols = 2
+		for i, field in enumerate(fields):
+			row = i // cols
+			col = (i % cols) * 2
 			value = QLabel("-")
 			value.setTextInteractionFlags(value.textInteractionFlags())
-			form.addRow(QLabel(field.label), value)
+			label_w = QLabel(field.label)
+			label_w.setStyleSheet("font-size: 14px;")
+			grid.addWidget(label_w, row, col)
+			grid.addWidget(value, row, col + 1)
 			label_store[field.key] = value
 		tabs.addTab(tab, tab_name)
 
@@ -156,14 +168,15 @@ class SimulationResultsPanel(QWidget):
 		feasible_manual = float(manual_stats.get("traverse_feasible", 1.0))
 		feasible_auto = float(auto_stats.get("traverse_feasible", 1.0))
 		if feasible_manual < 0.5 or feasible_auto < 0.5:
-			req_mu_manual = float(manual_stats.get("required_wheel_friction_coeff", 0.0))
-			req_mu_auto = float(auto_stats.get("required_wheel_friction_coeff", 0.0))
-			status = (
-				f"Traverse failed (dynamic model). "
-				f"Manual path: required \u03bc={req_mu_manual:.3f}, "
-				f"Auto path: required \u03bc={req_mu_auto:.3f}."
-				f"Failure point marked in red."
-			)
+			manual_reason = manual_stats.get("failure_reason", "Unknown error")
+			auto_reason = auto_stats.get("failure_reason", "Unknown error")
+			parts = ["Traverse failed (dynamic model)."]
+			if feasible_manual < 0.5:
+				parts.append(f"Manual path: {manual_reason}")
+			if feasible_auto < 0.5:
+				parts.append(f"Auto path: {auto_reason}")
+			parts.append("Failure point marked in red.")
+			status = " ".join(parts)
 
 		self._status.setText(status)
 		self._apply_stats(self._manual_labels, manual_stats)
@@ -188,6 +201,10 @@ class SimulationResultsPanel(QWidget):
 				label.setText("Yes" if float(value) >= 0.5 else "No")
 				continue
 
+			if key == "battery_energy_used_j":
+				label.setText("{:.1f} kJ".format(float(value) / 1000.0))
+				continue
+
 			fmt = _find_fmt_for_key(key)
 			if fmt is None:
 				label.setText(str(value))
@@ -208,9 +225,12 @@ def _find_fmt_for_key(key: str) -> str | None:
 		"surface_average_slope": "{:.2f}\u00b0",
 		"surface_max_slope": "{:.2f}\u00b0",
 		"surface_min_slope": "{:.2f}\u00b0",
-		"average_meteor_flux": "{:.2f} J/yr*m\u00b2",
-		"max_meteor_flux": "{:.2f} J/yr*m\u00b2",
-		"min_meteor_flux": "{:.2f} J/yr*m\u00b2",
+		"average_meteor_flux": "{:.2e} J/yr\u00b7m\u00b2",
+		"max_meteor_flux": "{:.2e} J/yr\u00b7m\u00b2",
+		"min_meteor_flux": "{:.2e} J/yr\u00b7m\u00b2",
+		"average_meteor_number": "{:.2e}",
+		"max_meteor_number": "{:.2e}",
+		"min_meteor_number": "{:.2e}",
 		"max_temperature": "{:.2f} K",
 		"min_temperature": "{:.2f} K",
 		"average_temperature": "{:.2f} K",
@@ -218,11 +238,11 @@ def _find_fmt_for_key(key: str) -> str | None:
 		"avg_solar_illumination_w_per_m2": "{:.2f} W/m\u00b2",
 		"solar_energy_per_m2_j": "{:.2f} J/m\u00b2",
 		"average_velocity_mps": "{:.2f} m/s",
-		"min_velocity_mps": "{:.2f} m/s",
 		"max_velocity_mps": "{:.2f} m/s",
 		"max_climbable_slope_deg": "{:.2f}\u00b0",
-		"required_wheel_friction_coeff": "{:.3f}",
-		"required_climb_slope_deg": "{:.2f}\u00b0",
+		"battery_energy_used_j": "{:.1f} kJ",
+		"battery_remaining_pct": "{:.1f}%",
+		"battery_capacity_wh": "{:.0f} Wh",
 		"rover_mass_kg": "{:.2f} kg",
 		"rover_power_hp": "{:.3f} hp",
 		"rover_mu": "{:.3f}",

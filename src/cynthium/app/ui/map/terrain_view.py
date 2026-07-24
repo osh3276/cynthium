@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 import numpy as np
 import pyvista
@@ -216,7 +217,6 @@ class TerrainView(QtInteractor):
 			sphere.Update()
 
 			actor = self.add_mesh(sphere.GetOutput(), color="lime", label="Waypoint")
-			logger.info(f"Added sphere: {actor}")
 
 			self._waypoint_points.append(point)
 			self._waypoint_actors.append(actor)
@@ -234,6 +234,23 @@ class TerrainView(QtInteractor):
 			self.remove_actor(actor)
 			self._waypoint_points.pop(index)
 			self._update_path()
+
+	def edit_waypoint(self, index: int, x: float, y: float):
+		"""Move an existing waypoint to new coordinates on the terrain."""
+		if not (0 <= index < len(self._waypoint_actors)):
+			return
+		# Remove old actor
+		old = self._waypoint_actors.pop(index)
+		self.remove_actor(old)
+		self._waypoint_points.pop(index)
+		# Add new one at same index
+		self.add_waypoint(x, y)
+		# Move newly added item to the correct index
+		if index < len(self._waypoint_points) - 1:
+			pt = self._waypoint_points.pop()
+			actor = self._waypoint_actors.pop()
+			self._waypoint_points.insert(index, pt)
+			self._waypoint_actors.insert(index, actor)
 
 	def clear_all_waypoints(self):
 		for actor in self._waypoint_actors:

@@ -204,61 +204,100 @@ settings:
 **********************
 
 Select a rover preset from the dropdown (Curiosity, Perseverance,
-Apollo LRV, or Artemis SR), or customise the parameters manually:
+Apollo LRV, or Artemis SR), or customise the parameters manually via
+**Tools → Rover Settings** (accessible from the toolbar or the
+**Rover Settings** button in the sidebar).
 
-+------------------------+--------------+----------------+------------+------------+------------------------------------+
-| Parameter              | Curiosity    | Perseverance   | Artemis SR | Apollo LRV | Description                        |
-+========================+==============+================+============+============+====================================+
-| Mass                   | 899 kg       | 1025 kg        | 530 kg     | 210 kg     | Rover mass (affects normal force)  |
-+------------------------+--------------+----------------+------------+------------+------------------------------------+
-| Power                  | 0.13 hp      | 0.14 hp        | 0.72 hp    | 1.0 hp     | Motor power (max throttle)         |
-+------------------------+--------------+----------------+------------+------------+------------------------------------+
-| Wheel Friction         | 0.5          | 0.5            | 0.7        | 0.6        | Traction coefficient :math:`\mu`   |
-+------------------------+--------------+----------------+------------+------------+------------------------------------+
-| Rolling Resistance     | 0.02         | 0.02           | 0.15       | 0.021      | Regolith rolling resistance        |
-+------------------------+--------------+----------------+------------+------------+------------------------------------+
+The configurable parameters are:
 
-The **Curiosity** preset (899 kg, 0.13 hp, :math:`\mu`=0.5, Crr=0.02) is
-selected by default.  **Perseverance** (1025 kg, 0.14 hp, :math:`\mu`=0.5,
-Crr=0.02), **Apollo LRV** (210 kg, 1 hp, :math:`\mu`=0.6, Crr=0.021),
-and **Artemis SR** (530 kg, 0.72 hp, :math:`\mu`=0.7, Crr=0.15)
-are also available.
+.. list-table::
+   :header-rows: 1
+
+   * - Parameter
+     - Description
+   * - ``Mass``
+     - Rover mass (kg). Affects normal force, traction, and grade resistance.
+   * - ``Power``
+     - Motor power (hp). Limits max drive force.
+   * - ``Wheel Friction``
+     - Traction coefficient :math:`\mu`. Determines max tractive force before slipping.
+   * - ``Rolling Resistance``
+     - Regolith rolling resistance :math:`C_{rr}`.
+   * - ``Wheel Radius``
+     - Radius per wheel (m). Affects max speed and mechanical torque leverage.
+   * - ``Motor Peak Torque``
+     - Max torque per motor (N\,m). Leave empty for no torque limit.
+   * - ``Track Width``
+     - Lateral distance between wheel centres (m). Affects yaw stability.
+   * - ``Wheelbase``
+     - Longitudinal distance between wheel centres (m). Affects pitch behaviour.
+   * - ``Battery Capacity``
+     - Total battery energy (Wh).
+   * - ``Motor Max RPM``
+     - No-load max wheel speed (RPM). Determines :math:`v_{\text{max}}` via wheel radius.
+   * - ``Cruise Speed``
+     - Target driving speed (m/s).
+   * - ``Wheel Inertia``
+     - Rotational inertia per wheel (kg\,m\ :sup:`2`). Affects acceleration/deceleration.
+   * - ``Motor Damping``
+     - Back-EMF damping coefficient (N\,m\,s). Resistive torque proportional to \ :math:`\omega`.
+   * - ``Coulomb Friction``
+     - Constant friction torque per wheel (N\,m). Resistive torque independent of \ :math:`\omega`.
+   * - ``Idle Drain``
+     - Constant power draw (W) for computers, sensors, and avionics.
 
 These map directly to the physics model described under :doc:`algorithms`.
+Access the full settings dialog from **Tools → Rover Settings** or click
+the **Rover Settings** button in the sidebar's planning panel.
 
 5. Run a Simulation
 *******************
 
-Hit *Run Simulation* to execute the physics-based 1D rover traverse.
+Hit *Run Simulation* to execute the physics-based 4-wheel skid-steer
+rover traverse.
 
 The simulation steps are:
 
 #. Sample the 3D path at ~1-pixel intervals along each segment (see
    :func:`~cynthium.app.engine.simulation.path_sampling.sample_path_elevations`).
-#. For each segment, compute net acceleration from thrust, gravity,
-   and rolling resistance.
-#. Integrate velocity and time-of-flight along the path.
-#. Accumulate solar energy dose from the illumination raster.
+#. For each waypoint segment, drive toward the waypoint using a
+   **stop-pivot-go** state machine:
 
-**Results table** shows:
+   * **DRIVE** — target speed set by the configured cruise speed
+     (ramped over the last 10 m). A PID controller outputs throttle 0–1.
+   * **STOP** — once within 3 m of the waypoint, the rover coasts to a
+     stop via motor resistance (back-EMF + Coulomb friction — no brake).
+   * **PAUSE** (optional) — waits for the configured per-waypoint pause
+     duration before continuing.
+   * **PIVOT** — applies opposing left/right thrusts to rotate in place
+     until the heading aligns with the next waypoint.
+
+#. At each timestep, compute wheel torques from the motor (drive) and
+   back-EMF + Coulomb friction (resistive), split per side, then
+   integrate to update vehicle speed, position, and heading.
+#. Accumulate solar energy dose by sampling the illumination raster
+   at the rover's current position.
+#. Consume battery energy (motor power × throttle + idle drain).
+
+**Results table** (organised into **Path**, **Slope**, and
+**Environment** tabs):
 
 * Total distance travelled and straight-line displacement
 * Elevation gain and net elevation change
 * Average / max / min traversal slope
-* Average / max / min velocity
-* Traversal time
+* Average / max velocity and traversal time (including pauses)
 * Solar energy received (J/m²) and average illumination (W/m²)
-* **Feasible?**: whether the rover could complete the traverse without
-  stopping (i.e. kinetic energy never reached zero).
+* **Max climbable slope** derived from traction, power-to-mass, and
+  torque limits
+* **Feasible?**: whether the rover could complete the traverse
+* **Battery stats**: remaining charge (%), energy consumed (kJ),
+  and battery capacity (Wh)
 
 If the rover gets stuck, a **red marker** appears on both the 2D map
-and 3D terrain view at the exact location where it stalled.  The manual
-path and autopath each have their own marker, so both failure points
-are visible simultaneously.
-
-If the rover gets stuck, the simulation also reports the **required wheel
-friction coefficient** that *would* make the traverse feasible (useful
-for mission design).
+and 3D terrain view at the exact location where it stalled, along with
+a text reason (e.g. "Insufficient traction — rover cannot make
+progress").  The manual path and autopath each have their own marker,
+so both failure points are visible simultaneously.
 
 6. Inspect in 3D
 ****************
@@ -270,8 +309,8 @@ digital elevation model as a mesh. The view supports:
 * Toggling the path overlay
 * Visual inspection of slopes and crater rims
 
-The 3D renderer uses PyVista (VTK); see
-:class:`cynthium.app.rendering.terrain.render.TerrainRenderer`.
+The 3D view is built with PyVista (VTK); see
+:class:`cynthium.app.ui.map.terrain_view.TerrainView`.
 
 7. Export Results
 *****************
@@ -313,10 +352,16 @@ Troubleshooting
   crater interior). Try moving the points to a ridge or sunlit area.
 
 **Rover gets stuck on a seemingly gentle slope**
-  The friction coefficient :math:`\mu` determines max climbable slope via
-  :math:`\theta_{\max} = \arctan(\mu - C_{rr})`. Increase :math:`\mu` or reduce
-  the rover mass.  A red marker on the map shows exactly where the
-  rover stalled.
+  The max climbable slope considers **three limits**:
+
+  * **Traction**: :math:`\theta_{\text{trac}} = \arctan(\mu - C_{rr})`
+  * **Power**: :math:`P / (v \cdot m \cdot g) \geq \sin\theta + C_{rr}\cos\theta`
+  * **Torque**: :math:`T / (r \cdot m \cdot g) \geq \sin\theta + C_{rr}\cos\theta`
+
+  The effective limit is the **minimum** of these three.  Increase
+  :math:`\mu`, reduce mass, increase power, or increase motor torque.
+  A red marker on the map shows exactly where the rover stalled,
+  with the failure reason displayed in the results panel.
 
 **Autopath finds a path but it fails validation**
   The autopath retries with blocked cells up to 3 times, re-routing

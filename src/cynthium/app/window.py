@@ -20,7 +20,10 @@ from cynthium.app.io.export.settings_json import write_settings_json
 from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.autopath_service import compute_validated_path
 from cynthium.app.services.simulation_service import calculate_simulation_stats
-from cynthium.app.services.site_rasters import load_daily_avg_meteor_raster
+from cynthium.app.services.site_rasters import (
+		load_daily_avg_meteor_number_raster,
+		load_daily_avg_meteor_raster,
+)
 from cynthium.app.ui.panels.sidebar.container import AppSidebar
 from cynthium.app.utils.logger import get_logger
 
@@ -57,6 +60,7 @@ class Window(QMainWindow):
 		self._last_simulation_points = None
 		self._last_autopath_stats = None
 		self._last_autopath_points = None
+		self._rover_settings_override = None
 
 		# self.addToolBar(create_toolbar(self))
 
@@ -128,14 +132,21 @@ class Window(QMainWindow):
 			self._export_simulation_data
 		)
 		self._menubar.action_exit.triggered.connect(self.close)
+		self._menubar.action_rover_settings.triggered.connect(
+			self._on_open_rover_settings
+		)
 		self._sidebar.map_generation_requested.connect(self._load_site_with_datetime)
 		self._sidebar.waypoint_added.connect(self._view_container.add_waypoint)
 		self._view_container.raster_view.waypoint_added.connect(
 			self._sidebar.add_waypoint_direct
 		)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
+		self._sidebar.waypoint_edited.connect(self._view_container.edit_waypoint)
 		self._sidebar.waypoints_cleared.connect(self._on_clear_waypoints)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
+		self._sidebar.rover_settings_requested.connect(
+			self._on_open_rover_settings
+		)
 		self._results_panel.simulation_started.connect(self._on_start_simulation)
 
 	def _on_clear_waypoints(self):
@@ -144,6 +155,49 @@ class Window(QMainWindow):
 		self._sidebar.set_autopath_waypoints(None)
 		self._view_container.clear_failure_point()
 		self._view_container.clear_sim_failure_point()
+
+	def _get_rover_settings(self):
+		"""Return RoverSettings, merging sidebar panel values with dialog override."""
+		base = self._sidebar.get_rover_settings()
+		override = self._rover_settings_override
+		if override is not None:
+			from cynthium.app.engine.simulation.rover_settings import RoverSettings
+			base = RoverSettings(
+				mass_kg=base.mass_kg,
+				power_hp=base.power_hp,
+				wheel_friction_coeff=base.wheel_friction_coeff,
+				rolling_resistance_coeff=base.rolling_resistance_coeff,
+				wheel_radius_m=override.wheel_radius_m,
+				motor_peak_torque_nm=override.motor_peak_torque_nm,
+				track_width_m=override.track_width_m,
+				wheelbase_m=override.wheelbase_m,
+			)
+		return base
+
+	def _on_open_rover_settings(self):
+		from cynthium.app.ui.panels.rover_settings_dialog import RoverSettingsDialog
+
+		# Get current rover settings from sidebar
+		try:
+			current = self._sidebar.get_rover_settings()
+		except Exception:
+			current = None
+		# Merge stored override into current for pre-fill
+		if current is not None and self._rover_settings_override is not None:
+			current = self._rover_settings_override
+
+		dlg = RoverSettingsDialog(current=current, parent=self)
+		if dlg.exec():
+			updated = dlg.get_settings()
+			if updated is not None:
+				self._rover_settings_override = updated
+				# Sync basic fields back to sidebar panel
+				self._sidebar._rover_settings_panel.set_values(
+					str(updated.mass_kg),
+					str(updated.power_hp),
+					str(updated.wheel_friction_coeff),
+					str(updated.rolling_resistance_coeff),
+				)
 
 	def _on_autopath_requested(self, payload: dict):
 		if self._current_path is None:
@@ -165,7 +219,7 @@ class Window(QMainWindow):
 				user_wps.append((float(wp[0]), float(wp[1])))
 
 			try:
-				rover = self._sidebar.get_rover_settings()
+				rover = self._get_rover_settings()
 			except (ValueError, KeyError, TypeError) as exc:
 				QMessageBox.warning(
 					self, "Autopath",
@@ -261,7 +315,7 @@ class Window(QMainWindow):
 			return
 
 		try:
-			rover = self._sidebar.get_rover_settings()
+			rover = self._get_rover_settings()
 		except ValueError as exc:
 			self._results_panel.set_error(str(exc))
 			self.statusBar().showMessage("Ready")
@@ -287,11 +341,27 @@ class Window(QMainWindow):
 				map_data_bundle[7] = daily_meteor[0]
 				map_data_bundle[8] = daily_meteor[1]
 
+			# Also load daily-averaged meteor number
+			daily_meteor_number = load_daily_avg_meteor_number_raster(
+				reference_path=str(current_path),
+				reference_meta=current_meta,
+				reference_shape=(
+					int(current_data.shape[0]),
+					int(current_data.shape[1]),
+				),
+				utctime=str(self._current_datetime),
+			)
+			if daily_meteor_number[0] is not None:
+				map_data_bundle[9] = daily_meteor_number[0]
+				map_data_bundle[10] = daily_meteor_number[1]
+
+		pause_durs = self._sidebar.get_pause_durations()
 		manual_stats, manual_points_array = calculate_simulation_stats(
 			manual_points,
 			tuple(map_data_bundle),
 			rover=rover,
 			use_bicubic=self._sidebar.get_bicubic_enabled(),
+			pause_durations=pause_durs,
 		)
 		self._last_simulation_stats = manual_stats
 		self._last_simulation_points = manual_points_array
@@ -302,6 +372,7 @@ class Window(QMainWindow):
 				tuple(map_data_bundle),
 				rover=rover,
 				use_bicubic=self._sidebar.get_bicubic_enabled(),
+				pause_durations=pause_durs,
 			)
 			self._last_autopath_stats = auto_stats
 			self._last_autopath_points = auto_points_array
@@ -326,12 +397,8 @@ class Window(QMainWindow):
 			if stats is None:
 				return None
 			if float(stats.get("traverse_feasible", 1.0)) < 0.5:
-				req_mu = float(stats.get("required_wheel_friction_coeff", 0.0))
-				# req_angle = float(stats.get("required_climb_slope_deg", 0.0))
-				return (
-					f"{label} traversal failed.\n"
-					f"Required \u03bc: {req_mu:.3f}"
-				)
+				reason = stats.get("failure_reason", "Unknown error")
+				return f"{label} traversal failed.\n{reason}"
 			return None
 
 		manual_warning = _feasible_warning(manual_stats, "Manual path")
@@ -342,11 +409,25 @@ class Window(QMainWindow):
 			QMessageBox.warning(
 				self,
 				"Traverse not feasible",
-				"Some paths failed under the dynamic rover model.\n\n"
-				+ "\n".join(warnings),
+				"\n\n".join(warnings),
 			)
 
-		self.statusBar().showMessage("Simulation complete")
+		# Show completion popup
+		feasible = float(manual_stats.get("traverse_feasible", 1.0)) >= 0.5
+		t_sec = float(manual_stats.get("traversal_time_s", 0.0))
+		if t_sec >= 3600:
+			time_str = f"{t_sec/3600:.1f}h"
+		elif t_sec >= 60:
+			time_str = f"{t_sec/60:.1f}m"
+		else:
+			time_str = f"{t_sec:.0f}s"
+		dist = float(manual_stats.get("total_distance_travelled", 0.0))
+		batt = float(manual_stats.get("battery_remaining_pct", 100.0))
+		msg = f"Simulation completed: {time_str}, {dist:.0f}m, battery {batt:.0f}%"
+		if not feasible:
+			msg += " (failed)"
+		self.statusBar().showMessage(msg)
+		QMessageBox.information(self, "Simulation Complete", msg)
 
 	def _export_simulation_data(self):
 		"""
