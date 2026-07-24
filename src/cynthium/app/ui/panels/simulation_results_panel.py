@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-	QFormLayout,
 	QFrame,
+	QGridLayout,
 	QHBoxLayout,
 	QLabel,
 	QPushButton,
@@ -29,13 +29,12 @@ _PATH_FIELDS = [
 	_Field("Net elevation change", "net_elevation_change", "{:.2f} m"),
 	_Field("Avg resolution", "average_resolution", "{:.2f} m/px"),
 	_Field("Average velocity", "average_velocity_mps", "{:.2f} m/s"),
-	_Field("Min velocity", "min_velocity_mps", "{:.2f} m/s"),
 	_Field("Max velocity", "max_velocity_mps", "{:.2f} m/s"),
 	_Field("Traversal time", "traversal_time_s", "{}"),
 	_Field("Max climbable slope", "max_climbable_slope_deg", "{:.2f}\u00b0"),
 	_Field("Traverse feasible", "traverse_feasible", "{}"),
 	_Field("Battery remaining", "battery_remaining_pct", "{:.1f}%"),
-	_Field("Energy consumed", "battery_energy_used_j", "{:.0f} J"),
+	_Field("Energy consumed", "battery_energy_used_j", "{:.1f} kJ"),
 	_Field("Battery capacity", "battery_capacity_wh", "{:.0f} Wh"),
 ]
 
@@ -84,11 +83,20 @@ def _build_tab_group(parent: QWidget, fields_list: list[list[_Field]], label_sto
 	tab_names = ["Path", "Slope", "Environment"]
 	for tab_name, fields in zip(tab_names, fields_list):
 		tab = QWidget()
-		form = QFormLayout(tab)
-		for field in fields:
+		grid = QGridLayout(tab)
+		grid.setContentsMargins(6, 6, 6, 6)
+		grid.setSpacing(4)
+		n_fields = len(fields)
+		cols = 2
+		for i, field in enumerate(fields):
+			row = i // cols
+			col = (i % cols) * 2
 			value = QLabel("-")
 			value.setTextInteractionFlags(value.textInteractionFlags())
-			form.addRow(QLabel(field.label), value)
+			label_w = QLabel(field.label)
+			label_w.setStyleSheet("font-size: 14px;")
+			grid.addWidget(label_w, row, col)
+			grid.addWidget(value, row, col + 1)
 			label_store[field.key] = value
 		tabs.addTab(tab, tab_name)
 
@@ -190,6 +198,10 @@ class SimulationResultsPanel(QWidget):
 				label.setText("Yes" if float(value) >= 0.5 else "No")
 				continue
 
+			if key == "battery_energy_used_j":
+				label.setText("{:.1f} kJ".format(float(value) / 1000.0))
+				continue
+
 			fmt = _find_fmt_for_key(key)
 			if fmt is None:
 				label.setText(str(value))
@@ -220,10 +232,9 @@ def _find_fmt_for_key(key: str) -> str | None:
 		"avg_solar_illumination_w_per_m2": "{:.2f} W/m\u00b2",
 		"solar_energy_per_m2_j": "{:.2f} J/m\u00b2",
 		"average_velocity_mps": "{:.2f} m/s",
-		"min_velocity_mps": "{:.2f} m/s",
 		"max_velocity_mps": "{:.2f} m/s",
 		"max_climbable_slope_deg": "{:.2f}\u00b0",
-		"battery_energy_used_j": "{:.0f} J",
+		"battery_energy_used_j": "{:.1f} kJ",
 		"battery_remaining_pct": "{:.1f}%",
 		"battery_capacity_wh": "{:.0f} Wh",
 		"rover_mass_kg": "{:.2f} kg",

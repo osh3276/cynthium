@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 import numpy as np
 import pyvista
@@ -216,7 +217,6 @@ class TerrainView(QtInteractor):
 			sphere.Update()
 
 			actor = self.add_mesh(sphere.GetOutput(), color="lime", label="Waypoint")
-			logger.info(f"Added sphere: {actor}")
 
 			self._waypoint_points.append(point)
 			self._waypoint_actors.append(actor)
