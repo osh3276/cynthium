@@ -206,46 +206,49 @@ settings:
 Select a rover preset from the dropdown (Curiosity, Perseverance,
 Apollo LRV, or Artemis SR), or customise the parameters manually via
 **Tools → Rover Settings** (accessible from the toolbar or the
-**Rover Settings** button in the sidebar):
+**Rover Settings** button in the sidebar).
 
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Parameter                 | Curiosity    | Perseverance   | Artemis SR | Apollo LRV | Description                                 |
-+============================+==============+================+============+============+=============================================+
-| Mass                      | 899 kg       | 1025 kg        | 530 kg     | 210 kg     | Rover mass (affects normal force)           |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Power                     | 0.13 hp      | 0.14 hp        | 0.72 hp    | 1.0 hp     | Motor power (max throttle)                  |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Wheel Friction            | 0.5          | 0.5            | 0.7        | 0.6        | Traction coefficient :math:`\mu`             |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Rolling Resistance        | 0.02         | 0.02           | 0.15       | 0.021      | Regolith rolling resistance                 |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Wheel Radius              | 0.25 m       | 0.2625 m       | 0.5 m      | 0.41 m     | Affects max speed, torque leverage          |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Motor Peak Torque         | —           | —             | —         | —         | Torque limit per motor (N·m; — = unlimited)  |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Track Width               | 1.0 m        | 1.0 m          | 1.0 m      | 1.0 m      | Lateral distance between wheel centres      |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Wheelbase                 | 1.5 m        | 1.5 m          | 1.5 m      | 1.5 m      | Longitudinal distance between wheel centres |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Battery Capacity          | 500 Wh       | 500 Wh         | 500 Wh     | 500 Wh     | Total battery energy storage                |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Motor Max RPM             | 200 RPM      | 200 RPM        | 200 RPM    | 200 RPM    | No-load max wheel speed via motor           |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Cruise Speed              | 2.0 m/s      | 2.0 m/s        | 2.0 m/s    | 2.0 m/s    | Target driving speed                        |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Wheel Inertia             | 0.1 kg·m²   | 0.1 kg·m²     | 0.1 kg·m² | 0.1 kg·m² | Rotational inertia per wheel                |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Motor Damping             | 5.0 N·m·s  | 5.0 N·m·s    | 5.0 N·m·s| 5.0 N·m·s | Back-EMF damping coefficient               |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Coulomb Friction          | 0.5 N·m    | 0.5 N·m      | 0.5 N·m  | 0.5 N·m  | Constant friction torque per wheel           |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
-| Idle Drain                | 10 W         | 10 W           | 10 W       | 10 W       | Power draw for computers/sensors            |
-+----------------------------+--------------+----------------+------------+------------+---------------------------------------------+
+The configurable parameters are:
 
-The **Curiosity** preset is selected by default.  These map directly to
-the physics model described under :doc:`algorithms`.  Access the full
-settings dialog from **Tools → Rover Settings** or click the
-**Rover Settings** button in the sidebar's planning panel.
+.. list-table::
+   :header-rows: 1
+
+   * - Parameter
+     - Description
+   * - ``Mass``
+     - Rover mass (kg). Affects normal force, traction, and grade resistance.
+   * - ``Power``
+     - Motor power (hp). Limits max drive force.
+   * - ``Wheel Friction``
+     - Traction coefficient :math:`\mu`. Determines max tractive force before slipping.
+   * - ``Rolling Resistance``
+     - Regolith rolling resistance :math:`C_{rr}`.
+   * - ``Wheel Radius``
+     - Radius per wheel (m). Affects max speed and mechanical torque leverage.
+   * - ``Motor Peak Torque``
+     - Max torque per motor (N\,m). Leave empty for no torque limit.
+   * - ``Track Width``
+     - Lateral distance between wheel centres (m). Affects yaw stability.
+   * - ``Wheelbase``
+     - Longitudinal distance between wheel centres (m). Affects pitch behaviour.
+   * - ``Battery Capacity``
+     - Total battery energy (Wh).
+   * - ``Motor Max RPM``
+     - No-load max wheel speed (RPM). Determines :math:`v_{\text{max}}` via wheel radius.
+   * - ``Cruise Speed``
+     - Target driving speed (m/s).
+   * - ``Wheel Inertia``
+     - Rotational inertia per wheel (kg\,m\ :sup:`2`). Affects acceleration/deceleration.
+   * - ``Motor Damping``
+     - Back-EMF damping coefficient (N\,m\,s). Resistive torque proportional to \ :math:`\omega`.
+   * - ``Coulomb Friction``
+     - Constant friction torque per wheel (N\,m). Resistive torque independent of \ :math:`\omega`.
+   * - ``Idle Drain``
+     - Constant power draw (W) for computers, sensors, and avionics.
+
+These map directly to the physics model described under :doc:`algorithms`.
+Access the full settings dialog from **Tools → Rover Settings** or click
+the **Rover Settings** button in the sidebar's planning panel.
 
 5. Run a Simulation
 *******************
