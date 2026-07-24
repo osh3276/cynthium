@@ -26,6 +26,7 @@ class RoverSettings:
     wheel_inertia_kgm2: float = 0.1
     motor_damping: float = 5.0
     coulomb_friction_nm: float = 0.5
+    idle_drain_w: float = 10.0
 
     @property
     def power_w(self) -> float:
@@ -154,6 +155,7 @@ def rover_settings_from_strings(
     wheel_inertia_kgm2: str = "0.1",
     motor_damping: str = "5.0",
     coulomb_friction_nm: str = "0.5",
+    idle_drain_w: str = "10.0",
 ) -> RoverSettings:
     m = float(mass_kg)
     p = float(power_hp)
@@ -169,6 +171,7 @@ def rover_settings_from_strings(
     inert = float(wheel_inertia_kgm2)
     damp = float(motor_damping)
     coul = float(coulomb_friction_nm)
+    idle = float(idle_drain_w)
     settings = RoverSettings(
         mass_kg=m,
         power_hp=p,
@@ -184,6 +187,7 @@ def rover_settings_from_strings(
         wheel_inertia_kgm2=inert,
         motor_damping=damp,
         coulomb_friction_nm=coul,
+        idle_drain_w=idle,
     )
     settings.validate()
     return settings

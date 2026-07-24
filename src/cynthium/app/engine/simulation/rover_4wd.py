@@ -94,6 +94,7 @@ def simulate_rover_4wd(
 	v0_mps: float = 0.0,
 	v_min_power_mps: float = 0.05,
 	max_steps: int = 500000,
+	pause_durations: list[float] | None = None,
 ) -> dict[str, Any]:
 	"""Simulate a 4-wheel skid-steer rover with resistive motor model."""
 	t_start = time.perf_counter()
@@ -163,6 +164,7 @@ def simulate_rover_4wd(
 	stagnation = 0
 	completed = False
 	failure_reason: str | None = None
+	_pause_timer = 0.0  # seconds of pause remaining at waypoint
 
 	dt = DT_MIN
 	_pid = SpeedPIDController()
@@ -198,7 +200,14 @@ def simulate_rover_4wd(
 			if speed < 0.01:
 				speed = 0.0
 				_pid.reset()
-				if current_wp + 1 < n_wp:
+				# Check if this waypoint has a pause configured
+				wp_idx = current_wp - 1  # 0-based index in pause_durations
+				wp_pause = (pause_durations[wp_idx] if pause_durations
+				            and wp_idx < len(pause_durations) else 0.0)
+				if wp_pause > 0 and current_wp < n_wp - 1:
+					_pause_timer = wp_pause
+					mode = 3  # PAUSE
+				elif current_wp + 1 < n_wp:
 					current_wp += 1
 					mode = 2
 				else:
@@ -207,6 +216,7 @@ def simulate_rover_4wd(
 
 			# Still need to update position and energy
 			total_time += dt
+			battery_energy_used_j += rover.idle_drain_w * dt
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
 			continue
 
@@ -233,10 +243,27 @@ def simulate_rover_4wd(
 			yaw_rate *= 0.95
 
 			battery_energy_used_j += p_w * 0.3 * dt
+			battery_energy_used_j += rover.idle_drain_w * dt
 
 			total_time += dt
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
 			continue
+
+		elif mode == 3:  # PAUSE — wait at waypoint
+					speed = 0.0
+					yaw_rate = 0.0
+					_pause_timer -= dt
+					total_time += dt
+					battery_energy_used_j += rover.idle_drain_w * dt
+					if _pause_timer <= 0.0:
+						if current_wp + 1 < n_wp:
+							current_wp += 1
+							mode = 2
+						else:
+							completed = True
+							break
+					dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
+					continue
 
 		# ═══════════════════════════════════════════════════════════════
 		# DRIVE mode — motor drive + resistive torque
@@ -343,6 +370,7 @@ def simulate_rover_4wd(
 					energy_j_per_m2 += illum * dt
 
 		total_time += dt
+		battery_energy_used_j += rover.idle_drain_w * dt
 		if speed > 0:
 			min_v = min(min_v, speed)
 		max_v = max(max_v, speed)

@@ -316,6 +316,12 @@ class MapView(QWidget):
 			self._waypoint_list.pop(index)
 			self._update_graph()
 
+	def edit_waypoint(self, index: int, x: float, y: float):
+		"""Replace the waypoint at index with new coordinates."""
+		if 0 <= index < len(self._waypoint_list):
+			self._waypoint_list[index] = (x, y)
+			self._update_graph()
+
 	def clear_all_waypoints(self):
 		self._waypoint_list.clear()
 		self._update_graph()

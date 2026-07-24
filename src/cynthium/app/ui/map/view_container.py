@@ -319,6 +319,13 @@ class ViewContainer(QWidget):
 		self.raster_view.add_waypoint(x, y)
 		self.terrain_view.add_waypoint(x, y)
 
+	def edit_waypoint(self, index: int, x: float, y: float):
+		"""Move an existing waypoint to new coordinates on both views."""
+		self.clear_failure_point()
+		self.clear_sim_failure_point()
+		self.raster_view.edit_waypoint(index, x, y)
+		self.terrain_view.edit_waypoint(index, x, y)
+
 	def remove_waypoint(self, index: int):
 		"""
 		Removes the waypoint.

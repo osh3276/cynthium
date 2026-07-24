@@ -109,6 +109,10 @@ class RoverSettingsDialog(QDialog):
 		self._coulomb_field.setPlaceholderText("N\u00b7m")
 		form.addRow("Coulomb friction (N\u00b7m):", self._coulomb_field)
 
+		self._idle_drain_field = QLineEdit()
+		self._idle_drain_field.setPlaceholderText("W")
+		form.addRow("Idle power drain (W):", self._idle_drain_field)
+
 		layout.addLayout(form)
 
 		self._max_slope_label = QLabel()
@@ -138,6 +142,7 @@ class RoverSettingsDialog(QDialog):
 			self._inertia_field.setText(str(current.wheel_inertia_kgm2))
 			self._damping_field.setText(str(current.motor_damping))
 			self._coulomb_field.setText(str(current.coulomb_friction_nm))
+			self._idle_drain_field.setText(str(current.idle_drain_w))
 			self._update_max_slope_direct(
 				current.wheel_friction_coeff,
 				current.rolling_resistance_coeff,
@@ -166,6 +171,7 @@ class RoverSettingsDialog(QDialog):
 		self._inertia_field.setText(str(preset.wheel_inertia_kgm2))
 		self._damping_field.setText(str(preset.motor_damping))
 		self._coulomb_field.setText(str(preset.coulomb_friction_nm))
+		self._idle_drain_field.setText(str(preset.idle_drain_w))
 		self._update_max_slope_direct(
 			preset.wheel_friction_coeff,
 			preset.rolling_resistance_coeff,
@@ -214,6 +220,7 @@ class RoverSettingsDialog(QDialog):
 				wheel_inertia_kgm2=self._inertia_field.text().strip() or "0.1",
 				motor_damping=self._damping_field.text().strip() or "5.0",
 				coulomb_friction_nm=self._coulomb_field.text().strip() or "0.5",
+				idle_drain_w=self._idle_drain_field.text().strip() or "10.0",
 			)
 			self._result = settings
 			self.accept()

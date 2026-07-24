@@ -1,13 +1,18 @@
-from PySide6.QtCore import Signal
+"""Planning panel with editable waypoint table and per-waypoint pause."""
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
 	QApplication,
 	QCheckBox,
 	QComboBox,
+	QDoubleSpinBox,
 	QHBoxLayout,
+	QHeaderView,
 	QLabel,
 	QLineEdit,
 	QPushButton,
-	QTextEdit,
+	QTableWidget,
+	QTableWidgetItem,
 	QVBoxLayout,
 	QWidget,
 )
@@ -24,8 +29,19 @@ from cynthium.app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _on_map_type_changed(map_type: str):
-	logger.info(f"Map type changed: {map_type}")
+class _FloatItem(QTableWidgetItem):
+	"""A table item that stores a float but displays with 1 decimal."""
+
+	def __init__(self, value: float):
+		super().__init__(f"{value:.1f}")
+		self._float_val = value
+
+	def float_val(self) -> float:
+		return self._float_val
+
+	def set_float(self, value: float):
+		self._float_val = value
+		self.setText(f"{value:.1f}")
 
 
 class PlanningPanel(QWidget):
@@ -33,10 +49,13 @@ class PlanningPanel(QWidget):
 	waypoint_removed = Signal(int)
 	waypoints_cleared = Signal()
 	autopath_requested = Signal(object)
+	waypoint_edited = Signal(int, float, float)
 
 	def __init__(self):
 		super().__init__()
-		self._waypoint_data = []
+		self._waypoint_data: list[tuple[float, float]] = []
+		self._pause_data: list[float] = []
+		self._block_table_edit = False
 		self._build()
 
 	def _build(self):
@@ -46,79 +65,76 @@ class PlanningPanel(QWidget):
 
 		layout.addWidget(QLabel("Planning"))
 
-		coord_label = QLabel("Coordinate:")
-		layout.addWidget(coord_label)
+		# ── Manual coordinate entry ──
+		coord_row = QHBoxLayout()
+		self._coord_field = QLineEdit()
+		self._coord_field.setPlaceholderText("x, y")
+		coord_row.addWidget(self._coord_field)
+		add_btn = QPushButton("Add")
+		add_btn.clicked.connect(self._on_add_coord)
+		coord_row.addWidget(add_btn)
+		layout.addLayout(coord_row)
 
-		self.coord_field = QLineEdit()
-		self.coord_field.setWindowTitle("hi")
-		self.coord_field.setPlaceholderText("x,y")
-		layout.addWidget(self.coord_field)
+		# ── Waypoint table (index, x, y, pause, delete) ──
+		self._table = QTableWidget(0, 5)
+		self._table.setHorizontalHeaderLabels(["#", "X (m)", "Y (m)", "Pause (s)", ""])
+		header = self._table.horizontalHeader()
+		header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+		header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+		header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+		header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+		header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+		self._table.verticalHeader().setVisible(False)
+		self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+		self._table.cellChanged.connect(self._on_cell_changed)
+		self._table.setMaximumHeight(200)
+		layout.addWidget(self._table)
 
-		button = QPushButton("Add waypoint")
-		button.clicked.connect(self._on_add_waypoint)
-		layout.addWidget(button)
+		# ── Info + Clear ──
+		self._info_label = QLabel("")
+		self._info_label.setWordWrap(True)
+		self._info_label.setStyleSheet("font-size: 10px; color: gray;")
+		layout.addWidget(self._info_label)
 
-		waypoints_label = QLabel("Waypoints:")
-		layout.addWidget(waypoints_label)
+		clear_btn = QPushButton("Clear all waypoints")
+		clear_btn.clicked.connect(self._on_clear_path)
+		layout.addWidget(clear_btn)
 
-		self.waypoints_text = QTextEdit()
-		self.waypoints_text.setReadOnly(True)
-		layout.addWidget(self.waypoints_text)
-
-		# Delete waypoint section
-		delete_layout = QHBoxLayout()
-		delete_layout.addWidget(QLabel("Delete waypoint:"))
-		self.delete_idx_field = QLineEdit()
-		self.delete_idx_field.setPlaceholderText("Num")
-		self.delete_idx_field.setFixedWidth(50)
-		delete_layout.addWidget(self.delete_idx_field)
-
-		delete_button = QPushButton("Delete")
-		delete_button.clicked.connect(self._on_delete_waypoint)
-		delete_layout.addWidget(delete_button)
-		layout.addLayout(delete_layout)
-
-		clear_button = QPushButton("Clear path")
-		clear_button.clicked.connect(self._on_clear_path)
-		layout.addWidget(clear_button)
-
-		# Autopath
-		autopath_button = QPushButton("Autopath")
-		autopath_button.clicked.connect(self._on_autopath)
-		layout.addWidget(autopath_button)
+		# ── Autopath ──
+		autopath_btn = QPushButton("Autopath")
+		autopath_btn.clicked.connect(self._on_autopath)
+		layout.addWidget(autopath_btn)
 
 		layout.addWidget(QLabel("Autopath waypoints:"))
-		self.autopath_text = QTextEdit()
-		self.autopath_text.setReadOnly(True)
-		self.autopath_text.setPlaceholderText("(autopath output will appear here)")
-		layout.addWidget(self.autopath_text)
+		self._autopath_label = QLabel("")
+		self._autopath_label.setWordWrap(True)
+		self._autopath_label.setStyleSheet("font-size: 10px; color: gray;")
+		self._autopath_label.setTextInteractionFlags(
+			self._autopath_label.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse
+		)
+		layout.addWidget(self._autopath_label)
 
-		# Autopath config
+		# ── Autopath config ──
+		layout.addWidget(QLabel("Autopath settings:"))
 		cfg2 = QHBoxLayout()
 		cfg2.addWidget(QLabel("Slope weight:"))
-		self.slope_weight_field = QLineEdit()
+		self.slope_weight_field = QPushButton(str(ALPHA_SLOPE))
 		self.slope_weight_field.setFixedWidth(60)
-		self.slope_weight_field.setText(str(ALPHA_SLOPE))
 		cfg2.addWidget(self.slope_weight_field)
-
 		cfg2.addWidget(QLabel("Sun weight:"))
-		self.sun_weight_field = QLineEdit()
+		self.sun_weight_field = QPushButton(str(BETA_SHADOW))
 		self.sun_weight_field.setFixedWidth(60)
-		self.sun_weight_field.setText(str(BETA_SHADOW))
 		cfg2.addWidget(self.sun_weight_field)
 		layout.addLayout(cfg2)
 
 		cfg4 = QHBoxLayout()
 		cfg4.addWidget(QLabel("Met. flux weight:"))
-		self.meteor_flux_weight_field = QLineEdit()
+		self.meteor_flux_weight_field = QPushButton(str(METEOR_FLUX_WEIGHT))
 		self.meteor_flux_weight_field.setFixedWidth(60)
-		self.meteor_flux_weight_field.setText(str(METEOR_FLUX_WEIGHT))
 		cfg4.addWidget(self.meteor_flux_weight_field)
-
 		cfg4.addWidget(QLabel("Temperature weight:"))
-		self.temperature_weight_field = QLineEdit()
+		self.temperature_weight_field = QPushButton(str(TEMPERATURE_WEIGHT))
 		self.temperature_weight_field.setFixedWidth(60)
-		self.temperature_weight_field.setText(str(TEMPERATURE_WEIGHT))
 		cfg4.addWidget(self.temperature_weight_field)
 		layout.addLayout(cfg4)
 
@@ -127,14 +143,9 @@ class PlanningPanel(QWidget):
 		self.algorithm_combo = QComboBox()
 		self.algorithm_combo.addItems(["A*", "Dijkstra"])
 		cfg3.addWidget(self.algorithm_combo)
-
 		cfg3.addWidget(QLabel("Strategy:"))
 		self.cost_strategy_combo = QComboBox()
 		self.cost_strategy_combo.addItems(["Weighted cost", "Minimax"])
-		self.cost_strategy_combo.setToolTip(
-			"Weighted cost: trade-off between distance, grade, and sunlight.\n"
-			"Minimax: avoid steep grade and deep shadows at all costs."
-		)
 		cfg3.addWidget(self.cost_strategy_combo)
 		layout.addLayout(cfg3)
 
@@ -142,130 +153,49 @@ class PlanningPanel(QWidget):
 		cfg5.addWidget(QLabel("Path mode:"))
 		self.path_mode_combo = QComboBox()
 		self.path_mode_combo.addItems(["Waypoint to waypoint", "Start to finish"])
-		self.path_mode_combo.setToolTip(
-			"Waypoint to waypoint: plan a separate path between each pair of waypoints.\n"
-			"Start to finish: plan a single path from the first to the last waypoint."
-		)
 		cfg5.addWidget(self.path_mode_combo)
 		layout.addLayout(cfg5)
 
-		self.bicubic_checkbox = QCheckBox("Use bicubic interpolation (5 m/px)")
-		self.bicubic_checkbox.setToolTip(
-			"Sample simulation at 5 m resolution with bicubic elevation interpolation\n"
-			"for smoother grade profiles. Slower but more accurate."
-		)
+		self.bicubic_checkbox = QCheckBox("Use bicubic interpolation (5 m/px)")
 		layout.addWidget(self.bicubic_checkbox)
 
 		layout.addStretch(1)
 
-	def add_waypoint_direct(self, x: float, y: float):
-		"""
-		Adds a waypoint directly from coordinates (e.g. from a map click)
-		without reading from the text field.
+	# ── Waypoint management ──
 
-		:param x: X coordinate.
-		:type x: float
-		:param y: Y coordinate.
-		:type y: float
-		:return: None
-		"""
-		longlat = xy_to_longlat(x, y)
-		self._waypoint_data.append((x, y, longlat))
-		if hasattr(self, "autopath_text"):
-			self.autopath_text.clear()
+	def add_waypoint_direct(self, x: float, y: float, pause_s: float = 0.0):
+		self._waypoint_data.append((x, y))
+		self._pause_data.append(pause_s)
 		self.waypoint_added.emit(x, y)
-		self._refresh_waypoints_display()
+		self._refresh_table()
+		self._update_info()
 
-	def _on_add_waypoint(self):
-		coordinates = self.coord_field.text().split(",")
-		if len(coordinates) != 2:
-			logger.error("Invalid coordinate format")
-			return
+	def remove_waypoint_at(self, index: int):
+		if 0 <= index < len(self._waypoint_data):
+			self._waypoint_data.pop(index)
+			self._pause_data.pop(index)
+			self.waypoint_removed.emit(index)
+			self._refresh_table()
+			self._update_info()
 
-		coordinates[0] = coordinates[0].strip()
-		coordinates[1] = coordinates[1].strip()
-
-		try:
-			x, y = float(coordinates[0]), float(coordinates[1])
-		except ValueError:
-			logger.error("Invalid coordinate values")
-			return
-
-		self.add_waypoint_direct(x, y)
-
-	def _on_delete_waypoint(self):
-		text = self.delete_idx_field.text().strip()
-		if not text:
-			return
-		try:
-			idx = int(text) - 1  # 1-based to 0-based
-		except ValueError:
-			logger.error("Invalid waypoint number")
-			return
-
-		if 0 <= idx < len(self._waypoint_data):
-			self._waypoint_data.pop(idx)
-			if hasattr(self, "autopath_text"):
-				self.autopath_text.clear()
-			self.waypoint_removed.emit(idx)
-			self._refresh_waypoints_display()
-		else:
-			logger.error(f"Waypoint index {idx + 1} out of range")
-
-	def _on_clear_path(self):
-		if not self._waypoint_data:
-			return
+	def clear_all_waypoints(self):
 		self._waypoint_data.clear()
-		self.autopath_text.clear()
-		self.waypoints_text.clear()
+		self._pause_data.clear()
+		self._autopath_label.setText("")
 		self.waypoints_cleared.emit()
-
-	def _on_autopath(self):
-		if len(self._waypoint_data) < 2:
-			logger.error("Need at least 2 waypoints for autopath")
-			return
-
-
-
-		try:
-			slope_weight = float(self.slope_weight_field.text().strip())
-			sun_weight = float(self.sun_weight_field.text().strip())
-			meteor_flux_weight = float(self.meteor_flux_weight_field.text().strip())
-			temperature_weight = float(self.temperature_weight_field.text().strip())
-		except ValueError:
-			logger.error("Invalid autopath config values")
-			return
-
-		if slope_weight < 0.0 or sun_weight < 0.0 or meteor_flux_weight < 0.0 or temperature_weight < 0.0:
-			logger.error("Weights must be >= 0")
-			return
-
-		waypoints_xy = [(float(x), float(y)) for (x, y, _ll) in self._waypoint_data]
-		path_mode = self.path_mode_combo.currentText()
-		payload = {
-			"waypoints_xy": waypoints_xy,
-			"slope_weight": float(slope_weight),
-			"sun_weight": float(sun_weight),
-			"meteor_flux_weight": float(meteor_flux_weight),
-			"temperature_weight": float(temperature_weight),
-			"algorithm": self.algorithm_combo.currentText(),
-			"cost_strategy": self.cost_strategy_combo.currentText(),
-			"path_mode": path_mode,
-			"use_bicubic": self.bicubic_checkbox.isChecked(),
-		}
-		self.autopath_text.setPlainText("Running autopath...")
-		QApplication.processEvents()
-		self.autopath_requested.emit(payload)
+		self._refresh_table()
+		self._update_info()
 
 	def set_autopath_waypoints(self, points_xy: list[tuple[float, float]] | None):
-		self.autopath_text.clear()
+		self._autopath_label.setText("")
 		if not points_xy:
 			return
+		lines = []
 		for i, (x, y) in enumerate(points_xy):
-			self.autopath_text.append(f"({i + 1}). ({x:.2f}, {y:.2f})m")
+			lines.append(f"{i+1}. ({x:.1f}, {y:.1f})")
+		self._autopath_label.setText("\n".join(lines))
 
 	def set_planning_config(self, config: dict):
-		"""Set autopath config fields from a dict (keys match get_planning_settings output)."""
 		if "slope_weight" in config:
 			self.slope_weight_field.setText(str(config["slope_weight"]))
 		if "sun_weight" in config:
@@ -290,25 +220,22 @@ class PlanningPanel(QWidget):
 			self.bicubic_checkbox.setChecked(bool(config["use_bicubic"]))
 
 	def clear_and_set_waypoints(self, waypoints_xy: list[list[float]]) -> list[tuple[float, float]]:
-		"""Replace all waypoints with a new list. Returns the added xy pairs."""
 		self._waypoint_data.clear()
-		self.waypoints_text.clear()
-		self.autopath_text.clear()
-
+		self._pause_data.clear()
 		added = []
 		for xy in waypoints_xy:
 			x, y = float(xy[0]), float(xy[1])
-			self.add_waypoint_direct(x, y)
+			self._waypoint_data.append((x, y))
+			self._pause_data.append(0.0)
 			added.append((x, y))
+		self._refresh_table()
+		self._update_info()
 		return added
 
 	def get_planning_settings(self) -> dict:
-		"""Return all planning/autopath settings as a serialisable dict."""
 		waypoints_xy = []
-		if hasattr(self, "_waypoint_data"):
-			for x, y, _ll in self._waypoint_data:
-				waypoints_xy.append([float(x), float(y)])
-
+		for x, y in self._waypoint_data:
+			waypoints_xy.append([float(x), float(y)])
 		return {
 			"slope_weight": self.slope_weight_field.text().strip(),
 			"sun_weight": self.sun_weight_field.text().strip(),
@@ -321,17 +248,134 @@ class PlanningPanel(QWidget):
 			"waypoints_xy": waypoints_xy,
 		}
 
-	def get_bicubic_enabled(self) -> bool:
-		return self.bicubic_checkbox.isChecked() if hasattr(self, "bicubic_checkbox") else False
+	def get_pause_durations(self) -> list[float]:
+		return list(self._pause_data)
 
-	def _refresh_waypoints_display(self):
-		self.waypoints_text.clear()
-		for i, (x, y, longlat) in enumerate(self._waypoint_data):
-			lon, lat = float(longlat[0]), float(longlat[1])
+	def get_bicubic_enabled(self) -> bool:
+		return self.bicubic_checkbox.isChecked()
+
+	# ── Internal helpers ──
+
+	def _refresh_table(self):
+		self._block_table_edit = True
+		self._table.setRowCount(len(self._waypoint_data))
+		for i in range(len(self._waypoint_data)):
+			x, y = self._waypoint_data[i]
+			pause = self._pause_data[i] if i < len(self._pause_data) else 0.0
+
+			num_item = QTableWidgetItem(str(i + 1))
+			num_item.setFlags(num_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+			self._table.setItem(i, 0, num_item)
+
+			x_item = _FloatItem(x)
+			self._table.setItem(i, 1, x_item)
+
+			y_item = _FloatItem(y)
+			self._table.setItem(i, 2, y_item)
+
+			pause_item = QTableWidgetItem(f"{pause:.1f}")
+			self._table.setItem(i, 3, pause_item)
+
+			del_btn = QPushButton("Delete")
+			del_btn.setFixedWidth(60)
+			del_btn.clicked.connect(lambda checked, idx=i: self.remove_waypoint_at(idx))
+			self._table.setCellWidget(i, 4, del_btn)
+		self._block_table_edit = False
+
+	def _on_cell_changed(self, row: int, col: int):
+		if self._block_table_edit:
+			return
+		if row < 0 or row >= len(self._waypoint_data):
+			return
+		if col == 1:
+			try:
+				val = float(self._table.item(row, col).text())
+			except (ValueError, TypeError):
+				self._refresh_table()
+				return
+			x, y = self._waypoint_data[row]
+			self._waypoint_data[row] = (val, y)
+			self.waypoint_edited.emit(row, val, y)
+		elif col == 2:
+			try:
+				val = float(self._table.item(row, col).text())
+			except (ValueError, TypeError):
+				self._refresh_table()
+				return
+			x, y = self._waypoint_data[row]
+			self._waypoint_data[row] = (x, val)
+			self.waypoint_edited.emit(row, x, val)
+		elif col == 3:
+			try:
+				pause = float(self._table.item(row, col).text())
+			except (ValueError, TypeError):
+				self._refresh_table()
+				return
+			if row < len(self._pause_data):
+				self._pause_data[row] = pause
+		self._update_info()
+
+	def _update_info(self):
+		if not self._waypoint_data:
+			self._info_label.setText("")
+			return
+		parts = []
+		for i, (x, y) in enumerate(self._waypoint_data):
+			ll = xy_to_longlat(x, y)
+			lon, lat = float(ll[0]), float(ll[1])
 			lat_dir = "S" if lat < 0 else "N"
 			lon_dir = "W" if lon < 0 else "E"
-			display_text = (
-				f"({i + 1}). ({x:.2f}, {y:.2f})m, "
-				f"({abs(lat):.3f}°{lat_dir}, {abs(lon):.3f}°{lon_dir})\n"
+			parts.append(
+				f"{i+1}. ({abs(lat):.3f}\u00b0{lat_dir}, {abs(lon):.3f}\u00b0{lon_dir})"
 			)
-			self.waypoints_text.append(display_text)
+		self._info_label.setText("  ".join(parts))
+
+	def _on_add_coord(self):
+		text = self._coord_field.text().strip()
+		if not text:
+			return
+		parts = text.split(",")
+		if len(parts) != 2:
+			logger.error("Enter coordinates as x, y")
+			return
+		try:
+			x, y = float(parts[0].strip()), float(parts[1].strip())
+		except ValueError:
+			logger.error("Invalid coordinate values")
+			return
+		self.add_waypoint_direct(x, y)
+		self._coord_field.clear()
+
+	def _on_clear_path(self):
+		self.clear_all_waypoints()
+
+	def _on_autopath(self):
+		if len(self._waypoint_data) < 2:
+			logger.error("Need at least 2 waypoints for autopath")
+			return
+		try:
+			slope_weight = float(self.slope_weight_field.text().strip())
+			sun_weight = float(self.sun_weight_field.text().strip())
+			meteor_flux_weight = float(self.meteor_flux_weight_field.text().strip())
+			temperature_weight = float(self.temperature_weight_field.text().strip())
+		except ValueError:
+			logger.error("Invalid autopath config values")
+			return
+		if any(w < 0.0 for w in [slope_weight, sun_weight, meteor_flux_weight, temperature_weight]):
+			logger.error("Weights must be >= 0")
+			return
+		waypoints_xy = self._waypoint_data[:]
+		payload = {
+			"waypoints_xy": waypoints_xy,
+			"slope_weight": slope_weight,
+			"sun_weight": sun_weight,
+			"meteor_flux_weight": meteor_flux_weight,
+			"temperature_weight": temperature_weight,
+			"algorithm": self.algorithm_combo.currentText(),
+			"cost_strategy": self.cost_strategy_combo.currentText(),
+			"path_mode": self.path_mode_combo.currentText(),
+			"use_bicubic": self.bicubic_checkbox.isChecked(),
+		}
+		self._autopath_label.setText("Running autopath...")
+		QApplication.processEvents()
+		self.autopath_requested.emit(payload)
