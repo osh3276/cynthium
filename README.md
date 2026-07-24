@@ -8,57 +8,63 @@ defining rover traversal paths, and computing terrain statistics along those
 paths. It is designed for scientific use cases where map resolution, numerical
 accuracy, and reproducibility are critical.
 
-> **Note**: Cynthium is still in beta. Things may break, change, or be
+> **Note**: Cynthium is in beta. Things may break, change, or be
 > missing. If something doesn't work or you have an idea, open an issue at
-> [github.com/osh3276/cynthium/issues](https://github.com/osh3276/cynthium/issues)
-> and describe what you ran into.
+> [github.com/osh3276/cynthium/issues](https://github.com/osh3276/cynthium/issues).
 
 ## Features
 
 - **Multi-dimensional Visualization**: 2D map views and 3D terrain
-  visualisation using GeoTIFF data (LOLA / LRO).
-- **Layer Manager**: Checkable, reorderable map layers with automatic refresh
-  when the visible layer or preset changes.
-- **Advanced Pathfinding**: Optimal path routing using A\* or Dijkstra,
-  considering distance, terrain slope, solar illumination, meteor flux, and
-  temperature.
-- **Rover Simulation**: Physics-based traversal simulation including energy
-  consumption, velocity, and slope-based hazards.
+  visualisation using GeoTIFF data (LOLA / LRO). Cursor tooltip shows raster
+  values under the mouse.
+- **Layer Manager**: Checkable, reorderable map layers — elevation, slope,
+  hillshade, solar illumination (monthly/daily avg), meteor flux/number
+  (monthly/daily avg), temperature (summer/winter seasonal), and permanently
+  shaded regions. Automatic refresh on preset change.
+- **Waypoint Management**: Editable waypoint table with coordinate cells and
+  per-waypoint pause durations. Waypoints update live on the map.
+- **Advanced Pathfinding**: A\* or Dijkstra over a 16-connected grid,
+  considering terrain slope, solar illumination, meteor flux, and temperature.
+  Weighted cost or minimax strategy. Optional 4× bicubic upsampling for 5 m/px
+  effective resolution.
+- **Rover Simulation**: 4-wheel skid-steer model with stop-pivot-go
+  navigation, PID speed controller, resistive motor model (back-EMF + Coulomb
+  friction), and battery drain (motor power + idle draw). Configurable mass,
+  power, friction, wheel geometry, motor torque, damping, and more.
+- **Battery Simulation**: Motor power consumption and constant idle drain
+  modelled over the full traverse, with remaining charge and total energy
+  consumed in results.
 - **Illumination Analysis**: Sun position calculation and shadow mapping for
   specific lunar dates and times using NASA SPICE.
 - **Site Management**: Automated handling of lunar site rasters and data
-  products.
+  products. Data auto-downloads via pooch on first use.
 - **Data Export**: Export manual paths, autopaths, simulation statistics, and
-  full session settings for further scientific analysis.
+  full session settings for external analysis.
 - **Custom Data Import**: Import GeoTIFF rasters with CRS validation, or load
   custom sites directly through the file picker.
 
-<!--## Architecture
+## Architecture
 
-The application is organised into several subpackages under `cynthium.app`:
+The application is organised into subpackages under `cynthium.app`:
 
-| Package         | Responsibility                                                  |
-|-----------------|-----------------------------------------------------------------|
-| `engine`        | Core algorithms: pathfinding (A\*, Dijkstra), illumination (sun position, shadows), rover simulation (dynamics, physics). |
-| `rendering`     | 2D heightmap and 3D terrain rendering via `pyqtgraph` and `PyVista`. |
-| `services`      | High-level orchestration: site raster management, simulation lifecycle. |
-| `ui`            | PySide6-based graphical interface: map views, sidebar panels, dialogs. |
-| `io`            | Data reading (GeoTIFF) and export (CSV).                        |
-| `utils`         | Logging and general utilities.                                  |-->
+| Package    | Responsibility |
+|------------|----------------|
+| `engine`   | Core algorithms: pathfinding (A\*, Dijkstra), illumination (sun position, shadows), rover simulation (4WD skid-steer, PID control, resistive motor model, battery drain). |
+| `services` | High-level orchestration: site raster management, autopath validation loop, simulation lifecycle. |
+| `ui`       | PySide6 GUI: 2D map and 3D terrain views, sidebar panels, rover settings dialog, simulation results panel. |
+| `io`       | GeoTIFF reading, CSV/JSON export. |
+| `config`   | Application configuration, data paths, site presets. |
+| `data`     | Pooch-based file registry with SHA256 hashes for auto-download from GitHub releases. |
+| `utils`    | Logging and general utilities. |
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.12 or newer.
+- A working C/C++ compiler toolchain (required by `rasterio`).
 
-### pip Install (from PyPI)
-
-```bash
-pip install cynthium
-```
-
-### Editable Install (from source)
+### Install from source
 
 ```bash
 git clone https://github.com/osh3276/cynthium.git
@@ -66,18 +72,18 @@ cd cynthium
 pip install -e .
 ```
 
-Key dependencies include: `PySide6`, `numpy`, `rasterio`, `pyqtgraph`,
-`PyVista`, and `spiceypy`.
+Key dependencies: `PySide6`, `numpy`, `rasterio`, `pyqtgraph`,
+`PyVista`, `spiceypy`, `scipy`, `pooch`, `pyproj`.
 
 ## Usage
 
-Launch Cynthium from the terminal:
+Launch Cynthium:
 
 ```bash
 cynthium
 ```
 
-Or equivalently:
+Or:
 
 ```bash
 python -m cynthium
@@ -88,28 +94,29 @@ centre, and a **menu bar** at the top.
 
 ### Workflow
 
-1. **Load a Site** — In the sidebar, select a preset lunar site (e.g. *Haworth*,
-   *Shackleton rim*, *Nobile rim 1*). A 20 m/px elevation tile loads automatically,
-   and the display updates immediately.
-2. **Select a Map Layer** — Use the layer manager to toggle layer visibility and
-   reorder layers. Switching the active layer or preset updates the map
-   automatically.
-3. **Plan a Path** — Click on the 2D map to place start and goal points, then
-   click *Autopath*. The optimal route is overlaid on the map. You can tune
-   pathfinding with weights for slope, sun, meteor flux, and temperature, and
-   choose between A\* and Dijkstra, two cost strategies (Weighted cost / Minimax),
-   and two path modes (Waypoint-to-waypoint / Start-to-finish). Use *Clear path*
-   to remove all waypoints, autopath results, and failure markers at once.
+1. **Load a Site** — Select a preset lunar site (e.g. *Haworth*,
+   *Shackleton rim*, *Nobile rim 1*). A 20 m/px elevation tile loads with
+   colour-mapped display.
+2. **Select a Map Layer** — Use the layer manager to toggle layers and
+   switch between elevation, slope, illumination, temperature, meteor maps.
+3. **Plan a Path** — Place waypoints on the map. Click *Autopath* to find the
+   optimal route (A\*/Dijkstra). Tune pathfinding weights for slope, sun,
+   meteor flux, and temperature. Editable waypoint table with per-waypoint
+   pause durations.
 4. **Configure the Rover** — Select a preset (Curiosity, Perseverance,
-   Apollo LRV, or Artemis SR) or adjust mass, power, wheel friction, and rolling
-   resistance manually in the rover settings panel.
-5. **Run a Simulation** — Hit *Run Simulation* to execute a physics-based 1D
-   rover traverse. Results include distance, velocity, traversal time, solar
-   energy received, and feasibility.
-6. **Inspect in 3D** — Switch to the 3D Terrain View tab to see the path draped
-   over the digital elevation model.
-7. **Export Results** — Save manual paths, autopaths, simulation statistics, or
-   full settings bundles for external analysis and later reuse.
+   Apollo LRV, or Artemis SR) or open **Tools → Rover Settings** to adjust
+   all parameters: mass, power, friction, rolling resistance, wheel radius,
+   motor torque, track width, wheelbase, battery capacity, motor RPM, cruise
+   speed, wheel inertia, motor damping, Coulomb friction, and idle drain.
+5. **Run a Simulation** — Hit *Run Simulation* to execute a 4-wheel
+   skid-steer traverse with stop-pivot-go navigation, PID speed control,
+   resistive motor model, and battery drain. Results (Path/Slope/Environment
+   tabs) include distance, velocity, traversal time (including pauses),
+   solar energy, battery stats, max climbable slope, and failure point.
+6. **Inspect in 3D** — Switch to the 3D Terrain View tab to see the path
+   draped over the digital elevation model.
+7. **Export Results** — Save paths, simulation stats, or full session
+   settings as CSV/JSON.
 
 ### Troubleshooting
 
@@ -118,8 +125,9 @@ centre, and a **menu bar** at the top.
   interior). Try moving the points to a ridge or sunlit area.
 
 **Rover gets stuck on a seemingly gentle slope**
-  The friction coefficient determines max climbable slope. Increase friction or
-  reduce rover mass.
+  Max climbable slope considers three limits: traction (μ − Crr), power
+  (P/(v·m·g)), and torque (T/(r·m·g)). Increase μ, reduce mass, increase
+  power, or increase motor torque.
 
 **Data files not found**
   Cynthium will attempt to download missing files via `pooch` on first use.
