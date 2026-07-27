@@ -1,12 +1,11 @@
-"""4-wheel skid-steer rover with resistive motor model and stop-pivot-go navigation.
+"""4-wheel skid-steer rover with simple brake model and stop-pivot-go navigation.
 
-The chassis is a rigid rectangle with a wheel at each corner.  Each wheel
-has a DC motor directly coupled to it.  The motor provides drive torque
-when powered, and resistive torque from back-EMF (b * omega) and Coulomb
-friction (tau_c) when coasting or overspeed — no separate brake.
+The chassis is a rigid rectangle with a wheel at each corner.  Steering is
+by differential thrust between left and right sides.  Braking is modelled
+as a direct deceleration (m/s²) — no motor back-EMF or Coulomb friction.
 
-The rover drives toward each waypoint, stops via motor resistance, pivots
-in place to face the next waypoint, then drives again.
+The rover drives toward each waypoint, brakes to a stop, pivots in place
+to face the next waypoint, then drives again.
 """
 
 from __future__ import annotations
@@ -35,7 +34,6 @@ _PIVOT_YAW_RATE_MAX = 0.4  # rad/s during pivot
 _HEADING_K = 2.0  # proportional gain for heading-while-driving
 _HEADING_ACCEPT_DEG = 3.0  # degrees of tolerance before pivot considered done
 _WP_ARRIVE_DIST = 3.0  # distance to waypoint considered "arrived"
-_OMEGA_EPS = 0.01  # rad/s — below this, wheel considered stopped
 
 
 def _heading_error_to_waypoint(
@@ -43,34 +41,6 @@ def _heading_error_to_waypoint(
 ) -> float:
 	"""Signed heading error (rad) from current heading toward (tx, ty)."""
 	return _normalise_angle(atan2(ty - y, tx - x) - heading)
-
-
-def _resistive_torque(
-	omega: float, rover: RoverSettings,
-) -> float:
-	"""Resistive torque (N·m) opposing wheel motion.
-
-	I * d(omega)/dt = -b * omega - tau_c * sign(omega)
-
-	Parameters
-	----------
-	omega : float
-		Wheel angular velocity (rad/s), positive = forward.
-	rover : RoverSettings
-		Rover parameters (motor_damping, coulomb_friction_nm).
-	"""
-	b = rover.motor_damping
-	tau_c = rover.coulomb_friction_nm
-	if abs(omega) < _OMEGA_EPS:
-		return 0.0
-	return b * omega + tau_c * (1.0 if omega > 0 else -1.0)
-
-
-def _resistive_force(
-	omega: float, rover: RoverSettings,
-) -> float:
-	"""Resistive force (N) at the wheel contact patch opposing motion."""
-	return _resistive_torque(omega, rover) / max(rover.wheel_radius_m, 0.01)
 
 
 def _sample_target_speed(dist_to_wp: float, rover: RoverSettings) -> float:
@@ -96,7 +66,7 @@ def simulate_rover_4wd(
 	max_steps: int = 500000,
 	pause_durations: list[float] | None = None,
 ) -> dict[str, Any]:
-	"""Simulate a 4-wheel skid-steer rover with resistive motor model."""
+	"""Simulate a 4-wheel skid-steer rover with simple brake model."""
 	t_start = time.perf_counter()
 
 	if pts_xyz.shape[0] < 2 or len(waypoints_xy) < 2:
@@ -111,7 +81,6 @@ def simulate_rover_4wd(
 	crr = float(rover.rolling_resistance_coeff)
 	wheel_r = float(rover.wheel_radius_m)
 	motor_torque = rover.motor_peak_torque_nm
-	I_w = float(rover.wheel_inertia_kgm2)  # rotational inertia per wheel
 
 	# Chassis geometry
 	tw = float(rover.track_width_m)
@@ -130,7 +99,7 @@ def simulate_rover_4wd(
 	# ── Waypoint navigation setup ──
 	n_wp = len(waypoints_xy)
 	current_wp = 1
-	mode = 0  # 0 = DRIVE, 1 = STOPPING, 2 = PIVOTING
+	mode = 0  # 0 = DRIVE, 1 = STOPPING, 2 = PIVOTING, 3 = PAUSE
 	resolution_m = _estimate_resolution(pts_xyz)
 
 	# Initial heading
@@ -187,17 +156,11 @@ def simulate_rover_4wd(
 				mode = 1
 				continue
 
-		elif mode == 1:  # STOPPING — coast down via motor resistance
+		elif mode == 1:  # STOPPING — apply brake
 			yaw_cmd = 0.0
-			# Wheel omega = speed / r; resistive torque does the stopping
-			omega = speed / max(wheel_r, 0.01)
-			tau_resist = _resistive_torque(omega, rover)
-			# Apply resistive torque to wheel inertia (4 wheels, per-wheel update)
-			omega -= tau_resist / I_w * dt
-			if abs(omega) < _OMEGA_EPS:
-				omega = 0.0
-			speed = omega * wheel_r
-			if speed < 0.01:
+			if speed > 0.0:
+				speed = max(0.0, speed - rover.max_brake_decel_mps2 * dt)
+			if speed <= 0.0:
 				speed = 0.0
 				_pid.reset()
 				# Check if this waypoint has a pause configured
@@ -213,8 +176,6 @@ def simulate_rover_4wd(
 				else:
 					completed = True
 					break
-
-			# Still need to update position and energy
 			total_time += dt
 			battery_energy_used_j += rover.idle_drain_w * dt
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
@@ -250,40 +211,31 @@ def simulate_rover_4wd(
 			continue
 
 		elif mode == 3:  # PAUSE — wait at waypoint
-					speed = 0.0
-					yaw_rate = 0.0
-					_pause_timer -= dt
-					total_time += dt
-					battery_energy_used_j += rover.idle_drain_w * dt
-					if _pause_timer <= 0.0:
-						if current_wp + 1 < n_wp:
-							current_wp += 1
-							mode = 2
-						else:
-							completed = True
-							break
-					dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
-					continue
+			speed = 0.0
+			yaw_rate = 0.0
+			_pause_timer -= dt
+			total_time += dt
+			battery_energy_used_j += rover.idle_drain_w * dt
+			if _pause_timer <= 0.0:
+				if current_wp + 1 < n_wp:
+					current_wp += 1
+					mode = 2
+				else:
+					completed = True
+					break
+			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
+			continue
 
 		# ═══════════════════════════════════════════════════════════════
-		# DRIVE mode — motor drive + resistive torque
+		# DRIVE mode — motor drive + PID brake
 		# ═══════════════════════════════════════════════════════════════
 
 		target_speed = _sample_target_speed(dist_to_wp, rover)
-		throttle, _brake = _pid.update(speed, target_speed, dt)
+		throttle, brake_decel = _pid.update(speed, target_speed, dt)
 
-		# ── Wheel angular velocity per side (accounting for yaw) ──
+		# ── Wheel speeds per side (accounting for yaw) ──
 		v_left = speed - yaw_rate * tw / 2.0
 		v_right = speed + yaw_rate * tw / 2.0
-		omega_left = v_left / max(wheel_r, 0.01)
-		omega_right = v_right / max(wheel_r, 0.01)
-
-		# ── Resistive force per side (from motor back-EMF + friction) ──
-		# Each side has 2 wheels, resistive torque per wheel * 2
-		f_resist_left = 2.0 * _resistive_force(omega_left, rover)
-		f_resist_right = 2.0 * _resistive_force(omega_right, rover)
-		# Resistive force always opposes motion (positive = opposing forward)
-		# sign: if wheel is rolling forward (omega > 0), force is negative (backward)
 
 		# ── Drive torque from motor ──
 		f_n_total = m * g * cos_pitch
@@ -302,10 +254,9 @@ def simulate_rover_4wd(
 		battery_energy_used_j += p_w * throttle * dt
 
 		# ── Net force per side ──
-		# Resistive force sign: positive omega → resists forward → subtract from drive
-		f_left = f_drive_left - f_resist_left
-		f_right = f_drive_right - f_resist_right
-		# Clamp net to traction limits (don't exceed friction circle in either direction)
+		f_left = f_drive_left
+		f_right = f_drive_right
+		# Clamp net to traction limits
 		f_left = _clamp(f_left, -f_trac_side, f_trac_side)
 		f_right = _clamp(f_right, -f_trac_side, f_trac_side)
 
@@ -329,7 +280,11 @@ def simulate_rover_4wd(
 		# ── Integrate ──
 		f_grade = m * g * sin_pitch
 		f_roll = crr * f_n_total
-		f_net = f_total_actual - f_grade - f_roll
+
+		# Brake force from PID (applied when overspeed)
+		f_brake = brake_decel * m
+
+		f_net = f_total_actual - f_grade - f_roll - f_brake
 		a_long = f_net / m
 		alpha = m_net / I_z
 

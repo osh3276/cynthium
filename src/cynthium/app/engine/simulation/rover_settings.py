@@ -23,9 +23,7 @@ class RoverSettings:
     battery_capacity_wh: float = 500.0
     motor_max_rpm: float = 200.0
     target_cruise_speed_mps: float = 2.0
-    wheel_inertia_kgm2: float = 0.1
-    motor_damping: float = 5.0
-    coulomb_friction_nm: float = 0.5
+    max_brake_decel_mps2: float = 1.0
     idle_drain_w: float = 10.0
 
     @property
@@ -152,9 +150,7 @@ def rover_settings_from_strings(
     battery_capacity_wh: str = "500.0",
     motor_max_rpm: str = "200.0",
     target_cruise_speed_mps: str = "2.0",
-    wheel_inertia_kgm2: str = "0.1",
-    motor_damping: str = "5.0",
-    coulomb_friction_nm: str = "0.5",
+    max_brake_decel_mps2: str = "1.0",
     idle_drain_w: str = "10.0",
 ) -> RoverSettings:
     m = float(mass_kg)
@@ -168,9 +164,7 @@ def rover_settings_from_strings(
     batt = float(battery_capacity_wh)
     rpm = float(motor_max_rpm)
     cruise = float(target_cruise_speed_mps)
-    inert = float(wheel_inertia_kgm2)
-    damp = float(motor_damping)
-    coul = float(coulomb_friction_nm)
+    brake = float(max_brake_decel_mps2)
     idle = float(idle_drain_w)
     settings = RoverSettings(
         mass_kg=m,
@@ -184,9 +178,7 @@ def rover_settings_from_strings(
         battery_capacity_wh=batt,
         motor_max_rpm=rpm,
         target_cruise_speed_mps=cruise,
-        wheel_inertia_kgm2=inert,
-        motor_damping=damp,
-        coulomb_friction_nm=coul,
+        max_brake_decel_mps2=brake,
         idle_drain_w=idle,
     )
     settings.validate()
