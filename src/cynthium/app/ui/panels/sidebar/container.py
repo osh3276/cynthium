@@ -51,10 +51,10 @@ class AppSidebar(QWidget):
 		)
 		scroll_layout.addWidget(map_selection_panel)
 
-		separator = QFrame()
-		separator.setFrameShape(QFrame.Shape.HLine)
-		separator.setFrameShadow(QFrame.Shadow.Sunken)
-		scroll_layout.addWidget(separator)
+		sep1 = QFrame()
+		sep1.setFrameShape(QFrame.Shape.HLine)
+		sep1.setFrameShadow(QFrame.Shadow.Sunken)
+		scroll_layout.addWidget(sep1)
 
 		self._planning_panel = PlanningPanel()
 		self._planning_panel.waypoint_added.connect(self.waypoint_added.emit)
@@ -63,7 +63,11 @@ class AppSidebar(QWidget):
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
 		self._planning_panel.waypoint_edited.connect(self.waypoint_edited.emit)
 		scroll_layout.addWidget(self._planning_panel)
-		scroll_layout.addWidget(separator)
+
+		sep2 = QFrame()
+		sep2.setFrameShape(QFrame.Shape.HLine)
+		sep2.setFrameShadow(QFrame.Shadow.Sunken)
+		scroll_layout.addWidget(sep2)
 
 		rover_btn = QPushButton("Rover Settings...")
 		rover_btn.clicked.connect(self.rover_settings_requested.emit)

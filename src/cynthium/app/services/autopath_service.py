@@ -29,7 +29,7 @@ def _validate_segment_with_simulation(
 ) -> tuple[bool, dict]:
 	"""Run physics simulation on a path and return (feasible, stats)."""
 	try:
-		map_data, map_meta, slope_data, temp_data, temp_meta, illum_data, illum_meta, meteor_data, meteor_meta = map_data_bundle
+		map_data, map_meta, slope_data, temp_data, temp_meta, illum_data, illum_meta, meteor_data, meteor_meta = map_data_bundle[:9]
 		transform = map_meta.get("transform") if map_meta else None
 		temp_transform = temp_meta.get("transform") if temp_meta else None
 		illum_transform = illum_meta.get("transform") if illum_meta else None
@@ -63,7 +63,7 @@ def compute_validated_path(
 	map_data_bundle: tuple,
 	pathfind_fn: Callable,
 	use_bicubic: bool = False,
-	max_attempts: int = 20,
+	max_attempts: int = 3,
 ) -> dict:
 	"""Pathfind with simulation validation retry loop.
 

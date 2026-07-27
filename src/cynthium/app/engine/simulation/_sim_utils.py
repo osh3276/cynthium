@@ -113,53 +113,6 @@ class SpeedPIDController:
             return 0.0, min(2.0, -output * 2.0)
 
 
-# ── Pure pursuit path following ────────────────────────────────────────────────
-
-
-def _pure_pursuit_yaw_rate(
-    x: float,
-    y: float,
-    heading: float,
-    speed: float,
-    path_xy: np.ndarray,
-    lookahead: float,
-    last_seg: int,
-    win_size: int,
-) -> float:
-    """Compute desired yaw rate (rad/s) to follow a path via pure pursuit."""
-    if speed < SPEED_EPS or len(path_xy) < 2:
-        return 0.0
-
-    n = len(path_xy)
-    best_err = float("inf")
-    best_lx, best_ly = path_xy[-1]
-
-    start_i = max(0, last_seg - 2)
-    end_i = min(n - 1, last_seg + win_size)
-    for i in range(start_i, end_i):
-        ax, ay = path_xy[i]
-        bx, by = path_xy[i + 1]
-        seg_len = sqrt((bx - ax) ** 2 + (by - ay) ** 2)
-        if seg_len < 1e-9:
-            continue
-        n_subsamples = max(2, min(10, int(seg_len / 1.0)))
-        for j in range(n_subsamples):
-            t = j / n_subsamples
-            lx, ly = ax + t * (bx - ax), ay + t * (by - ay)
-            err = abs(sqrt((lx - x) ** 2 + (ly - y) ** 2) - lookahead)
-            if err < best_err:
-                best_err = err
-                best_lx, best_ly = lx, ly
-
-    # Yaw rate from pure pursuit: yaw = 2 * v * sin(delta) / L
-    tx, ty = best_lx - x, best_ly - y
-    target_angle = atan2(ty, tx)
-    delta = _normalise_angle(target_angle - heading)
-
-    yaw = 2.0 * speed * sin(delta) / max(lookahead, 0.1)
-    return _clamp(yaw, -1.5, 1.5)
-
-
 # ── Corner detection & speed profiling ────────────────────────────────────────
 
 

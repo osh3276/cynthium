@@ -90,12 +90,7 @@ class PlanningPanel(QWidget):
 		self._table.setMaximumHeight(200)
 		layout.addWidget(self._table)
 
-		# ── Info + Clear ──
-		self._info_label = QLabel("")
-		self._info_label.setWordWrap(True)
-		self._info_label.setStyleSheet("font-size: 10px; color: gray;")
-		layout.addWidget(self._info_label)
-
+		# ── Clear ──
 		clear_btn = QPushButton("Clear all waypoints")
 		clear_btn.clicked.connect(self._on_clear_path)
 		layout.addWidget(clear_btn)
@@ -106,13 +101,17 @@ class PlanningPanel(QWidget):
 		layout.addWidget(autopath_btn)
 
 		layout.addWidget(QLabel("Autopath waypoints:"))
-		self._autopath_label = QLabel("")
-		self._autopath_label.setWordWrap(True)
-		self._autopath_label.setStyleSheet("font-size: 10px; color: gray;")
-		self._autopath_label.setTextInteractionFlags(
-			self._autopath_label.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse
-		)
-		layout.addWidget(self._autopath_label)
+		self._autopath_table = QTableWidget(0, 3)
+		self._autopath_table.setHorizontalHeaderLabels(["#", "X (m)", "Y (m)"])
+		header = self._autopath_table.horizontalHeader()
+		header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+		header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+		header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+		self._autopath_table.verticalHeader().setVisible(False)
+		self._autopath_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+		self._autopath_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+		self._autopath_table.setMaximumHeight(150)
+		layout.addWidget(self._autopath_table)
 
 		# ── Autopath config ──
 		layout.addWidget(QLabel("Autopath settings:"))
@@ -181,19 +180,21 @@ class PlanningPanel(QWidget):
 	def clear_all_waypoints(self):
 		self._waypoint_data.clear()
 		self._pause_data.clear()
-		self._autopath_label.setText("")
+		self._autopath_table.setRowCount(0)
 		self.waypoints_cleared.emit()
 		self._refresh_table()
-		self._update_info()
 
 	def set_autopath_waypoints(self, points_xy: list[tuple[float, float]] | None):
-		self._autopath_label.setText("")
+		self._autopath_table.setRowCount(0)
 		if not points_xy:
 			return
-		lines = []
+		self._autopath_table.setRowCount(len(points_xy))
 		for i, (x, y) in enumerate(points_xy):
-			lines.append(f"{i+1}. ({x:.1f}, {y:.1f})")
-		self._autopath_label.setText("\n".join(lines))
+			num_item = QTableWidgetItem(str(i + 1))
+			num_item.setFlags(num_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+			self._autopath_table.setItem(i, 0, num_item)
+			self._autopath_table.setItem(i, 1, _FloatItem(x))
+			self._autopath_table.setItem(i, 2, _FloatItem(y))
 
 	def set_planning_config(self, config: dict):
 		if "slope_weight" in config:
@@ -376,6 +377,7 @@ class PlanningPanel(QWidget):
 			"path_mode": self.path_mode_combo.currentText(),
 			"use_bicubic": self.bicubic_checkbox.isChecked(),
 		}
-		self._autopath_label.setText("Running autopath...")
+		self._autopath_table.setRowCount(0)
+		QApplication.processEvents()
 		QApplication.processEvents()
 		self.autopath_requested.emit(payload)
