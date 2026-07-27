@@ -95,6 +95,10 @@ class PlanningPanel(QWidget):
 		clear_btn.clicked.connect(self._on_clear_path)
 		layout.addWidget(clear_btn)
 
+		self._info_label = QLabel("")
+		self._info_label.setWordWrap(True)
+		layout.addWidget(self._info_label)
+
 		# ── Autopath ──
 		autopath_btn = QPushButton("Autopath")
 		autopath_btn.clicked.connect(self._on_autopath)
