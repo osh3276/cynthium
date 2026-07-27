@@ -21,8 +21,9 @@ from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.autopath_service import compute_validated_path
 from cynthium.app.services.simulation_service import calculate_simulation_stats
 from cynthium.app.services.site_rasters import (
-		load_daily_avg_meteor_number_raster,
-		load_daily_avg_meteor_raster,
+			load_daily_avg_illumination_raster,
+			load_daily_avg_meteor_number_raster,
+			load_daily_avg_meteor_raster,
 )
 from cynthium.app.ui.panels.sidebar.container import AppSidebar
 from cynthium.app.utils.logger import get_logger
@@ -31,7 +32,7 @@ from .ui.map.map_view import MapView
 from .ui.map.terrain_view import TerrainView
 from .ui.map.view_container import ViewContainer
 from .ui.panels.menubar import AppMenuBar
-from .ui.panels.progress_popup import ProgressPopup, Worker
+from .ui.panels.progress_popup import ProgressPopup, Worker, compute_path_segment
 from .ui.panels.simulation_results_panel import SimulationResultsPanel
 
 logger = get_logger(__name__)
@@ -39,27 +40,38 @@ logger = get_logger(__name__)
 
 # ── Background worker functions (run in QThread, no Qt access) ──
 
+
+
 def _run_autopath(
 		user_wps, path_mode, rover, map_data_bundle,
-		use_bicubic, current_datetime, current_map_type,
+		use_bicubic, max_slope_deg,
 		slope_weight, sun_weight, meteor_flux_weight,
 		temperature_weight, cost_strategy, algorithm,
-		max_slope_deg, view_container,
+		elevation_data, elevation_meta,
+		illumination_data, illumination_meta,
+		meteor_data, meteor_meta,
+		temperature_data, temperature_meta,
 ):
-	"""Run autopath computation in a background thread."""
+	"""Run autopath computation in a background thread (no file I/O, no Qt)."""
 	def _pathfind_segment(start_xy, goal_xy, blocked):
-		return view_container.compute_autopath(
+		return compute_path_segment(
 			start_xy=start_xy,
 			goal_xy=goal_xy,
-			utctime=current_datetime,
-			map_type=current_map_type,
+			elevation_data=elevation_data,
+			elevation_meta=elevation_meta,
+			illumination_data=illumination_data,
+			illumination_meta=illumination_meta,
+			meteor_data=meteor_data,
+			meteor_meta=meteor_meta,
+			temperature_data=temperature_data,
+			temperature_meta=temperature_meta,
+			max_slope_deg=float(max_slope_deg),
 			slope_weight=slope_weight,
 			sun_weight=sun_weight,
 			meteor_flux_weight=meteor_flux_weight,
 			temperature_weight=temperature_weight,
 			cost_strategy=cost_strategy,
 			algorithm=algorithm,
-			max_slope_deg=float(max_slope_deg),
 			blocked_cells=blocked,
 			use_bicubic=use_bicubic,
 		)
@@ -74,41 +86,18 @@ def _run_autopath(
 	)
 
 
-def _run_simulation(manual_points, auto_points, map_data_bundle, rover,
-					use_bicubic, pause_durs, current_path, current_datetime,
-					current_meta, current_data_shape):
-	"""Run simulation computation in a background thread.
+def _run_simulation(manual_points, auto_points, mdb, rover,
+					use_bicubic, pause_durs):
+	"""Run simulation computation in a background thread (no file I/O).
 
+	``mdb`` must be a fully-prepared tuple with daily meteor rasters
+	already loaded on the main thread.
 	Returns a dict with keys: manual_stats, manual_points_array,
-	auto_stats, auto_points_array, map_data_bundle.
+	auto_stats, auto_points_array.
 	"""
-	mdb = list(map_data_bundle)
-
-	# Load daily meteor rasters inside the thread (file I/O)
-	if current_path is not None and current_meta is not None:
-		daily_meteor = load_daily_avg_meteor_raster(
-			reference_path=current_path,
-			reference_meta=current_meta,
-			reference_shape=current_data_shape,
-			utctime=current_datetime,
-		)
-		if daily_meteor[0] is not None:
-			mdb[7] = daily_meteor[0]
-			mdb[8] = daily_meteor[1]
-
-		daily_meteor_number = load_daily_avg_meteor_number_raster(
-			reference_path=current_path,
-			reference_meta=current_meta,
-			reference_shape=current_data_shape,
-			utctime=current_datetime,
-		)
-		if daily_meteor_number[0] is not None:
-			mdb[9] = daily_meteor_number[0]
-			mdb[10] = daily_meteor_number[1]
-
 	manual_stats, manual_points_array = calculate_simulation_stats(
 		manual_points,
-		tuple(mdb),
+		mdb,
 		rover=rover,
 		use_bicubic=use_bicubic,
 		pause_durations=pause_durs,
@@ -119,7 +108,7 @@ def _run_simulation(manual_points, auto_points, map_data_bundle, rover,
 	if len(auto_points) >= 2:
 		auto_stats, auto_points_array = calculate_simulation_stats(
 			auto_points,
-			tuple(mdb),
+			mdb,
 			rover=rover,
 			use_bicubic=use_bicubic,
 			pause_durations=pause_durs,
@@ -328,12 +317,11 @@ class Window(QMainWindow):
 			return
 
 		# Capture all data for background thread
-		map_data_bundle = self._view_container.get_current_map_data()
+		vc = self._view_container
+		map_data_bundle = vc.get_current_map_data()
 		path_mode = str(payload.get("path_mode", "Waypoint to waypoint"))
 		use_bicubic = bool(payload.get("use_bicubic", False))
 		max_slope_deg = rover.max_climbable_slope_deg
-		current_datetime = str(self._current_datetime)
-		current_map_type = str(self._current_map_type)
 		slope_weight = float(payload.get("slope_weight", 1.0))
 		sun_weight = float(payload.get("sun_weight", 0.5))
 		meteor_flux_weight = float(payload.get("meteor_flux_weight", 0.2))
@@ -341,29 +329,63 @@ class Window(QMainWindow):
 		cost_strategy = str(payload.get("cost_strategy", "Weighted cost"))
 		algorithm = str(payload.get("algorithm", "A*"))
 
+		# Pre-load rasters on the main thread (no file I/O in background)
+		elevation_data = map_data_bundle[0]
+		elevation_meta = map_data_bundle[1]
+		current_datetime = str(self._current_datetime)
+		illum_data, illum_meta = map_data_bundle[5], map_data_bundle[6]
+		meteor_data, meteor_meta = map_data_bundle[7], map_data_bundle[8]
+		temp_data, temp_meta = map_data_bundle[3], map_data_bundle[4]
+
+		if vc._current_path and elevation_meta is not None:
+			H, W = int(elevation_data.shape[0]), int(elevation_data.shape[1])
+			daily_illum = load_daily_avg_illumination_raster(
+				reference_path=vc._current_path,
+				reference_meta=elevation_meta,
+				reference_shape=(H, W),
+				utctime=current_datetime,
+			)
+			if daily_illum[0] is not None:
+				illum_data, illum_meta = daily_illum
+
+			daily_meteor = load_daily_avg_meteor_raster(
+				reference_path=vc._current_path,
+				reference_meta=elevation_meta,
+				reference_shape=(H, W),
+				utctime=current_datetime,
+			)
+			if daily_meteor[0] is not None:
+				meteor_data, meteor_meta = daily_meteor
+
 		# Kick off background thread
-		popup = ProgressPopup("Autopath", "Computing autopath...", self)
-		worker = Worker(
+		self._path_popup = ProgressPopup("Autopath", "Computing autopath...", self)
+		self._path_worker = Worker(
 			_run_autopath,
 			user_wps, path_mode, rover, map_data_bundle,
-			use_bicubic, current_datetime, current_map_type,
+			use_bicubic, max_slope_deg,
 			slope_weight, sun_weight, meteor_flux_weight,
 			temperature_weight, cost_strategy, algorithm,
-			max_slope_deg, self._view_container,
+			elevation_data, elevation_meta,
+			illum_data, illum_meta,
+			meteor_data, meteor_meta,
+			temp_data, temp_meta,
 		)
-		thread = QThread()
-		worker.moveToThread(thread)
-		thread.started.connect(worker.run)
-		worker.finished.connect(lambda r: self._on_autopath_done(r, popup, thread, worker))
-		worker.failed.connect(lambda e: self._on_worker_error("Autopath", e, popup, thread, worker))
-		thread.start()
-		popup.show()
+		self._path_thread = QThread()
+		self._path_worker.moveToThread(self._path_thread)
+		self._path_thread.started.connect(self._path_worker.run)
+		self._path_worker.finished.connect(self._on_autopath_done)
+		self._path_worker.failed.connect(self._on_autopath_error)
+		self._path_thread.start()
+		self._path_popup.show()
 
-	def _on_autopath_done(self, result: dict, popup, thread, worker):
+	def _on_autopath_done(self, result: dict):
 		"""Handle autopath completion on the main thread."""
-		popup.close()
-		thread.quit()
-		thread.deleteLater()
+		self._path_popup.close()
+		self._path_thread.quit()
+		self._path_thread.deleteLater()
+		self._path_popup = None
+		self._path_thread = None
+		self._path_worker = None
 
 		self._view_container.clear_failure_point()
 
@@ -420,40 +442,59 @@ class Window(QMainWindow):
 			self.statusBar().showMessage("Ready")
 			return
 
-		# Capture all data for background thread
-		map_data_bundle = self._view_container.get_current_map_data()
+		# Pre-load meteor rasters on the main thread (no file I/O in background)
 		vc = self._view_container
-		current_data = vc._current_data
-		current_meta = vc._current_meta
+		mdb = list(vc.get_current_map_data())
 		current_path = vc._current_path
-		current_data_shape = (
-			int(current_data.shape[0]),
-			int(current_data.shape[1]),
-		) if current_data is not None else None
+		current_meta = vc._current_meta
+		if current_path is not None and current_meta is not None:
+			current_data = vc._current_data
+			data_shape = (
+				int(current_data.shape[0]),
+				int(current_data.shape[1]),
+			) if current_data is not None else None
+			current_datetime = str(self._current_datetime)
+			daily_meteor = load_daily_avg_meteor_raster(
+				reference_path=current_path, reference_meta=current_meta,
+				reference_shape=data_shape, utctime=current_datetime,
+			)
+			if daily_meteor[0] is not None:
+				mdb[7] = daily_meteor[0]
+				mdb[8] = daily_meteor[1]
+			daily_meteor_number = load_daily_avg_meteor_number_raster(
+				reference_path=current_path, reference_meta=current_meta,
+				reference_shape=data_shape, utctime=current_datetime,
+			)
+			if daily_meteor_number[0] is not None:
+				mdb[9] = daily_meteor_number[0]
+				mdb[10] = daily_meteor_number[1]
+
 		use_bicubic = self._sidebar.get_bicubic_enabled()
 		pause_durs = self._sidebar.get_pause_durations()
 
 		# Kick off background thread
-		popup = ProgressPopup("Simulation", "Running simulation...", self)
-		worker = Worker(
+		self._sim_popup = ProgressPopup("Simulation", "Running simulation...", self)
+		self._sim_worker = Worker(
 			_run_simulation,
-			manual_points, auto_points, map_data_bundle, rover,
-			use_bicubic, pause_durs, current_path, str(self._current_datetime),
-			current_meta, current_data_shape,
+			manual_points, auto_points, tuple(mdb), rover,
+			use_bicubic, pause_durs,
 		)
-		thread = QThread()
-		worker.moveToThread(thread)
-		thread.started.connect(worker.run)
-		worker.finished.connect(lambda r: self._on_simulation_done(r, popup, thread, worker))
-		worker.failed.connect(lambda e: self._on_worker_error("Simulation", e, popup, thread, worker))
-		thread.start()
-		popup.show()
+		self._sim_thread = QThread()
+		self._sim_worker.moveToThread(self._sim_thread)
+		self._sim_thread.started.connect(self._sim_worker.run)
+		self._sim_worker.finished.connect(self._on_simulation_done)
+		self._sim_worker.failed.connect(self._on_simulation_error)
+		self._sim_thread.start()
+		self._sim_popup.show()
 
-	def _on_simulation_done(self, result: dict, popup, thread, worker):
+	def _on_simulation_done(self, result: dict):
 		"""Handle simulation completion on the main thread."""
-		popup.close()
-		thread.quit()
-		thread.deleteLater()
+		self._sim_popup.close()
+		self._sim_thread.quit()
+		self._sim_thread.deleteLater()
+		self._sim_popup = None
+		self._sim_thread = None
+		self._sim_worker = None
 
 		manual_stats = result["manual_stats"]
 		manual_points_array = result["manual_points_array"]
@@ -513,13 +554,27 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(msg)
 		QMessageBox.information(self, "Simulation Complete", msg)
 
-	def _on_worker_error(self, label: str, error_msg: str, popup, thread, worker):
-		"""Handle background worker failure on the main thread."""
-		popup.close()
-		thread.quit()
-		thread.deleteLater()
-		logger.error(f"{label} failed: {error_msg}")
-		QMessageBox.critical(self, label, f"{label} failed.\n\n{error_msg}")
+	def _on_autopath_error(self, error_msg: str):
+		"""Handle autopath background worker failure."""
+		self._path_popup.close()
+		self._path_thread.quit()
+		self._path_thread.deleteLater()
+		self._path_popup = None
+		self._path_thread = None
+		self._path_worker = None
+		logger.error(f"Autopath failed: {error_msg}")
+		QMessageBox.critical(self, "Autopath", f"Autopath failed.\n\n{error_msg}")
+
+	def _on_simulation_error(self, error_msg: str):
+		"""Handle simulation background worker failure."""
+		self._sim_popup.close()
+		self._sim_thread.quit()
+		self._sim_thread.deleteLater()
+		self._sim_popup = None
+		self._sim_thread = None
+		self._sim_worker = None
+		logger.error(f"Simulation failed: {error_msg}")
+		QMessageBox.critical(self, "Simulation", f"Simulation failed.\n\n{error_msg}")
 
 	def _export_simulation_data(self):
 		"""
