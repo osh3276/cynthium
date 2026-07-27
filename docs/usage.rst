@@ -90,11 +90,13 @@ fallback.
 
 #. Click on the 2D map to place a **start point** (green marker).
 #. Click again to place a **goal point** (green marker).
-#. Click *Autopath* to find the optimal route.
+#. Click *Autopath* to find the optimal route. A progress dialog
+	   appears while the path is computed — the UI stays responsive
+	   because the calculation runs in a background thread.
 #. The optimal path is overlaid on the map as a blue polyline.
-   If the path fails physics validation, the last attempted route
-   is shown in blue with a **red marker** at the point where the
-   rover got stuck.
+	   If the path fails physics validation, the last attempted route
+	   is shown in blue with a **red marker** at the point where the
+	   rover got stuck.
 #. Click *Clear path* at any time to remove all waypoints, autopath
    results, and failure markers from both the 2D map and 3D terrain
    view at once.
@@ -253,13 +255,14 @@ the **Rover Settings** button in the sidebar's planning panel.
 5. Run a Simulation
 *******************
 
-Hit *Run Simulation* to execute the physics-based 4-wheel skid-steer
-rover traverse.
+Click *Run Simulation* to execute the physics-based 4-wheel skid-steer
+rover traverse. A progress dialog appears and the UI stays responsive
+— the simulation runs in a background thread.
 
 The simulation steps are:
 
 #. Sample the 3D path at ~1-pixel intervals along each segment (see
-   :func:`~cynthium.app.engine.simulation.path_sampling.sample_path_elevations`).
+	 :func:`~cynthium.app.engine.simulation.path_sampling.sample_path_elevations`).
 #. For each waypoint segment, drive toward the waypoint using a
    **stop-pivot-go** state machine:
 
