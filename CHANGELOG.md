@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] — 2026-07-27
+## [1.1.1] — 2026-07-27
+
+### Fixed
+
+- **Progress dialog hang on completion.** The dialog could hang after simulation or
+  autopath finished due to lambda closure issues in cross-thread signal connections.
+  Replaced lambdas with bound methods and instance variables for thread/worker
+  lifecycle management. (#31dca02)
+- **File I/O in background threads causing timer warnings.** Raster loading (pooch
+  downloads, GeoTIFF reads) now runs exclusively on the main thread before the
+  worker starts — the worker only does pure computation. Created a standalone
+  `compute_path_segment()` function that takes pre-loaded numpy arrays instead of
+  calling `ViewContainer.compute_autopath()` from the background thread.
+- **Missing `_info_label` in PlanningPanel.** Added the missing QLabel that displays
+  lat/lon coordinates for each waypoint. (#3a94c7a)
+
+## [1.1.0] — 2026-07-26
 
 ### Added
 
@@ -64,5 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release with terrain analysis, manual waypoint planning, A*/Dijkstra
   pathfinding, rover simulation, and multi-format export.
 
+[1.1.1]: https://github.com/osh3276/cynthium/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/osh3276/cynthium/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/osh3276/cynthium/releases/tag/v1.0.0
