@@ -202,6 +202,12 @@ def get_slope_path(elevation_path: str | Path) -> Path:
 	return resolve_data_file_path(candidates[0])
 
 
+# --- Sun motion ---
+# The lunar day (sun to sun) is ~29.5 Earth days = 708 hours.
+LUNAR_DAY_S = 708 * 3600  # seconds
+ANGLE_BIN_DEG = 12
+NUM_ANGLE_BINS = 360 // ANGLE_BIN_DEG  # 30
+
 # --- Pathfinding cost weights ---
 ALPHA_SLOPE = 100.0  # weight for slope cost
 BETA_SHADOW = 10.0  # weight for shadow/illumination cost

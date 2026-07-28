@@ -6,7 +6,7 @@ models so that bug-fixes and improvements benefit both paths.
 
 from __future__ import annotations
 
-from math import atan2, pi, sin, sqrt
+from math import atan2, floor, pi, sin, sqrt
 from typing import Any
 
 import numpy as np
@@ -22,6 +22,46 @@ DT_MIN = 0.02
 DT_MAX = 0.1
 CORNER_ANGLE_THRESHOLD_DEG = 5.0
 STOP_APPROACH_DIST_M = 5.0
+
+# ── Sun angle helpers ──────────────────────────────────────────────────────────
+
+
+def _round_azimuth_to_nearest_12(azimuth_deg: float) -> int:
+	"""Round sun azimuth to the nearest 12-degree bin (0, 12, 24, ... 348)."""
+	az = float(azimuth_deg) % 360.0
+	n = int(floor((az + 6.0) / 12.0)) * 12
+	return 0 if n == 360 else n
+
+
+def _get_linear_angle_bin(start_angle_deg: int, elapsed_s: float) -> int:
+	"""Return the 12° bin at elapsed_s seconds after start_angle_deg using a
+	linear approximation (360° per ~708-hour lunar day).  Slower but does not
+	need SPICE — useful as a fallback or for testing.
+	"""
+	from cynthium.app.config import LUNAR_DAY_S
+	angle_offset = (elapsed_s / LUNAR_DAY_S) * 360.0
+	current = (start_angle_deg + angle_offset) % 360.0
+	return _round_azimuth_to_nearest_12(current)
+
+
+def _get_spice_angle_bin(
+	center_lat: float,
+	center_lon: float,
+	start_et: float,
+	elapsed_s: float,
+) -> int:
+	"""Return the 12° bin at elapsed_s seconds into the simulation.
+
+	Computes the **actual** sun azimuth via SPICE at (start_et + elapsed_s)
+	and rounds to the nearest 12° bin.  This is the same algorithm used by
+	``load_daily_avg_illumination_raster`` to pick the daily map.
+	"""
+	from cynthium.app.engine.illumination.sun_position import (
+		_sun_azimuth_at_et,
+		round_azimuth_to_nearest_12,
+	)
+	az = _sun_azimuth_at_et(center_lat, center_lon, start_et + elapsed_s)
+	return round_azimuth_to_nearest_12(az)
 
 
 # ── Generic helpers ────────────────────────────────────────────────────────────

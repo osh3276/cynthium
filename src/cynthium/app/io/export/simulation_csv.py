@@ -39,6 +39,7 @@ def write_simulation_csv(
 	metadata: dict[str, str],
 	stats: dict[str, float],
 	points: np.ndarray | None,
+	pause_durations: list[float] | None = None,
 ):
 	"""
 	Writes the simulation csv.
@@ -51,7 +52,8 @@ def write_simulation_csv(
 	:type stats: dict[str, float]
 	:param points: Point data.
 	:type points: np.ndarray | None
-	:return: The resulting value.
+	:param pause_durations: Optional list of pause durations (seconds) per leg.
+	:type pause_durations: list[float] | None
 	"""
 	with open(path, "w", newline="") as csv_file:
 		writer = csv.writer(csv_file)
@@ -65,7 +67,8 @@ def write_simulation_csv(
 			writer.writerow([export_key, stats.get(stats_key, 0.0)])
 		writer.writerow([])
 
-		writer.writerow(["waypoint_index", "x", "y", "z"])
+		writer.writerow(["waypoint_index", "x", "y", "z", "pause_s"])
 		if points is not None:
 			for index, point in enumerate(points, start=1):
-				writer.writerow([index, point[0], point[1], point[2]])
+				pause = float(pause_durations[index - 2]) if pause_durations and index > 1 and (index - 2) < len(pause_durations) else 0.0
+				writer.writerow([index, point[0], point[1], point[2], pause])

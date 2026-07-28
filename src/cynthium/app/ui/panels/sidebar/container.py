@@ -45,11 +45,11 @@ class AppSidebar(QWidget):
 		map_selection_label = QLabel("Map Selection")
 		scroll_layout.addWidget(map_selection_label)
 
-		map_selection_panel = MapSelectionPanel()
-		map_selection_panel.map_generation_requested.connect(
+		self._map_selection_panel = MapSelectionPanel()
+		self._map_selection_panel.map_generation_requested.connect(
 			self.map_generation_requested.emit
 		)
-		scroll_layout.addWidget(map_selection_panel)
+		scroll_layout.addWidget(self._map_selection_panel)
 
 		sep1 = QFrame()
 		sep1.setFrameShape(QFrame.Shape.HLine)
@@ -97,6 +97,14 @@ class AppSidebar(QWidget):
 
 	def get_pause_durations(self) -> list[float]:
 		return self._planning_panel.get_pause_durations() if hasattr(self, "_planning_panel") else []
+
+	def get_datetime(self) -> str:
+		"""Return the current date/time from the UI as 'yyyy-mm-ddTHH:MM:SS'."""
+		if hasattr(self, "_map_selection_panel"):
+			date_str = self._map_selection_panel.date_field.text().strip()
+			time_str = self._map_selection_panel.time_field.text().strip()
+			return f"{date_str}T{time_str}"
+		return ""
 
 	def export_settings(self) -> dict:
 		rover_raw = self._rover_settings_panel.get_values()

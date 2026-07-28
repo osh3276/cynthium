@@ -11,7 +11,9 @@ from cynthium.app.config import (
 	METEOR_ANGLES_DIR,
 	METEOR_FLUX_RASTER_PATH,
 	METEOR_NUMBER_RASTER_PATH,
+	NUM_ANGLE_BINS,
 	PSR_RASTER_PATH,
+	ANGLE_BIN_DEG,
 	ensure_data_file_path,
 	get_slope_path,
 	resolve_data_file_path,
@@ -235,6 +237,107 @@ def load_daily_avg_meteor_number_raster(
 		angle_prefix="meteor_number_angle",
 		label="meteor number",
 	)
+
+
+def load_angle_maps(
+	*,
+	reference_path: str,
+	reference_meta: dict | None,
+	reference_shape: tuple[int, int],
+	utctime: str,
+) -> tuple[
+	dict[int, RasterPayload] | None,
+	dict[int, RasterPayload] | None,
+	dict[int, RasterPayload] | None,
+	int,
+	float | None,
+	float | None,
+	float | None,
+]:
+	"""Load all 30 angle maps for illumination, meteor energy, and meteor number.
+
+	Returns (illumination_maps, meteor_energy_maps, meteor_number_maps, start_angle_deg,
+			 center_lat, center_lon, start_et).
+	Each map-dict maps angle bin (0,12,…,348) -> (data, meta).
+	Returns None for a dict if the corresponding rasters are unavailable.
+	center_lat/center_lon/start_et are passed to the sim for SPICE-based bin checks.
+	"""
+	import spiceypy as spice
+
+	if not reference_meta or "transform" not in reference_meta:
+		return None, None, None, 0, None, None, None
+
+	transform = reference_meta["transform"]
+	rows, cols = int(reference_shape[0]), int(reference_shape[1])
+	center_x = float(transform.c + (0.5 * cols * transform.a) + (0.5 * rows * transform.b))
+	center_y = float(transform.f + (0.5 * cols * transform.d) + (0.5 * rows * transform.e))
+	center_lon, center_lat = xy_to_longlat(center_x, center_y)
+
+	time_for_az = utctime
+	if "T" in utctime:
+		time_for_az = f"{utctime.split('T', 1)[0]}T12:00:00"
+
+	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
+	start_angle_deg = round_azimuth_to_nearest_12(float(az_deg))
+
+	# Pre-compute the SPICE ephemeris time at the start of the simulation
+	from cynthium.app.engine.illumination.sun_position import _ensure_kernels_loaded
+	_ensure_kernels_loaded()
+	start_et = spice.utc2et(utctime)
+
+	logger.info(
+		f"Loading angle maps: start azimuth={float(az_deg):.2f}°, "
+		f"start bin={start_angle_deg}°"
+	)
+
+	illum_maps: dict[int, RasterPayload] = {}
+	meteor_energy_maps: dict[int, RasterPayload] = {}
+	meteor_number_maps: dict[int, RasterPayload] = {}
+
+	for bin_angle in range(0, 360, ANGLE_BIN_DEG):
+		# Illumination
+		il_path = ensure_data_file_path(
+			resolve_data_file_path(ILLUMINATION_ANGLES_DIR / f"illum_angle_{bin_angle}.tif")
+		)
+		if il_path.exists():
+			try:
+				data, meta = load_geotif_cropped_to_reference(str(il_path), reference_path)
+				illum_maps[bin_angle] = (data, meta)
+			except ValueError as exc:
+				logger.warning(f"Failed to crop illum angle {bin_angle}: {exc}")
+
+		# Meteor energy
+		me_path = ensure_data_file_path(
+			resolve_data_file_path(METEOR_ANGLES_DIR / f"meteor_energy_angle_{bin_angle}.tif")
+		)
+		if me_path.exists():
+			try:
+				data, meta = load_geotif_cropped_to_reference(str(me_path), reference_path)
+				meteor_energy_maps[bin_angle] = (data, meta)
+			except ValueError as exc:
+				logger.warning(f"Failed to crop meteor energy angle {bin_angle}: {exc}")
+
+		# Meteor number
+		mn_path = ensure_data_file_path(
+			resolve_data_file_path(DATA_ROOT / f"meteor_number_angle_{bin_angle}.tif")
+		)
+		if mn_path.exists():
+			try:
+				data, meta = load_geotif_cropped_to_reference(str(mn_path), reference_path)
+				meteor_number_maps[bin_angle] = (data, meta)
+			except ValueError as exc:
+				logger.warning(f"Failed to crop meteor number angle {bin_angle}: {exc}")
+
+	illum_out = illum_maps if illum_maps else None
+	meteor_e_out = meteor_energy_maps if meteor_energy_maps else None
+	meteor_n_out = meteor_number_maps if meteor_number_maps else None
+
+	logger.info(
+		f"Loaded {len(illum_maps)} illum, {len(meteor_energy_maps)} meteor energy, "
+		f"{len(meteor_number_maps)} meteor number angle maps"
+	)
+	return illum_out, meteor_e_out, meteor_n_out, start_angle_deg, center_lat, center_lon, start_et
+
 
 
 def load_psr_raster(reference_path: str) -> RasterPayload:

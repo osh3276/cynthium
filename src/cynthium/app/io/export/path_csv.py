@@ -10,6 +10,7 @@ def write_path_csv(
 	*,
 	label: str = "path",
 	metadata: dict[str, str] | None = None,
+	pause_durations: list[float] | None = None,
 ):
 	"""Write 3D waypoints / autopath points to a CSV file.
 
@@ -23,6 +24,10 @@ def write_path_csv(
 		Descriptive label written in the header (e.g. "manual" or "auto").
 	metadata :
 		Optional key/value pairs written at the top of the CSV.
+	pause_durations :
+		Optional list of pause durations (seconds) at each waypoint.
+		Length should be len(points_3d) - 1 (pause at destination of each leg).
+		The first waypoint (start) always gets 0.
 	"""
 	with open(path, "w", newline="") as f:
 		writer = csv.writer(f)
@@ -33,6 +38,7 @@ def write_path_csv(
 				writer.writerow([k, v])
 			writer.writerow([])
 
-		writer.writerow(["index", "x", "y", "z"])
+		writer.writerow(["index", "x", "y", "z", "pause_s"])
 		for i, pt in enumerate(points_3d, start=1):
-			writer.writerow([i, float(pt[0]), float(pt[1]), float(pt[2])])
+			pause = float(pause_durations[i - 2]) if pause_durations and i > 1 and (i - 2) < len(pause_durations) else 0.0
+			writer.writerow([i, float(pt[0]), float(pt[1]), float(pt[2]), pause])

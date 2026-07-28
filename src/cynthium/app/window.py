@@ -21,6 +21,7 @@ from cynthium.app.io.export.simulation_csv import write_simulation_csv
 from cynthium.app.services.autopath_service import compute_validated_path
 from cynthium.app.services.simulation_service import calculate_simulation_stats
 from cynthium.app.services.site_rasters import (
+			load_angle_maps,
 			load_daily_avg_illumination_raster,
 			load_daily_avg_meteor_number_raster,
 			load_daily_avg_meteor_raster,
@@ -51,6 +52,13 @@ def _run_autopath(
 		illumination_data, illumination_meta,
 		meteor_data, meteor_meta,
 		temperature_data, temperature_meta,
+		illumination_maps=None,
+		meteor_energy_maps=None,
+		meteor_number_maps=None,
+		start_angle_deg=0,
+		center_lat=None,
+		center_lon=None,
+		start_et=None,
 ):
 	"""Run autopath computation in a background thread (no file I/O, no Qt)."""
 	def _pathfind_segment(start_xy, goal_xy, blocked):
@@ -83,11 +91,25 @@ def _run_autopath(
 		map_data_bundle=map_data_bundle,
 		pathfind_fn=_pathfind_segment,
 		use_bicubic=use_bicubic,
+		illumination_maps=illumination_maps,
+		meteor_energy_maps=meteor_energy_maps,
+		meteor_number_maps=meteor_number_maps,
+		start_angle_deg=start_angle_deg,
+		center_lat=center_lat,
+		center_lon=center_lon,
+		start_et=start_et,
 	)
 
 
 def _run_simulation(manual_points, auto_points, mdb, rover,
-					use_bicubic, pause_durs):
+					use_bicubic, pause_durs,
+					illumination_maps=None,
+					meteor_energy_maps=None,
+					meteor_number_maps=None,
+					start_angle_deg=0,
+					center_lat=None,
+					center_lon=None,
+					start_et=None):
 	"""Run simulation computation in a background thread (no file I/O).
 
 	``mdb`` must be a fully-prepared tuple with daily meteor rasters
@@ -101,6 +123,13 @@ def _run_simulation(manual_points, auto_points, mdb, rover,
 		rover=rover,
 		use_bicubic=use_bicubic,
 		pause_durations=pause_durs,
+		illumination_maps=illumination_maps,
+		meteor_energy_maps=meteor_energy_maps,
+		meteor_number_maps=meteor_number_maps,
+		start_angle_deg=start_angle_deg,
+		center_lat=center_lat,
+		center_lon=center_lon,
+		start_et=start_et,
 	)
 
 	auto_stats = None
@@ -112,6 +141,13 @@ def _run_simulation(manual_points, auto_points, mdb, rover,
 			rover=rover,
 			use_bicubic=use_bicubic,
 			pause_durations=pause_durs,
+			illumination_maps=illumination_maps,
+			meteor_energy_maps=meteor_energy_maps,
+			meteor_number_maps=meteor_number_maps,
+			start_angle_deg=start_angle_deg,
+			center_lat=center_lat,
+			center_lon=center_lon,
+			start_et=start_et,
 		)
 
 	return {
@@ -332,7 +368,8 @@ class Window(QMainWindow):
 		# Pre-load rasters on the main thread (no file I/O in background)
 		elevation_data = map_data_bundle[0]
 		elevation_meta = map_data_bundle[1]
-		current_datetime = str(self._current_datetime)
+		# Read fresh date/time from the UI (not stale _current_datetime)
+		current_datetime = self._sidebar.get_datetime() or str(self._current_datetime)
 		illum_data, illum_meta = map_data_bundle[5], map_data_bundle[6]
 		meteor_data, meteor_meta = map_data_bundle[7], map_data_bundle[8]
 		temp_data, temp_meta = map_data_bundle[3], map_data_bundle[4]
@@ -357,6 +394,27 @@ class Window(QMainWindow):
 			if daily_meteor[0] is not None:
 				meteor_data, meteor_meta = daily_meteor
 
+		# Pre-load rasters on the main thread (no file I/O in background)
+		illumination_maps = None
+		meteor_energy_maps = None
+		meteor_number_maps = None
+		start_angle_deg = 0
+		if vc._current_path and elevation_meta is not None:
+			H, W = int(elevation_data.shape[0]), int(elevation_data.shape[1])
+			result = load_angle_maps(
+				reference_path=vc._current_path,
+				reference_meta=elevation_meta,
+				reference_shape=(H, W),
+				utctime=current_datetime,
+			)
+			illumination_maps = result[0]
+			meteor_energy_maps = result[1]
+			meteor_number_maps = result[2]
+			start_angle_deg = result[3]
+			center_lat = result[4]
+			center_lon = result[5]
+			start_et = result[6]
+
 		# Kick off background thread
 		self._path_popup = ProgressPopup("Autopath", "Computing autopath...", self)
 		self._path_worker = Worker(
@@ -369,6 +427,9 @@ class Window(QMainWindow):
 			illum_data, illum_meta,
 			meteor_data, meteor_meta,
 			temp_data, temp_meta,
+			illumination_maps, meteor_energy_maps,
+			meteor_number_maps, start_angle_deg,
+			center_lat, center_lon, start_et,
 		)
 		self._path_thread = QThread()
 		self._path_worker.moveToThread(self._path_thread)
@@ -453,7 +514,8 @@ class Window(QMainWindow):
 				int(current_data.shape[0]),
 				int(current_data.shape[1]),
 			) if current_data is not None else None
-			current_datetime = str(self._current_datetime)
+			# Read fresh date/time from the UI (not stale _current_datetime)
+			current_datetime = self._sidebar.get_datetime() or str(self._current_datetime)
 			daily_meteor = load_daily_avg_meteor_raster(
 				reference_path=current_path, reference_meta=current_meta,
 				reference_shape=data_shape, utctime=current_datetime,
@@ -469,6 +531,27 @@ class Window(QMainWindow):
 				mdb[9] = daily_meteor_number[0]
 				mdb[10] = daily_meteor_number[1]
 
+		# Load all angle maps on the main thread for multi-day traversal support
+		illumination_maps = None
+		meteor_energy_maps = None
+		meteor_number_maps = None
+		start_angle_deg = 0
+		if current_path is not None and current_meta is not None and current_data is not None:
+			data_shape = (int(current_data.shape[0]), int(current_data.shape[1]))
+			result = load_angle_maps(
+				reference_path=current_path,
+				reference_meta=current_meta,
+				reference_shape=data_shape,
+				utctime=current_datetime,
+			)
+			illumination_maps = result[0]
+			meteor_energy_maps = result[1]
+			meteor_number_maps = result[2]
+			start_angle_deg = result[3]
+			center_lat = result[4]
+			center_lon = result[5]
+			start_et = result[6]
+
 		use_bicubic = self._sidebar.get_bicubic_enabled()
 		pause_durs = self._sidebar.get_pause_durations()
 
@@ -478,6 +561,9 @@ class Window(QMainWindow):
 			_run_simulation,
 			manual_points, auto_points, tuple(mdb), rover,
 			use_bicubic, pause_durs,
+			illumination_maps, meteor_energy_maps,
+			meteor_number_maps, start_angle_deg,
+			center_lat, center_lon, start_et,
 		)
 		self._sim_thread = QThread()
 		self._sim_worker.moveToThread(self._sim_thread)
@@ -613,12 +699,14 @@ class Window(QMainWindow):
 			"map_type": self._current_map_type,
 		}
 
+		pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 		try:
 			write_simulation_csv(
 				f"{base}_manual.csv",
 				{**metadata, "path_type": "manual"},
 				self._last_simulation_stats,
 				self._last_simulation_points,
+				pause_durations=pause_durations,
 			)
 		except OSError as exc:
 			logger.error(f"Failed to export manual path data: {exc}")
@@ -630,12 +718,14 @@ class Window(QMainWindow):
 			return
 
 		if self._last_autopath_stats is not None and self._last_autopath_points is not None:
+			pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 			try:
 				write_simulation_csv(
 					f"{base}_auto.csv",
 					{**metadata, "path_type": "auto"},
 					self._last_autopath_stats,
 					self._last_autopath_points,
+					pause_durations=pause_durations,
 				)
 			except OSError as exc:
 				logger.error(f"Failed to export autopath data: {exc}")
@@ -695,8 +785,9 @@ class Window(QMainWindow):
 			"map_type": self._current_map_type,
 			"path_type": "manual",
 		}
+		pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 		try:
-			write_path_csv(path, points, label="manual", metadata=metadata)
+			write_path_csv(path, points, label="manual", metadata=metadata, pause_durations=pause_durations)
 		except OSError as exc:
 			logger.error(f"Failed to export manual path: {exc}")
 			QMessageBox.critical(self, "Export Failed", f"Failed to export manual path:\n{exc}")
@@ -734,11 +825,12 @@ class Window(QMainWindow):
 			"map_type": self._current_map_type,
 			"path_type": "auto",
 		}
+		pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 		try:
-			write_path_csv(path, points, label="auto", metadata=metadata)
+			write_path_csv(path, points, label="auto", metadata=metadata, pause_durations=pause_durations)
 		except OSError as exc:
-			logger.error(f"Failed to export auto path: {exc}")
-			QMessageBox.critical(self, "Export Failed", f"Failed to export auto path:\n{exc}")
+			logger.error(f"Failed to export autopath: {exc}")
+			QMessageBox.critical(self, "Export Failed", f"Failed to export autopath:\n{exc}")
 			return
 
 		self.statusBar().showMessage(f"Auto path exported to {path}")

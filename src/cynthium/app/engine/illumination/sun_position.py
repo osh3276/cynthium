@@ -41,6 +41,35 @@ def sub_solar_latitude(utctime: str) -> float:
 	return float(np.degrees(lat))
 
 
+def _sun_azimuth_at_et(lat: float, lon: float, et: float) -> float:
+	"""Return sun azimuth (degrees) at a given ephemeris time.
+
+	Parameters
+	----------
+	lat, lon : float
+		Selenographic latitude and longitude (degrees).
+	et : float
+		SPICE ephemeris time (seconds past J2000).
+	"""
+	_ensure_kernels_loaded()
+	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
+	sun_pos = np.array(state[:3])
+	sun_pos /= np.linalg.norm(sun_pos)
+
+	lat_rad = np.radians(lat)
+	lon_rad = np.radians(lon)
+
+	up = np.array([np.cos(lat_rad) * np.cos(lon_rad),
+				   np.cos(lat_rad) * np.sin(lon_rad),
+				   np.sin(lat_rad)])
+	east = np.cross(np.array([0, 0, 1]), up)
+	east /= np.linalg.norm(east)
+	north = np.cross(up, east)
+
+	azimuth = np.degrees(np.arctan2(np.dot(sun_pos, east), np.dot(sun_pos, north))) % 360
+	return float(azimuth)
+
+
 def sun_position(lat, lon, time):
 	"""
 	lat, lon: selenographic degrees

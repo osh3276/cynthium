@@ -1,8 +1,11 @@
+from typing import Any
+
 import numpy as np
 
 from cynthium.app.engine.simulation.sim_orchestrator import compute_traversal_dynamics
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 from cynthium.app.engine.simulation.stats import calculate_path_stats
+
 
 
 def calculate_simulation_stats(
@@ -12,6 +15,13 @@ def calculate_simulation_stats(
 		rover: RoverSettings | None = None,
 		use_bicubic: bool = False,
 		pause_durations: list[float] | None = None,
+		illumination_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+		meteor_energy_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+		meteor_number_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+		start_angle_deg: int = 0,
+		center_lat: float | None = None,
+		center_lon: float | None = None,
+		start_et: float | None = None,
 ) -> tuple[dict[str, float], np.ndarray]:
 		"""
 		Calculates the simulation stats.
@@ -73,6 +83,13 @@ def calculate_simulation_stats(
 					transform=transform,
 					illumination_map=illumination_data,
 					illumination_transform=illumination_transform,
+					illumination_maps=illumination_maps,
+					meteor_energy_maps=meteor_energy_maps,
+					meteor_number_maps=meteor_number_maps,
+					start_angle_deg=start_angle_deg,
+					center_lat=center_lat,
+					center_lon=center_lon,
+					start_et=start_et,
 					rover=rover,
 					use_bicubic=use_bicubic,
 					pause_durations=pause_durations,

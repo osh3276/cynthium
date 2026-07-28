@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 
@@ -26,6 +26,13 @@ def _validate_segment_with_simulation(
 	map_data_bundle: tuple,
 	rover: RoverSettings,
 	use_bicubic: bool,
+	illumination_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+	meteor_energy_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+	meteor_number_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+	start_angle_deg: int = 0,
+	center_lat: float | None = None,
+	center_lon: float | None = None,
+	start_et: float | None = None,
 ) -> tuple[bool, dict]:
 	"""Run physics simulation on a path and return (feasible, stats)."""
 	try:
@@ -46,6 +53,13 @@ def _validate_segment_with_simulation(
 				waypoints_xyz=points_array,
 				elevation_map=map_data, transform=transform,
 				illumination_map=illum_data, illumination_transform=illum_transform,
+				illumination_maps=illumination_maps,
+				meteor_energy_maps=meteor_energy_maps,
+				meteor_number_maps=meteor_number_maps,
+				start_angle_deg=start_angle_deg,
+				center_lat=center_lat,
+				center_lon=center_lon,
+				start_et=start_et,
 				rover=rover, use_bicubic=use_bicubic,
 			)
 		)
@@ -64,6 +78,13 @@ def compute_validated_path(
 	pathfind_fn: Callable,
 	use_bicubic: bool = False,
 	max_attempts: int = 3,
+	illumination_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+	meteor_energy_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+	meteor_number_maps: dict[int, tuple[np.ndarray, Any]] | None = None,
+	start_angle_deg: int = 0,
+	center_lat: float | None = None,
+	center_lon: float | None = None,
+	start_et: float | None = None,
 ) -> dict:
 	"""Pathfind with simulation validation retry loop.
 
@@ -105,6 +126,13 @@ def compute_validated_path(
 
 		feasible, stats = _validate_segment_with_simulation(
 			overall_path, map_data_bundle, rover, use_bicubic,
+			illumination_maps=illumination_maps,
+			meteor_energy_maps=meteor_energy_maps,
+			meteor_number_maps=meteor_number_maps,
+			start_angle_deg=start_angle_deg,
+			center_lat=center_lat,
+			center_lon=center_lon,
+			start_et=start_et,
 		)
 		last_stats = stats
 		last_failure_xy = (
