@@ -177,6 +177,7 @@ def simulate_rover_4wd(
 	total_dist = 0.0
 	energy_j_per_m2 = 0.0
 	battery_energy_used_j = 0.0
+	batt_cap_j = float(rover.battery_capacity_j)
 	min_v = float("inf") if v0_mps > 0 else 0.0
 	max_v = float(v0_mps)
 	prev_pos = np.array([x, y])
@@ -277,6 +278,11 @@ def simulate_rover_4wd(
 					break
 			total_time += dt
 			battery_energy_used_j += rover.idle_drain_w * dt
+			if battery_energy_used_j >= batt_cap_j:
+				failure_reason = "Battery depleted"
+				speed = 0.0
+				yaw_rate = 0.0
+				break
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
 			continue
 
@@ -304,6 +310,11 @@ def simulate_rover_4wd(
 
 			battery_energy_used_j += p_w * 0.3 * dt
 			battery_energy_used_j += rover.idle_drain_w * dt
+			if battery_energy_used_j >= batt_cap_j:
+				failure_reason = "Battery depleted"
+				speed = 0.0
+				yaw_rate = 0.0
+				break
 
 			total_time += dt
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
@@ -317,6 +328,11 @@ def simulate_rover_4wd(
 			_pause_timer -= _pause_step
 			total_time += _pause_step
 			battery_energy_used_j += rover.idle_drain_w * _pause_step
+			if battery_energy_used_j >= batt_cap_j:
+				failure_reason = "Battery depleted"
+				speed = 0.0
+				yaw_rate = 0.0
+				break
 
 			# Accumulate solar during pause
 			if _inv_illum is not None:
@@ -365,6 +381,11 @@ def simulate_rover_4wd(
 			f_drive_right = 0.0
 
 		battery_energy_used_j += p_w * throttle * dt
+		if battery_energy_used_j >= batt_cap_j:
+			failure_reason = "Battery depleted"
+			speed = 0.0
+			yaw_rate = 0.0
+			break
 
 		f_left = f_drive_left
 		f_right = f_drive_right
@@ -432,6 +453,11 @@ def simulate_rover_4wd(
 
 		total_time += dt
 		battery_energy_used_j += rover.idle_drain_w * dt
+		if battery_energy_used_j >= batt_cap_j:
+			failure_reason = "Battery depleted"
+			speed = 0.0
+			yaw_rate = 0.0
+			break
 		if speed > 0:
 			min_v = min(min_v, speed)
 		max_v = max(max_v, speed)
@@ -446,7 +472,6 @@ def simulate_rover_4wd(
 		avg_v = total_dist / total_time
 		avg_illum = energy_j_per_m2 / total_time
 
-	batt_cap_j = rover.battery_capacity_j
 	batt_remaining_pct = max(0.0, (batt_cap_j - battery_energy_used_j) / max(batt_cap_j, 1.0) * 100.0) if batt_cap_j > 0 else 100.0
 
 	t_elapsed = time.perf_counter() - t_start
