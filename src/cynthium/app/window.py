@@ -211,8 +211,8 @@ class Window(QMainWindow):
 
 
 
-	    def _connect_signals(self):
-		        """Connect menu bar actions and UI signals."""
+	def _connect_signals(self):
+		"""Connect menu bar actions and UI signals."""
 		self._menubar.action_import_tif.triggered.connect(self._import_custom_tif)
 		self._menubar.action_import_settings.triggered.connect(
 			self._import_settings
