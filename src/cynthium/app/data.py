@@ -182,6 +182,7 @@ _store = pooch.create(
 
 
 def cache_dir() -> Path:
+	"""Return the local pooch cache directory path."""
 	return Path(str(_store.path))
 
 

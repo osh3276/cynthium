@@ -49,10 +49,12 @@ def _get_spice_angle_bin(
 
 
 def _clamp(val: float, lo: float, hi: float) -> float:
+	"""Clamp val to [lo, hi]."""
 	return max(lo, min(hi, val))
 
 
 def _normalise_angle(a: float) -> float:
+	"""Normalise an angle to [-pi, pi]."""
 	while a > pi:
 		a -= 2.0 * pi
 	while a < -pi:
@@ -236,6 +238,7 @@ def _estimate_resolution(pts_xyz: np.ndarray) -> float:
 
 
 def _empty_result() -> dict[str, Any]:
+	"""Return a default simulation result dict with zeroed/safe values."""
 	return {
 		"traverse_feasible": 1.0,
 		"traversal_time_s": 0.0,

@@ -282,6 +282,7 @@ class ViewContainer(QWidget):
 		self.terrain_view.remove_waypoint(index)
 
 	def clear_all_waypoints(self):
+		"""Clear all waypoints from both views."""
 		self.raster_view.clear_all_waypoints()
 		self.terrain_view.clear_all_waypoints()
 
@@ -294,23 +295,28 @@ class ViewContainer(QWidget):
 		return self.terrain_view.get_autopath_3d_points()
 
 	def set_autopath(self, points_xy: list[tuple[float, float]]):
+		"""Set the autopath line on both views."""
 		self._autopath_xy = list(points_xy)
 		self.raster_view.set_autopath(self._autopath_xy)
 		self.terrain_view.set_autopath(self._autopath_xy)
 
 	def set_failure_point(self, x: float, y: float):
+		"""Set a failure marker on both views."""
 		self.raster_view.set_failure_point(x, y)
 		self.terrain_view.set_failure_point(x, y)
 
 	def clear_failure_point(self):
+		"""Clear the failure marker on both views."""
 		self.raster_view.clear_failure_point()
 		self.terrain_view.clear_failure_point()
 
 	def set_sim_failure_point(self, x: float, y: float):
+		"""Set the simulation failure marker on both views."""
 		self.raster_view.set_sim_failure_point(x, y)
 		self.terrain_view.set_sim_failure_point(x, y)
 
 	def clear_sim_failure_point(self):
+		"""Clear the simulation failure marker on both views."""
 		self.raster_view.clear_sim_failure_point()
 		self.terrain_view.clear_sim_failure_point()
 
@@ -385,6 +391,7 @@ class ViewContainer(QWidget):
 		blocked_cells: set[tuple[int, int]] | None = None,
 		use_bicubic: bool = False,
 	) -> list[tuple[float, float]] | None:
+		"""Compute an optimal path between two points on the current elevation map."""
 		if self._current_data is None or self._current_meta is None:
 			return None
 		if "transform" not in self._current_meta:

@@ -8,7 +8,9 @@ _to_xy = Transformer.from_crs(LONGLAT_CRS, STERE_CRS, always_xy=True)
 
 
 def xy_to_longlat(x, y):
+	"""Convert stereographic XY to (longitude, latitude)."""
 	return _to_longlat.transform(x, y)
 
 def longlat_to_xy(lon, lat):
+	"""Convert (longitude, latitude) to stereographic XY."""
 	return _to_xy.transform(lon, lat)

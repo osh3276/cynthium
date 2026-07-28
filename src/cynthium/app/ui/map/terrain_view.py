@@ -21,6 +21,8 @@ PATH_ELEVATION_OFFSET_METERS = 5.0
 
 
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
+	"""Custom VTK interactor style mapping left-drag to pan and right-drag to rotate."""
+
 	def __init__(self):
 		self.AddObserver("LeftButtonDoubleClickEvent", self.on_left_double_click)  # type: ignore[arg-type]
 		self.AddObserver("LeftButtonPressEvent", self.on_left_press)  # type: ignore[arg-type]
@@ -48,6 +50,7 @@ class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 
 class TerrainView(QtInteractor):
 	def __init__(self, parent=None):
+		"""Initialize the terrain view with resize debouncing and empty state."""
 		super().__init__(parent=parent)  # type: ignore[arg-type]
 		self.interactor.SetInteractorStyle(CustomInteractorStyle())
 		self._resize_timer = QTimer(self)
@@ -64,10 +67,12 @@ class TerrainView(QtInteractor):
 		self._sim_failure_actor = None
 
 	def resizeEvent(self, ev):
+		"""Debounce re-renders after widget resize."""
 		super().resizeEvent(ev)
 		self._resize_timer.start(50)
 
 	def _render_after_resize(self):
+		"""Re-render the scene if the widget is visible and large enough."""
 		if not self.isVisible():
 			return
 		if self.width() < 2 or self.height() < 2:
@@ -253,6 +258,7 @@ class TerrainView(QtInteractor):
 			self._waypoint_actors.insert(index, actor)
 
 	def clear_all_waypoints(self):
+		"""Remove all waypoint actors and clear the waypoint list."""
 		for actor in self._waypoint_actors:
 			self.remove_actor(actor)
 		self._waypoint_actors.clear()
@@ -274,6 +280,7 @@ class TerrainView(QtInteractor):
 		return list(self._autopath_points) if hasattr(self, "_autopath_points") else []
 
 	def set_autopath(self, points_xy: list[tuple[float, float]]):
+		"""Sample the auto-generated path along the terrain surface and render it."""
 		if self._autopath_actor is not None:
 			self.remove_actor(self._autopath_actor)
 			self._autopath_actor = None
@@ -319,6 +326,7 @@ class TerrainView(QtInteractor):
 		)
 
 	def set_failure_point(self, x: float, y: float):
+		"""Place a red sphere failure marker at (x, y) on the terrain."""
 		if self._failure_actor is not None:
 			self.remove_actor(self._failure_actor)
 		pt = self._sample_surface_point(x, y, PATH_ELEVATION_OFFSET_METERS)
@@ -332,6 +340,7 @@ class TerrainView(QtInteractor):
 		self._failure_actor = self.add_mesh(sphere.GetOutput(), color="red", label="Failure")
 
 	def set_sim_failure_point(self, x: float, y: float):
+		"""Place a red sphere sim failure marker at (x, y) on the terrain."""
 		if self._sim_failure_actor is not None:
 			self.remove_actor(self._sim_failure_actor)
 		pt = self._sample_surface_point(x, y, PATH_ELEVATION_OFFSET_METERS)
@@ -345,11 +354,13 @@ class TerrainView(QtInteractor):
 		self._sim_failure_actor = self.add_mesh(sphere.GetOutput(), color="red", label="Sim Failure")
 
 	def clear_failure_point(self):
+		"""Remove the failure marker from the terrain."""
 		if self._failure_actor is not None:
 			self.remove_actor(self._failure_actor)
 			self._failure_actor = None
 
 	def clear_sim_failure_point(self):
+		"""Remove the sim failure marker from the terrain."""
 		if self._sim_failure_actor is not None:
 			self.remove_actor(self._sim_failure_actor)
 			self._sim_failure_actor = None

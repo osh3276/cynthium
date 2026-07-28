@@ -281,6 +281,7 @@ class MapView(QWidget):
 			self._update_graph()
 
 	def clear_all_waypoints(self):
+		"""Remove all waypoints and update the display."""
 		self._waypoint_list.clear()
 		self._update_graph()
 
@@ -316,18 +317,23 @@ class MapView(QWidget):
 			self._path_line.setData([], [])
 
 	def clear_failure_point(self):
+		"""Remove the failure point marker."""
 		self._failure_point.setData([])
 
 	def set_failure_point(self, x: float, y: float):
+		"""Show a failure point marker at (x, y)."""
 		self._failure_point.setData(pos=np.array([[x, y]]))
 
 	def set_sim_failure_point(self, x: float, y: float):
+		"""Show a sim failure point marker at (x, y)."""
 		self._sim_failure_point.setData(pos=np.array([[x, y]]))
 
 	def clear_sim_failure_point(self):
+		"""Remove the sim failure point marker."""
 		self._sim_failure_point.setData([])
 
 	def set_autopath(self, points_xy: list[tuple[float, float]]):
+		"""Draw the auto-generated path from the given sequence of (x, y) points."""
 		if not points_xy or len(points_xy) < 2:
 			self._autopath_line.setData([], [])
 			return
@@ -337,6 +343,7 @@ class MapView(QWidget):
 		self._autopath_line.setData(xs, ys)
 
 	def _on_click(self, event):
+		"""Emit waypoint_added on left-click, ignoring already-accepted events."""
 		# Ignore clicks already handled by scene items (e.g. auto-range button)
 		if event.isAccepted():
 			return

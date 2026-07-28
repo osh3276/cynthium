@@ -58,6 +58,7 @@ def _set_default_opengl_format():
 
 
 def main():
+	"""Application entry point: parse CLI, initialise Qt, show main window."""
 	# Parse CLI
 	args = _parse_args()
 

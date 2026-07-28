@@ -157,6 +157,7 @@ class Window(QMainWindow):
 	_raster_view: MapView
 
 	def __init__(self):
+		"""Initialize the main window with layout, sidebar, and views."""
 		super().__init__()
 		self.setWindowTitle("Cynthium")
 		self.setGeometry(100, 100, 1600, 900)
@@ -205,6 +206,7 @@ class Window(QMainWindow):
 		logger.info("Window initialized")
 
 	def on_button_clicked(self):
+		"""Handle generic button click (debug)."""
 		logger.info("Button clicked")
 
 
@@ -247,6 +249,7 @@ class Window(QMainWindow):
 		self._results_panel.simulation_started.connect(self._on_start_simulation)
 
 	def _on_clear_waypoints(self):
+		"""Clear all waypoints and failure markers from the views."""
 		self._view_container.clear_all_waypoints()
 		self._view_container.set_autopath([])
 		self._sidebar.set_autopath_waypoints(None)
@@ -272,6 +275,7 @@ class Window(QMainWindow):
 		return base
 
 	def _on_open_rover_settings(self):
+		"""Open the rover settings dialog and apply overrides."""
 		from cynthium.app.ui.panels.rover_settings_dialog import RoverSettingsDialog
 
 		try:
@@ -294,6 +298,7 @@ class Window(QMainWindow):
 				)
 
 	def _on_autopath_requested(self, payload: dict):
+		"""Start autopath computation in a background thread."""
 		if self._current_path is None:
 			QMessageBox.warning(self, "Autopath", "Load a site map first.")
 			self._sidebar.set_autopath_waypoints(None)
@@ -453,6 +458,7 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Autopath complete: {len(site_path_xy)} nodes (validated via simulation)")
 
 	def _on_start_simulation(self):
+		"""Start simulation in a background thread."""
 		manual_points = self._view_container.get_waypoint_3d_points()
 		auto_points = self._view_container.get_autopath_3d_points()
 

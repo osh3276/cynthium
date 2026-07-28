@@ -12,6 +12,7 @@ _MIN_CLIMB_V_MPS = 0.1  # minimum speed for power-limited climb
 
 @dataclass(frozen=True)
 class RoverSettings:
+    """Physical parameters and derived limits for a rover (mass, power, traction, etc.)."""
     mass_kg: float
     power_hp: float
     wheel_friction_coeff: float
@@ -151,6 +152,7 @@ def rover_settings_from_strings(
     max_brake_decel_mps2: str = "1.0",
     idle_drain_w: str = "10.0",
 ) -> RoverSettings:
+    """Parse string rover parameters into a validated RoverSettings."""
     m = float(mass_kg)
     p = float(power_hp)
     mu = float(wheel_friction_coeff)

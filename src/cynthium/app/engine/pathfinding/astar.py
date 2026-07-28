@@ -7,6 +7,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class PathResult:
+	"""Result of an A* search: path (row,col), total cost, and nodes expanded."""
 	path_rc: list[tuple[int, int]]
 	total_cost: float
 	expanded: int

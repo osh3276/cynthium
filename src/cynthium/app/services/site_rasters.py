@@ -341,6 +341,7 @@ def load_cropped_context_raster(
 
 
 def _normalize_map_key(map_type: str) -> str:
+	"""Normalize a map type label to a lowercase underscore key."""
 	key = map_type.strip().lower()
 	key = re.sub(r"[^a-z0-9]+", "_", key)
 	key = re.sub(r"_+", "_", key).strip("_")

@@ -9,6 +9,7 @@ BICUBIC_RESOLUTION_M = 5.0  # target resolution when bicubic interpolation is en
 
 
 def get_pixel_resolution_m(transform) -> float:
+	"""Return the pixel resolution in metres from a rasterio transform."""
 	return float(min(abs(transform.a), abs(transform.e)))
 
 
