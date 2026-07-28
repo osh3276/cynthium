@@ -105,36 +105,13 @@ def _calculate_integrated_stats(
 		meteor_number_map: np.ndarray | None = None,
 		meteor_number_transform=None,
 ) -> dict[str, float]:
-		"""
-		Calculates the integrated stats.
-
-		:param waypoints: Parameter value.
-		:type waypoints: np.ndarray
-		:param elevation_map: Parameter value.
-		:type elevation_map: np.ndarray
-		:param transform: Raster transform.
-		:param slope_map: Parameter value.
-		:type slope_map: np.ndarray | None
-		:param temperature_map: Parameter value.
-		:type temperature_map: np.ndarray | None
-		:param temperature_transform: Parameter value.
-		:param illumination_map: Parameter value.
-		:type illumination_map: np.ndarray | None
-		:param illumination_transform: Parameter value.
-		:param meteor_map: Parameter value.
-		:type meteor_map: np.ndarray | None
-		:param meteor_transform: Parameter value.
-		:param meteor_number_map: Parameter value.
-		:type meteor_number_map: np.ndarray | None
-		:param meteor_number_transform: Parameter value.
-		:return: The resulting value.
-		"""
+		"""Calculate path stats with elevation integration and slope sampling."""
 		sampled_points, _ = _sample_path_data(waypoints, elevation_map, transform, None)
 		stats = _calculate_stats_from_points(sampled_points)
 		pixel_res = _get_pixel_resolution(transform)
 		stats["average_resolution"] = pixel_res
 
-		# Traversal slope: use ~20m steps to avoid boulder-scale spike artifacts
+		# Traversal slope: ~20m steps to avoid spike artifacts
 		slope_step = max(1, int(round(20.0 / pixel_res)))
 		if slope_step > 1 and len(sampled_points) > slope_step + 1:
 			slope_indices = list(range(0, len(sampled_points), slope_step))
@@ -153,8 +130,7 @@ def _calculate_integrated_stats(
 			if np.any(mask):
 				slopes = np.degrees(np.arctan2(z_diffs[mask], horizontal_distances[mask]))
 				stats["average_slope"] = float(np.mean(slopes))
-				# Filter out near-zero slope segments (grid-artifact flat steps)
-				# so min/max reflect the true incline of the terrain.
+				# Filter grid-artifact flat steps so min/max reflect true incline
 				non_flat = np.abs(slopes) > 0.05
 				if np.any(non_flat):
 					stats["max_slope"] = float(np.max(slopes[non_flat]))
@@ -171,7 +147,7 @@ def _calculate_integrated_stats(
 			stats["max_slope"] = 0.0
 			stats["min_slope"] = 0.0
 
-		# Surface slope: raw terrain slope sampled from the slope raster along the path
+		# Surface slope
 		_surface_slopes = _sample_raster_values(
 			sampled_points[:, :2], slope_map, transform
 		)
@@ -211,27 +187,7 @@ def _add_context_stats(
 		meteor_number_map: np.ndarray | None = None,
 		meteor_number_transform=None,
 ):
-		"""
-		Adds the context stats.
-
-		:param stats: Simulation statistics.
-		:type stats: dict[str, float]
-		:param points_xy: Parameter value.
-		:type points_xy: np.ndarray
-		:param temperature_map: Parameter value.
-		:type temperature_map: np.ndarray | None
-		:param temperature_transform: Parameter value.
-		:param illumination_map: Parameter value.
-		:type illumination_map: np.ndarray | None
-		:param illumination_transform: Parameter value.
-		:param meteor_map: Parameter value.
-		:type meteor_map: np.ndarray | None
-		:param meteor_transform: Parameter value.
-		:param meteor_number_map: Parameter value.
-		:type meteor_number_map: np.ndarray | None
-		:param meteor_number_transform: Parameter value.
-		:return: None
-		"""
+		"""Sample temperature, illumination, and meteor rasters along the path and update stats."""
 		temperature_values = _sample_raster_values(
 			points_xy,
 			temperature_map,
@@ -289,16 +245,7 @@ def _sample_raster_values(
 	raster: np.ndarray | None,
 	transform,
 ) -> np.ndarray:
-	"""
-	Samples the raster values.
-
-	:param points_xy: Parameter value.
-	:type points_xy: np.ndarray
-	:param raster: Parameter value.
-	:type raster: np.ndarray | None
-	:param transform: Raster transform.
-	:return: The resulting value.
-	"""
+	"""Sample raster values at given (x,y) points using the affine transform."""
 	if raster is None or transform is None or points_xy.size == 0:
 		return np.array([], dtype=np.float32)
 
@@ -317,13 +264,7 @@ def _sample_raster_values(
 
 
 def _calculate_stats_from_points(points: np.ndarray) -> dict[str, float]:
-	"""
-	Calculates the stats from points.
-
-	:param points: Point data.
-	:type points: np.ndarray
-	:return: The resulting value.
-	"""
+	"""Calculate distance and elevation stats from a sequence of 3D points."""
 	diffs = np.diff(points, axis=0)
 	step_distances = np.linalg.norm(diffs, axis=1)
 	z_diffs = diffs[:, 2]
@@ -346,18 +287,7 @@ def _sample_path_data(
 	transform,
 	slope_map: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray | None]:
-	"""
-	Samples the path data.
-
-	:param waypoints: Parameter value.
-	:type waypoints: np.ndarray
-	:param elevation_map: Parameter value.
-	:type elevation_map: np.ndarray
-	:param transform: Raster transform.
-	:param slope_map: Parameter value.
-	:type slope_map: np.ndarray | None
-	:return: The resulting value.
-	"""
+	"""Sample elevation data along the waypoint path."""
 	pixel_resolution = get_pixel_resolution_m(transform)
 	logger.info(f"Pixel resolution: {pixel_resolution} metres per pixel")
 
@@ -375,17 +305,7 @@ def _calculate_segment_sample_count(
 	end_point: np.ndarray,
 	pixel_resolution: float,
 ) -> int:
-	"""
-	Calculates the segment sample count.
-
-	:param start_point: Parameter value.
-	:type start_point: np.ndarray
-	:param end_point: Parameter value.
-	:type end_point: np.ndarray
-	:param pixel_resolution: Parameter value.
-	:type pixel_resolution: float
-	:return: The resulting value.
-	"""
+	"""Calculate how many samples are needed to cover a segment at given resolution."""
 	horizontal_distance = np.linalg.norm(end_point[:2] - start_point[:2])
 
 	if horizontal_distance == 0:
@@ -395,13 +315,5 @@ def _calculate_segment_sample_count(
 
 
 def _clamp_index(index: int, size: int) -> int:
-	"""
-	Performs clamp index.
-
-	:param index: Item index.
-	:type index: int
-	:param size: Parameter value.
-	:type size: int
-	:return: The resulting value.
-	"""
+	"""Clamp index to valid range [0, size-1]."""
 	return max(0, min(index, size - 1))

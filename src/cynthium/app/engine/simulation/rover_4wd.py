@@ -2,7 +2,7 @@
 
 The chassis is a rigid rectangle with a wheel at each corner.  Steering is
 by differential thrust between left and right sides.  Braking is modelled
-as a direct deceleration (m/s²) — no motor back-EMF or Coulomb friction.
+as a direct deceleration (m/s^2) - no motor back-EMF or Coulomb friction.
 
 The rover drives toward each waypoint, brakes to a stop, pivots in place
 to face the next waypoint, then drives again.
@@ -31,7 +31,6 @@ from cynthium.app.engine.simulation._sim_utils import (
 )
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 
-# ── Tuning ──
 _PIVOT_YAW_RATE_MAX = 0.4  # rad/s during pivot
 _HEADING_K = 2.0  # proportional gain for heading-while-driving
 _HEADING_ACCEPT_DEG = 3.0  # degrees of tolerance before pivot considered done
@@ -91,7 +90,6 @@ def simulate_rover_4wd(
 		print(f"[simulate_rover_4wd] empty path — returning immediately ({time.perf_counter() - t_start:.3f}s)")
 		return _empty_result()
 
-	# ── Vehicle parameters ──
 	m = float(rover.mass_kg)
 	mu = float(wheel_friction_coeff)
 	p_w = float(power_w)
@@ -100,50 +98,41 @@ def simulate_rover_4wd(
 	wheel_r = float(rover.wheel_radius_m)
 	motor_torque = rover.motor_peak_torque_nm
 
-	# Chassis geometry
 	tw = float(rover.track_width_m)
 	wb = float(rover.wheelbase_m)
 	I_z = m * (wb * wb + tw * tw) / 12.0  # yaw inertia
 
-	# Power per side
 	p_side = p_w * 0.5
 
-	# Per-side torque limit (2 wheels per side)
 	if motor_torque is not None:
 		f_torque_max_side = 2.0 * motor_torque / wheel_r
 	else:
 		f_torque_max_side = float("inf")
 
-	# ── Waypoint navigation setup ──
 	n_wp = len(waypoints_xy)
 	current_wp = 1
 	mode = 0  # 0 = DRIVE, 1 = STOPPING, 2 = PIVOTING, 3 = PAUSE
 	resolution_m = _estimate_resolution(pts_xyz)
 
-	# Initial heading
 	heading = atan2(
 		waypoints_xy[1, 1] - waypoints_xy[0, 1],
 		waypoints_xy[1, 0] - waypoints_xy[0, 0],
 	)
 
-	# ── State ──
 	x = float(pts_xyz[0, 0])
 	y = float(pts_xyz[0, 1])
 	speed = float(v0_mps)
 	yaw_rate = 0.0
 
-	# Stats
 	max_lateral_accel = 0.0
 
-	# ── Illumination (multi-angle support) ──
 	_active_illum_map = illumination_map
 	_active_illum_xform = illumination_transform
 	_inv_illum = None
 	if _active_illum_map is not None and _active_illum_xform is not None:
 		_inv_illum = ~_active_illum_xform
 
-	# Resolve the starting bin: use SPICE if geo params are available,
-	# otherwise fall back to the linear model with the given start_angle_deg
+	# Resolve starting bin: SPICE if geo params available, else linear
 	_use_spice = (
 		center_lat is not None
 		and center_lon is not None
@@ -154,7 +143,6 @@ def simulate_rover_4wd(
 	else:
 		_last_illum_bin = start_angle_deg
 
-	# Load the starting map from the multi-angle dict (if provided)
 	_illum_map_count = 0
 	if illumination_maps is not None:
 		_illum_map_count = len(illumination_maps)
@@ -170,7 +158,6 @@ def simulate_rover_4wd(
 		  f"inv_illum={'set' if _inv_illum is not None else 'None'}, "
 		  f"active_map_shape={_active_illum_map.shape if _active_illum_map is not None else 'None'}")
 
-	# ── Meteor (multi-angle support) ──
 	_active_meteor_map = None
 	_active_meteor_xform = None
 	_inv_meteor = None
@@ -186,7 +173,6 @@ def simulate_rover_4wd(
 			if _active_meteor_xform is not None:
 				_inv_meteor = ~_active_meteor_xform
 
-	# Accumulators
 	total_time = 0.0
 	total_dist = 0.0
 	energy_j_per_m2 = 0.0
@@ -207,7 +193,6 @@ def simulate_rover_4wd(
 	BIN_CHECK_INTERVAL = 60.0
 
 	for step in range(max_steps):
-		# ── Sun-angle bin check (every 60 sim-seconds) ──
 		_do_check = total_time >= _next_bin_check and (
 			illumination_maps is not None or meteor_energy_maps is not None
 		)
@@ -215,7 +200,6 @@ def simulate_rover_4wd(
 			_next_bin_check = total_time + BIN_CHECK_INTERVAL
 			_bin = _get_linear_angle_bin(start_angle_deg, total_time)
 
-			# Illumination map swap
 			if illumination_maps is not None and _bin != _last_illum_bin:
 				if _use_spice:
 					_spice_bin = _get_spice_angle_bin(center_lat, center_lon, start_et, total_time)
@@ -237,7 +221,6 @@ def simulate_rover_4wd(
 						if _active_illum_xform is not None:
 							_inv_illum = ~_active_illum_xform
 
-			# Meteor map swap
 			if meteor_energy_maps is not None and _bin != _last_meteor_bin:
 				if _use_spice:
 					_spice_bin = _get_spice_angle_bin(center_lat, center_lon, start_et, total_time)
@@ -261,12 +244,10 @@ def simulate_rover_4wd(
 		tx, ty = waypoints_xy[current_wp]
 		dist_to_wp = sqrt((tx - x) ** 2 + (ty - y) ** 2)
 
-		# ── Terrain slope at current position ──
 		pitch = _sample_pitch(x, y, pts_xyz)
 		cos_pitch = abs(cos(pitch))
 		sin_pitch = sin(pitch)
 
-		# ── State machine ──
 		if mode == 0:  # DRIVE
 			heading_err = _heading_error_to_waypoint(x, y, heading, tx, ty)
 			yaw_cmd = _HEADING_K * heading_err
@@ -275,14 +256,13 @@ def simulate_rover_4wd(
 				mode = 1
 				continue
 
-		elif mode == 1:  # STOPPING — apply brake
+		elif mode == 1:  # STOPPING
 			yaw_cmd = 0.0
 			if speed > 0.0:
 				speed = max(0.0, speed - rover.max_brake_decel_mps2 * dt)
 			if speed <= 0.0:
 				speed = 0.0
 				_pid.reset()
-				# Check if this waypoint has a pause configured
 				wp_idx = current_wp - 1  # 0-based index in pause_durations
 				wp_pause = (pause_durations[wp_idx] if pause_durations
 				            and wp_idx < len(pause_durations) else 0.0)
@@ -329,19 +309,16 @@ def simulate_rover_4wd(
 			dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
 			continue
 
-		elif mode == 3:  # PAUSE — wait at waypoint
+		elif mode == 3:  # PAUSE
 			speed = 0.0
 			yaw_rate = 0.0
-			# Use larger dt during pause (up to 1 s) to avoid exhausting
-			# max_steps on long pauses.  The rover is stationary, so the
-			# physics does not need micro-stepping.
+			# Larger dt during pause (up to 1s) to avoid exhausting max_steps
 			_pause_step = min(1.0, _pause_timer)
 			_pause_timer -= _pause_step
 			total_time += _pause_step
 			battery_energy_used_j += rover.idle_drain_w * _pause_step
 
-			# Accumulate solar energy during the pause (rover is stationary
-			# but the sun still shines)
+			# Accumulate solar during pause
 			if _inv_illum is not None:
 				col, row = _inv_illum * (float(x), float(y))
 				ci, ri = int(round(col)), int(round(row))
@@ -369,18 +346,12 @@ def simulate_rover_4wd(
 			dt = DT_MIN
 			continue
 
-		# ═══════════════════════════════════════════════════════════════
-		# DRIVE mode — motor drive + PID brake
-		# ═══════════════════════════════════════════════════════════════
-
 		target_speed = _sample_target_speed(dist_to_wp, rover)
 		throttle, brake_decel = _pid.update(speed, target_speed, dt)
 
-		# ── Wheel speeds per side (accounting for yaw) ──
 		v_left = speed - yaw_rate * tw / 2.0
 		v_right = speed + yaw_rate * tw / 2.0
 
-		# ── Drive torque from motor ──
 		f_n_total = m * g * cos_pitch
 		f_trac_side = mu * f_n_total * 0.5
 
@@ -393,17 +364,13 @@ def simulate_rover_4wd(
 			f_drive_left = 0.0
 			f_drive_right = 0.0
 
-		# ── Battery drain (only when motors are driving) ──
 		battery_energy_used_j += p_w * throttle * dt
 
-		# ── Net force per side ──
 		f_left = f_drive_left
 		f_right = f_drive_right
-		# Clamp net to traction limits
 		f_left = _clamp(f_left, -f_trac_side, f_trac_side)
 		f_right = _clamp(f_right, -f_trac_side, f_trac_side)
 
-		# ── Yaw differential ──
 		heading_err = _heading_error_to_waypoint(x, y, heading, tx, ty)
 		yaw_cmd = _HEADING_K * heading_err
 		yaw_error = yaw_cmd - yaw_rate
@@ -420,11 +387,9 @@ def simulate_rover_4wd(
 		m_diff_actual = (f_right - f_left) * tw / 2.0
 		m_net = m_diff_actual + m_resist
 
-		# ── Integrate ──
 		f_grade = m * g * sin_pitch
 		f_roll = crr * f_n_total
 
-		# Brake force from PID (applied when overspeed)
 		f_brake = brake_decel * m
 
 		f_net = f_total_actual - f_grade - f_roll - f_brake
@@ -445,7 +410,6 @@ def simulate_rover_4wd(
 		total_dist += step_dist
 		prev_pos = np.array([x, y])
 
-		# ── Termination checks ──
 		if current_wp >= n_wp - 1 and dist_to_wp < _WP_ARRIVE_DIST:
 			completed = True
 			break
@@ -458,7 +422,6 @@ def simulate_rover_4wd(
 		else:
 			stagnation = 0
 
-		# ── Energy ──
 		if _inv_illum is not None:
 			col, row = _inv_illum * (float(x), float(y))
 			ci, ri = int(round(col)), int(round(row))
@@ -477,7 +440,6 @@ def simulate_rover_4wd(
 	if failure_reason is None and not completed:
 		failure_reason = "Could not complete traverse in time"
 
-	# ── Assemble result ──
 	if total_time <= 0:
 		avg_v, avg_illum = 0.0, 0.0
 	else:

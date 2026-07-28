@@ -42,8 +42,8 @@ def _segment_cost(
 
 	Base cost from cell_cost (sun, etc.), plus grade penalty from
 	elevation difference.
-	grade_power=1 → linear (weighted cost).
-	grade_power > 1 → minimax (punishes steep grades exponentially).
+	grade_power=1 is linear (weighted cost).
+	grade_power > 1 is minimax (punishes steep grades).
 	"""
 	cc0 = float(cell_cost[rc0[0], rc0[1]])
 	cc1 = float(cell_cost[rc1[0], rc1[1]])
@@ -58,10 +58,7 @@ def _segment_cost(
 		if math.isfinite(e0) and math.isfinite(e1):
 			g = _grade_deg(e0, e1, step)  # signed: + uphill, - downhill
 			max_slope = float(max_slope_deg)
-			# Grade penalty — no hard cutoff.  At 20 m grid resolution the
-			# path cannot follow a continuous line exactly, so per-cell-step
-			# grades can exceed the static limit even on a feasible route.
-			# The simulation retry loop handles true feasibility.
+			# No hard cutoff - per-step grade can exceed limit; retry loop handles feasibility
 			if g > 0 and max_slope > 0:
 				grade_norm = min(1.0, g / max_slope)
 				cost += float(slope_weight) * (grade_norm ** float(grade_power)) * step
@@ -90,7 +87,7 @@ def a_star(
 
 	Standard A* with Euclidean-distance heuristic.  When ``dijkstra=True``
 	the heuristic is set to zero, making it pure Dijkstra (uniform-cost
-	search).  No line-of-sight shortcuts — every step follows a concrete
+	search).  No line-of-sight shortcuts - every step follows a concrete
 	grid neighbour so the slope limit is enforced on every individual
 	transition.
 
@@ -125,7 +122,6 @@ def a_star(
 	open_heap: list[tuple[float, int, int]] = []
 	heapq.heappush(open_heap, (h0, sr, sc))
 
-	# 8-connected + 8 knight-move directions (16-connected)
 	neighbors = [
 		(-1, -1),
 		(-1, 0),

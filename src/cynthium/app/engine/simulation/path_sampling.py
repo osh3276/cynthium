@@ -13,19 +13,16 @@ def get_pixel_resolution_m(transform) -> float:
 
 
 def sample_path_elevations(
-	waypoints: np.ndarray,
-	elevation_map: np.ndarray,
-	transform,
-	*,
-	use_bicubic: bool = False,
+		waypoints: np.ndarray,
+		elevation_map: np.ndarray,
+		transform,
+		*,
+		use_bicubic: bool = False,
 ) -> np.ndarray:
 	"""Sample (x,y,z) along the waypoint polyline.
 
-	When *use_bicubic* is False (default): samples at ~1 pixel spacing
-	using nearest-neighbor lookup.
-
-	When *use_bicubic* is True: samples at 5 m spacing using bicubic
-	interpolation for smoother elevation profiles.
+	Default: ~1 px spacing, nearest-neighbor.
+	With bicubic: 5 m spacing, smoother profiles.
 	"""
 	inverse_transform = ~transform
 	pixel_resolution = get_pixel_resolution_m(transform)
@@ -77,7 +74,7 @@ def sample_path_elevations(
 		all_rows[i] = float(row)
 
 	if use_bicubic:
-		# Bicubic interpolation at sub-pixel positions
+		# Bicubic sub-pixel interpolation
 		elevations = map_coordinates(
 			elevation_map,
 			np.vstack([all_rows, all_cols]),

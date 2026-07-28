@@ -36,12 +36,7 @@ class MapView(QWidget):
 	waypoint_added = Signal(float, float)
 
 	def __init__(self, parent=None):
-		"""
-		Initializes the MapView instance.
-
-		:param parent: Parent widget.
-		:return: None
-		"""
+		"""Create the map view and set up pyqtgraph widgets."""
 		super().__init__(parent)
 
 		pg.setConfigOptions(antialias=False, useOpenGL=False)
@@ -128,16 +123,9 @@ class MapView(QWidget):
 		map_type: str = "elevation",
 		utctime: str | None = None,
 	):
-		"""
-		Loads the data.
+		"""Load raster data and metadata for display.
 
-		:param data: Input data.
-		:type data: np.ndarray
-		:param meta: Raster metadata.
-		:type meta: dict | None
-		:param map_type: Map type identifier.
-		:type map_type: str
-		:return: The resulting value.
+		For hillshade, computes lighting from sun position at *utctime*.
 		"""
 		normalized_map_type = map_type.strip().lower()
 		normalized_map_type = re.sub(r"[^a-z0-9]+", "_", normalized_map_type)
@@ -198,24 +186,14 @@ class MapView(QWidget):
 			transform = meta["transform"]
 			# pyqtgraph ImageItem positioning:
 			# setPos(x, y) sets the origin.
-			# rasterio transform: c is x_origin, f is y_origin. a is x_res, e is y_res.
-			# a is typically positive, e is typically negative.
-
-			# We use a QTransform to handle both scale and position.
-			# This is more robust than setPos + setScale if we have negative scaling.
+			# Use QTransform to handle both scale and position (more robust with negative scaling).
 			tr = pg.QtGui.QTransform()
 			tr.translate(transform.c, transform.f + (data.shape[0] * transform.e))
 			tr.scale(transform.a, abs(transform.e))
 			self._img.setTransform(tr)
 
 	def _set_colorbar_label(self, map_type: str):
-		"""
-		Sets the colorbar label.
-
-		:param map_type: Map type identifier.
-		:type map_type: str
-		:return: None
-		"""
+		"""Set the colorbar label based on map type."""
 		labels = {
 			"elevation": "Elevation (m)",
 			"hillshade": "Hillshade (unitless)",
@@ -274,13 +252,7 @@ class MapView(QWidget):
 		self._cursor_label.setVisible(False)
 
 	def _set_colorbar_levels(self, data: np.ndarray):
-		"""
-		Sets the colorbar levels.
-
-		:param data: Input data.
-		:type data: np.ndarray
-		:return: None
-		"""
+		"""Set colorbar range to min/max of data."""
 		finite_values = data[np.isfinite(data)]
 		if finite_values.size == 0:
 			return
@@ -292,26 +264,12 @@ class MapView(QWidget):
 		self._colorbar.setLevels(values=(lo, hi))
 
 	def add_waypoint(self, x: float, y: float):
-		"""
-		Adds the waypoint.
-
-		:param x: X coordinate.
-		:type x: float
-		:param y: Y coordinate.
-		:type y: float
-		:return: None
-		"""
+		"""Add a waypoint at (x, y)."""
 		self._waypoint_list.append((x, y))
 		self._update_graph()
 
 	def remove_waypoint(self, index: int):
-		"""
-		Removes the waypoint.
-
-		:param index: Item index.
-		:type index: int
-		:return: None
-		"""
+		"""Remove waypoint at index."""
 		if 0 <= index < len(self._waypoint_list):
 			self._waypoint_list.pop(index)
 			self._update_graph()
@@ -327,18 +285,14 @@ class MapView(QWidget):
 		self._update_graph()
 
 	def _update_graph(self):
-		"""
-		Performs update graph.
-
-		:return: The resulting value.
-		"""
+		"""Update the waypoint scatter plot."""
 		self._waypoints.setData(
 			pos=np.array(self._waypoint_list)
 			if self._waypoint_list
 			else np.empty((0, 2))
 		)
 
-		# Update waypoint number labels
+		# Update waypoint labels
 		for label in self._waypoint_labels:
 			self._plot.removeItem(label)
 		self._waypoint_labels.clear()

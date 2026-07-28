@@ -23,15 +23,7 @@ def calculate_simulation_stats(
 		center_lon: float | None = None,
 		start_et: float | None = None,
 ) -> tuple[dict[str, float], np.ndarray]:
-		"""
-		Calculates the simulation stats.
-
-		:param points: Point data.
-		:type points: list
-		:param map_data_bundle: Parameter value.
-		:type map_data_bundle: tuple
-		:return: The resulting value.
-		"""
+		"""Calculate simulation stats from points and map data bundle."""
 		(
 			map_data,
 			map_meta,
@@ -100,13 +92,7 @@ def calculate_simulation_stats(
 
 
 def format_simulation_stats(stats: dict[str, float]) -> str:
-	"""
-	Formats the simulation stats.
-
-	:param stats: Simulation statistics.
-	:type stats: dict[str, float]
-	:return: The resulting value.
-	"""
+	"""Format simulation stats as a readable string."""
 	return (
 		f"Total Displacement: {stats['total_displacement']:.2f} m\n"
 		f"Total Distance Travelled: {stats['total_distance_travelled']:.2f} m\n"

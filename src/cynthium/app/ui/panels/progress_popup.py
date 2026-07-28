@@ -11,7 +11,7 @@ from cynthium.app.engine.pathfinding.astar import a_star
 
 
 class ProgressPopup(QDialog):
-	"""Non‑modal popup with an indeterminate progress bar."""
+	"""Non-modal popup with an indeterminate progress bar."""
 
 	def __init__(self, title: str = "Working...", text: str = "Please wait...", parent=None):
 		super().__init__(parent)
@@ -36,10 +36,7 @@ class ProgressPopup(QDialog):
 
 
 class Worker(QObject):
-	"""Runs a callable in a background QThread.
-
-	Emits ``finished(result)`` on success or ``failed(error_msg)`` on exception.
-	"""
+	"""Runs a callable in a background QThread."""
 
 	finished = Signal(object)
 	failed = Signal(str)
@@ -59,7 +56,7 @@ class Worker(QObject):
 			self.failed.emit(traceback.format_exc())
 
 
-# ── Standalone pathfinding (no file I/O, no Qt — safe for background threads) ──
+# Standalone pathfinding
 
 _SAMPLE_FIELDS = ("illumination", "meteor", "temperature", "meteor_number")
 
@@ -124,10 +121,7 @@ def compute_path_segment(
 	blocked_cells: set[tuple[int, int]] | None = None,
 	use_bicubic: bool = False,
 ) -> list[tuple[float, float]] | None:
-	"""Pure-computation pathfinding, no file I/O or Qt access.
-
-	All rasters must be pre-loaded and passed in.  Safe to call from any thread.
-	"""
+	"""Pure-computation pathfinding, no file I/O or Qt access."""
 	if elevation_data is None or elevation_meta is None:
 		return None
 	if "transform" not in elevation_meta:

@@ -1,10 +1,10 @@
 """
-Pre-computed geographic bounds for every 5 m/px site tile.
+Pre-computed geographic bounds for every 5 m/px site tile.
 
-Each entry gives ``(left, bottom, right, top)`` in the lunar south‑pole
+Each entry gives ``(left, bottom, right, top)`` in the lunar south pole
 stereographic projection (metres).  These are the raw values read from
 the original ``*_5mpp_surf.tif`` files, so the LDEM crop can be done
-without opening those files at all.
+without opening those files.
 
 Generated 2026-06-12 by reading every ``*_5mpp_surf.tif`` in ``data/``.
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Final
 
-# (left, bottom, right, top)  —  all in metres in stereographic projection
+# (left, bottom, right, top) - all in metres in stereographic projection
 SITE_TILE_BOUNDS: Final[dict[str, tuple[float, float, float, float]]] = {
 	"DM1_5mpp_surf":     ( 154000.0,   51500.0,  174000.0,   71500.0),
 	"DM2_5mpp_surf":     ( 147000.0,   85000.0,  167000.0,  105000.0),

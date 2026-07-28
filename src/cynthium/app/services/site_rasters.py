@@ -32,13 +32,7 @@ RasterPayload = tuple[np.ndarray | None, dict | None]
 
 
 def load_slope_raster(elevation_path: str) -> RasterPayload:
-	"""
-	Loads the slope raster.
-
-	:param elevation_path: Path to the elevation raster.
-	:type elevation_path: str
-	:return: The resulting value.
-	"""
+	"""Load slope raster for an elevation path."""
 	slope_path = ensure_data_file_path(get_slope_path(elevation_path))
 	if slope_path.exists():
 		data, meta = load_geotif(str(slope_path))
@@ -74,15 +68,7 @@ def load_context_rasters(
 	reference_path: str,
 	utctime: str | None = None,
 ) -> tuple[RasterPayload, RasterPayload, RasterPayload]:
-	"""
-	Loads the context rasters: illumination, temperature, and meteor flux.
-
-	:param reference_path: Path to the reference file.
-	:type reference_path: str
-	:param utctime: UTC time string for seasonal temperature selection.
-	:type utctime: str | None
-	:return: Tuple of (illumination, temperature, meteor_flux) payloads.
-	"""
+	"""Load illumination, temperature, and meteor flux rasters, cropped to reference."""
 	illumination = load_cropped_context_raster(
 		ILLUMINATION_RASTER_PATH,
 		reference_path,
@@ -112,12 +98,7 @@ def load_daily_avg_illumination_raster(
 	reference_shape: tuple[int, int],
 	utctime: str,
 ) -> RasterPayload:
-	"""Load a daily-avg illumination map by snapping sun azimuth to 12° bins.
-
-	- Computes sun azimuth for the *center* of the reference raster at `utctime`.
-	- Rounds to the nearest multiple of 12 degrees.
-	- Loads `data/illum/angles/illum_angle_{bin}.tif` cropped to the reference raster.
-	"""
+	"""Load daily-avg illumination raster by snapping sun azimuth to 12 deg bins."""
 	if not reference_meta or "transform" not in reference_meta:
 		logger.warning("Cannot compute daily illumination: reference raster has no transform")
 		return None, None
@@ -164,7 +145,7 @@ def _load_daily_avg_angle_raster(
 	angle_prefix: str,
 	label: str,
 ) -> RasterPayload:
-	"""Load a daily-avg raster by snapping sun azimuth to 12° bins."""
+	"""Load a daily-avg raster by snapping sun azimuth to 12 deg bins."""
 	if not reference_meta or "transform" not in reference_meta:
 		logger.warning(f"Cannot compute daily {label}: reference raster has no transform")
 		return None, None
@@ -208,7 +189,7 @@ def load_daily_avg_meteor_raster(
 	reference_shape: tuple[int, int],
 	utctime: str,
 ) -> RasterPayload:
-	"""Load a daily-avg meteor flux map by snapping sun azimuth to 12° bins."""
+	"""Load a daily-avg meteor flux map by snapping sun azimuth to 12 deg bins."""
 	return _load_daily_avg_angle_raster(
 		reference_path=reference_path,
 		reference_meta=reference_meta,
@@ -227,7 +208,7 @@ def load_daily_avg_meteor_number_raster(
 	reference_shape: tuple[int, int],
 	utctime: str,
 ) -> RasterPayload:
-	"""Load a daily-avg meteor number map by snapping sun azimuth to 12° bins."""
+	"""Load a daily-avg meteor number map by snapping sun azimuth to 12 deg bins."""
 	return _load_daily_avg_angle_raster(
 		reference_path=reference_path,
 		reference_meta=reference_meta,
@@ -254,14 +235,7 @@ def load_angle_maps(
 	float | None,
 	float | None,
 ]:
-	"""Load all 30 angle maps for illumination, meteor energy, and meteor number.
-
-	Returns (illumination_maps, meteor_energy_maps, meteor_number_maps, start_angle_deg,
-			 center_lat, center_lon, start_et).
-	Each map-dict maps angle bin (0,12,…,348) -> (data, meta).
-	Returns None for a dict if the corresponding rasters are unavailable.
-	center_lat/center_lon/start_et are passed to the sim for SPICE-based bin checks.
-	"""
+	"""Load all 30 angle maps for illumination, meteor energy, and meteor number."""
 	import spiceypy as spice
 
 	if not reference_meta or "transform" not in reference_meta:
@@ -280,7 +254,7 @@ def load_angle_maps(
 	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
 	start_angle_deg = round_azimuth_to_nearest_12(float(az_deg))
 
-	# Pre-compute the SPICE ephemeris time at the start of the simulation
+	# SPICE ephemeris time at sim start
 	from cynthium.app.engine.illumination.sun_position import _ensure_kernels_loaded
 	_ensure_kernels_loaded()
 	start_et = spice.utc2et(utctime)
@@ -306,7 +280,6 @@ def load_angle_maps(
 			except ValueError as exc:
 				logger.warning(f"Failed to crop illum angle {bin_angle}: {exc}")
 
-		# Meteor energy
 		me_path = ensure_data_file_path(
 			resolve_data_file_path(METEOR_ANGLES_DIR / f"meteor_energy_angle_{bin_angle}.tif")
 		)
@@ -317,7 +290,6 @@ def load_angle_maps(
 			except ValueError as exc:
 				logger.warning(f"Failed to crop meteor energy angle {bin_angle}: {exc}")
 
-		# Meteor number
 		mn_path = ensure_data_file_path(
 			resolve_data_file_path(DATA_ROOT / f"meteor_number_angle_{bin_angle}.tif")
 		)
@@ -352,17 +324,7 @@ def load_cropped_context_raster(
 	reference_path: str,
 	label: str,
 ) -> RasterPayload:
-	"""
-	Loads the cropped context raster.
-
-	:param source_path: Path to the source file.
-	:type source_path: Path
-	:param reference_path: Path to the reference file.
-	:type reference_path: str
-	:param label: Label text.
-	:type label: str
-	:return: The resulting value.
-	"""
+	"""Load a raster cropped to match a reference raster's bounds."""
 	source_path = ensure_data_file_path(resolve_data_file_path(source_path))
 	if not source_path.exists():
 		logger.warning(f"Missing {label} raster: {source_path}")
@@ -395,21 +357,7 @@ def select_display_raster(
 	meteor_number: RasterPayload = (None, None),
 	psr: RasterPayload = (None, None),
 ) -> RasterPayload:
-	"""
-	Selects the display raster.
-
-	:param map_type: Map type identifier.
-	:type map_type: str
-	:param elevation: Parameter value.
-	:type elevation: RasterPayload
-	:param slope: Parameter value.
-	:type slope: RasterPayload
-	:param illumination: Parameter value.
-	:type illumination: RasterPayload
-	:param temperature: Parameter value.
-	:type temperature: RasterPayload
-	:return: The resulting value.
-	"""
+	"""Select the correct raster for display based on map type, with fallbacks."""
 	map_key = _normalize_map_key(map_type)
 
 	if map_key == "slope":
@@ -441,17 +389,7 @@ def _fallback_if_missing(
 	fallback: RasterPayload,
 	label: str,
 ) -> RasterPayload:
-	"""
-	Performs fallback if missing.
-
-	:param requested: Parameter value.
-	:type requested: RasterPayload
-	:param fallback: Parameter value.
-	:type fallback: RasterPayload
-	:param label: Label text.
-	:type label: str
-	:return: The resulting value.
-	"""
+	"""Return the requested raster or fall back if unavailable."""
 	data, meta = requested
 	if data is None:
 		logger.warning(f"{label} map was requested, but it is unavailable.")

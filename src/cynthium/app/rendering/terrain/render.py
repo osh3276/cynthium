@@ -5,21 +5,8 @@ from pyvista import PolyData
 from cynthium.app.engine.illumination.sun_position import sun_position
 
 def arrow_mesh(tip_point, length=100.0, shaft_radius=50, tip_radius=100):
-	"""
-	Create an arrow whose tip is at `tip_point` and points downward (-z direction).
-
-	Parameters
-	----------
-	tip_point : list or array of 3 floats
-		Coordinates where the arrow tip will be placed.
-	length : float
-		Total length of the arrow (from start point to tip).
-	shaft_radius : float
-		Radius of the arrow shaft.
-	tip_radius : float
-		Radius of the arrow cone (tip).
-	"""
-	direction = np.array([0, 0, -1])  # downward direction
+	"""Create an arrow whose tip is at `tip_point` pointing downward (-z)."""
+	direction = np.array([0, 0, -1])  # downward
 	start_point = tip_point - direction * length  # start above the tip
 	arrow = pyvista.Arrow(start=start_point, direction=direction,
 						  scale=length, shaft_radius=shaft_radius,
@@ -31,17 +18,7 @@ class TerrainRenderer(PolyData):
 	def __init__(
 		self, data: np.ndarray, origin: tuple = (0, 0, 0), spacing: tuple = (5, 5, 1)
 	):
-		"""
-		Initializes the TerrainRenderer instance.
-
-		:param data: Input data.
-		:type data: np.ndarray
-		:param origin: Parameter value.
-		:type origin: tuple
-		:param spacing: Parameter value.
-		:type spacing: tuple
-		:return: None
-		"""
+		"""Build a PyVista ImageData mesh from the elevation raster."""
 		grid = pyvista.ImageData()
 		grid.dimensions = (data.shape[1], data.shape[0], 1)
 		grid.origin = origin
@@ -57,15 +34,7 @@ class TerrainRenderer(PolyData):
 		)
 
 	def compute_hillshade(self, utctime: str, center_longlat: tuple = (-89, 0)):
-		"""
-		Computes the hillshade.
-
-		:param utctime: UTC time string.
-		:type utctime: str
-		:param center_longlat: Longitude and latitude of the raster center.
-		:type center_longlat: tuple
-		:return: The resulting value.
-		"""
+		"""Compute hillshade from sun position at the given time and location."""
 		az, _el = sun_position(center_longlat[1], center_longlat[0], utctime)
 
 		az = np.radians(az)

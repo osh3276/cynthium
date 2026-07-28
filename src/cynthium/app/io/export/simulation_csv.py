@@ -41,20 +41,7 @@ def write_simulation_csv(
 	points: np.ndarray | None,
 	pause_durations: list[float] | None = None,
 ):
-	"""
-	Writes the simulation csv.
-
-	:param path: Path to the file.
-	:type path: str | Path
-	:param metadata: Parameter value.
-	:type metadata: dict[str, str]
-	:param stats: Simulation statistics.
-	:type stats: dict[str, float]
-	:param points: Point data.
-	:type points: np.ndarray | None
-	:param pause_durations: Optional list of pause durations (seconds) per leg.
-	:type pause_durations: list[float] | None
-	"""
+	"""Write simulation stats and waypoint data to a CSV file."""
 	with open(path, "w", newline="") as csv_file:
 		writer = csv.writer(csv_file)
 		writer.writerow(["metadata_key", "metadata_value"])

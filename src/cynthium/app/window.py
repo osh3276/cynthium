@@ -39,9 +39,6 @@ from .ui.panels.simulation_results_panel import SimulationResultsPanel
 logger = get_logger(__name__)
 
 
-# ── Background worker functions (run in QThread, no Qt access) ──
-
-
 
 def _run_autopath(
 		user_wps, path_mode, rover, map_data_bundle,
@@ -112,13 +109,7 @@ def _run_simulation(manual_points, auto_points, mdb, rover,
 					center_lat=None,
 					center_lon=None,
 					start_et=None):
-	"""Run simulation computation in a background thread (no file I/O).
-
-	``mdb`` must be a fully-prepared tuple with daily meteor rasters
-	already loaded on the main thread.
-	Returns a dict with keys: manual_stats, manual_points_array,
-	auto_stats, auto_points_array.
-	"""
+	"""Run simulation in background thread with pre-loaded meteor rasters."""
 	manual_stats, manual_points_array = calculate_simulation_stats(
 		manual_points,
 		mdb,
@@ -166,11 +157,6 @@ class Window(QMainWindow):
 	_raster_view: MapView
 
 	def __init__(self):
-		"""
-		Initializes the Window instance.
-
-		:return: None
-		"""
 		super().__init__()
 		self.setWindowTitle("Cynthium")
 		self.setGeometry(100, 100, 1600, 900)
@@ -186,19 +172,15 @@ class Window(QMainWindow):
 		self._last_autopath_points = None
 		self._rover_settings_override = None
 
-		# self.addToolBar(create_toolbar(self))
-
 		self._menubar = AppMenuBar(self)
 		self.setMenuBar(self._menubar)
 
-		# Create central widget and layout
 		content = QWidget()
 		self.setCentralWidget(content)
 
 		root = QVBoxLayout(content)
 		root.setContentsMargins(0, 0, 0, 0)
 
-		# Add widgets
 		self._view_container = ViewContainer(self)
 		self._results_panel = SimulationResultsPanel(self)
 		self._sidebar = AppSidebar()
@@ -223,21 +205,12 @@ class Window(QMainWindow):
 		logger.info("Window initialized")
 
 	def on_button_clicked(self):
-		"""
-		Handles button clicked.
-
-		:return: None
-		"""
 		logger.info("Button clicked")
 
 
 
-	def _connect_signals(self):
-		"""
-		Performs connect signals.
-
-		:return: The resulting value.
-		"""
+	    def _connect_signals(self):
+		        """Connect menu bar actions and UI signals."""
 		self._menubar.action_import_tif.triggered.connect(self._import_custom_tif)
 		self._menubar.action_import_settings.triggered.connect(
 			self._import_settings
@@ -301,12 +274,10 @@ class Window(QMainWindow):
 	def _on_open_rover_settings(self):
 		from cynthium.app.ui.panels.rover_settings_dialog import RoverSettingsDialog
 
-		# Get current rover settings from sidebar
 		try:
 			current = self._sidebar.get_rover_settings()
 		except Exception:
 			current = None
-		# Merge stored override into current for pre-fill
 		if current is not None and self._rover_settings_override is not None:
 			current = self._rover_settings_override
 
@@ -315,7 +286,6 @@ class Window(QMainWindow):
 			updated = dlg.get_settings()
 			if updated is not None:
 				self._rover_settings_override = updated
-				# Sync basic fields back to sidebar panel
 				self._sidebar._rover_settings_panel.set_values(
 					str(updated.mass_kg),
 					str(updated.power_hp),
@@ -335,7 +305,6 @@ class Window(QMainWindow):
 			self._sidebar.set_autopath_waypoints(None)
 			return
 
-		# Parse and validate waypoints
 		user_wps: list[tuple[float, float]] = []
 		for wp in waypoints_xy:
 			if not (isinstance(wp, (list, tuple)) and len(wp) == 2):
@@ -354,7 +323,6 @@ class Window(QMainWindow):
 			self._sidebar.set_autopath_waypoints(None)
 			return
 
-		# Capture all data for background thread
 		vc = self._view_container
 		map_data_bundle = vc.get_current_map_data()
 		path_mode = str(payload.get("path_mode", "Waypoint to waypoint"))
@@ -367,10 +335,9 @@ class Window(QMainWindow):
 		cost_strategy = str(payload.get("cost_strategy", "Weighted cost"))
 		algorithm = str(payload.get("algorithm", "A*"))
 
-		# Pre-load rasters on the main thread (no file I/O in background)
 		elevation_data = map_data_bundle[0]
 		elevation_meta = map_data_bundle[1]
-		# Read fresh date/time from the UI (not stale _current_datetime)
+		# Use UI datetime - not stale cached value
 		current_datetime = self._sidebar.get_datetime() or str(self._current_datetime)
 		illum_data, illum_meta = map_data_bundle[5], map_data_bundle[6]
 		meteor_data, meteor_meta = map_data_bundle[7], map_data_bundle[8]
@@ -396,7 +363,6 @@ class Window(QMainWindow):
 			if daily_meteor[0] is not None:
 				meteor_data, meteor_meta = daily_meteor
 
-		# Pre-load rasters on the main thread (no file I/O in background)
 		illumination_maps = None
 		meteor_energy_maps = None
 		meteor_number_maps = None
@@ -417,7 +383,6 @@ class Window(QMainWindow):
 			center_lon = result[5]
 			start_et = result[6]
 
-		# Kick off background thread
 		pause_durs = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 
 		self._path_popup = ProgressPopup("Autopath", "Computing autopath...", self)
@@ -488,11 +453,6 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Autopath complete: {len(site_path_xy)} nodes (validated via simulation)")
 
 	def _on_start_simulation(self):
-		"""
-		Handles start simulation.
-
-		:return: None
-		"""
 		manual_points = self._view_container.get_waypoint_3d_points()
 		auto_points = self._view_container.get_autopath_3d_points()
 
@@ -508,7 +468,6 @@ class Window(QMainWindow):
 			self.statusBar().showMessage("Ready")
 			return
 
-		# Pre-load meteor rasters on the main thread (no file I/O in background)
 		vc = self._view_container
 		mdb = list(vc.get_current_map_data())
 		current_path = vc._current_path
@@ -519,7 +478,7 @@ class Window(QMainWindow):
 				int(current_data.shape[0]),
 				int(current_data.shape[1]),
 			) if current_data is not None else None
-			# Read fresh date/time from the UI (not stale _current_datetime)
+			# Use UI datetime - not stale cached value
 			current_datetime = self._sidebar.get_datetime() or str(self._current_datetime)
 			daily_meteor = load_daily_avg_meteor_raster(
 				reference_path=current_path, reference_meta=current_meta,
@@ -536,7 +495,7 @@ class Window(QMainWindow):
 				mdb[9] = daily_meteor_number[0]
 				mdb[10] = daily_meteor_number[1]
 
-		# Load all angle maps on the main thread for multi-day traversal support
+		# Pre-load angle maps for multi-day traversal support
 		illumination_maps = None
 		meteor_energy_maps = None
 		meteor_number_maps = None
@@ -560,7 +519,6 @@ class Window(QMainWindow):
 		use_bicubic = self._sidebar.get_bicubic_enabled()
 		pause_durs = self._sidebar.get_pause_durations()
 
-		# Kick off background thread
 		self._sim_popup = ProgressPopup("Simulation", "Running simulation...", self)
 		self._sim_worker = Worker(
 			_run_simulation,
@@ -599,7 +557,6 @@ class Window(QMainWindow):
 
 		self._results_panel.set_stats(manual_stats, auto_stats)
 
-		# Mark failure point on the manual path if traversal failed
 		manual_feasible = float(manual_stats.get("traverse_feasible", 1.0)) >= 0.5
 		if not manual_feasible:
 			fx = manual_stats.get("failure_x")
@@ -628,7 +585,6 @@ class Window(QMainWindow):
 				"\n\n".join(warnings),
 			)
 
-		# Show completion popup
 		feasible = float(manual_stats.get("traverse_feasible", 1.0)) >= 0.5
 		t_sec = float(manual_stats.get("traversal_time_s", 0.0))
 		if t_sec >= 3600:
@@ -668,11 +624,7 @@ class Window(QMainWindow):
 		QMessageBox.critical(self, "Simulation", f"Simulation failed.\n\n{error_msg}")
 
 	def _export_simulation_data(self):
-		"""
-		Performs export simulation data.
-
-		:return: The resulting value.
-		"""
+		"""Export the last simulation results to CSV files."""
 		if self._last_simulation_stats is None or self._last_simulation_points is None:
 			QMessageBox.warning(
 				self,
@@ -744,11 +696,7 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Simulation data exported to {base}_manual.csv and {base}_auto.csv")
 
 	def _open_file_dialog(self):
-		"""
-		Performs open file dialog.
-
-		:return: The resulting value.
-		"""
+		"""Open a file dialog to load a GeoTIFF."""
 		path, _ = QFileDialog.getOpenFileName(
 			self,
 			"Open GeoTIFF",
@@ -844,14 +792,12 @@ class Window(QMainWindow):
 		"""Export all current settings (rover, autopath, waypoints, etc.) as JSON."""
 		settings = self._sidebar.export_settings()
 
-		# Add session-level info
 		settings["session"] = {
 			"site_path": self._current_path or "",
 			"datetime": self._current_datetime,
 			"map_type": self._current_map_type,
 		}
 
-		# Add autopath result if available
 		auto_points = self._view_container.get_autopath_3d_points()
 		if auto_points and len(auto_points) >= 2:
 			settings["autopath_result"] = [
@@ -905,12 +851,9 @@ class Window(QMainWindow):
 			)
 			return
 
-		# Apply settings to sidebar panels.
-		# import_settings emits waypoints_cleared then waypoint_added per waypoint,
-		# which auto-syncs the view container — no extra sync needed.
+		# import_settings auto-syncs view container via waypoint signals
 		self._sidebar.import_settings(settings)
 
-		# If the settings include a session with a site path, load it
 		session = settings.get("session", {})
 		site_path = session.get("site_path", "")
 		if site_path and Path(site_path).exists():
@@ -921,11 +864,7 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Settings imported from {path}")
 
 	def _import_custom_tif(self):
-		"""Import a custom GeoTIFF with CRS validation.
-
-		The imported TIF must be in the lunar south-pole stereographic projection
-		(LUNAR_CRS_PROJ), matching the preset site rasters.
-		"""
+		"""Import a custom GeoTIFF, validating it matches the lunar stereographic CRS."""
 		path, _ = QFileDialog.getOpenFileName(
 			self,
 			"Import Custom GeoTIFF",
@@ -935,7 +874,6 @@ class Window(QMainWindow):
 		if not path:
 			return
 
-		# Validate projection against the lunar stereographic CRS
 		try:
 			with rasterio.open(path) as src:
 				src_crs = src.crs
@@ -987,20 +925,13 @@ class Window(QMainWindow):
 				)
 				return
 
-		# Projection is valid — load the site
-		self._load_site_with_datetime(
+			self._load_site_with_datetime(
 			path, self._current_datetime, self._current_map_type
 		)
 
 
 	def _load_site(self, path: str):
-		"""
-		Performs load site.
-
-		:param path: Path to the file.
-		:type path: str
-		:return: The resulting value.
-		"""
+		"""Load a site raster by path."""
 		self._load_site_with_datetime(
 			path, self._current_datetime, self._current_map_type
 		)
@@ -1026,17 +957,7 @@ class Window(QMainWindow):
 	def _load_site_with_datetime(
 		self, path: str, datetime_str: str, map_type: str = "Elevation"
 	):
-		"""
-		Performs load site with datetime.
-
-		:param path: Path to the file.
-		:type path: str
-		:param datetime_str: Parameter value.
-		:type datetime_str: str
-		:param map_type: Map type identifier.
-		:type map_type: str
-		:return: The resulting value.
-		"""
+		"""Load a site with a specific datetime and map type."""
 		path = self._normalize_path(path)
 		datetime_str = self._normalize_datetime_str(datetime_str)
 
@@ -1065,17 +986,9 @@ class Window(QMainWindow):
 		self.statusBar().showMessage(f"Loaded {map_type} map: {path} at {datetime_str}")
 
 	def _on_refresh(self):
-		"""
-		Handles refresh.
-
-		:return: None
-		"""
+		"""Handle refresh (placeholder)."""
 		pass
 
 	def get_view_container(self):
-		"""
-		Returns the view container.
-
-		:return: The resulting value.
-		"""
+		"""Return the view container widget."""
 		return self._view_container
