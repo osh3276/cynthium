@@ -59,6 +59,7 @@ def _run_autopath(
 		center_lat=None,
 		center_lon=None,
 		start_et=None,
+		pause_durations=None,
 ):
 	"""Run autopath computation in a background thread (no file I/O, no Qt)."""
 	def _pathfind_segment(start_xy, goal_xy, blocked):
@@ -98,6 +99,7 @@ def _run_autopath(
 		center_lat=center_lat,
 		center_lon=center_lon,
 		start_et=start_et,
+		pause_durations=pause_durations,
 	)
 
 
@@ -416,6 +418,8 @@ class Window(QMainWindow):
 			start_et = result[6]
 
 		# Kick off background thread
+		pause_durs = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
+
 		self._path_popup = ProgressPopup("Autopath", "Computing autopath...", self)
 		self._path_worker = Worker(
 			_run_autopath,
@@ -430,6 +434,7 @@ class Window(QMainWindow):
 			illumination_maps, meteor_energy_maps,
 			meteor_number_maps, start_angle_deg,
 			center_lat, center_lon, start_et,
+			pause_durs,
 		)
 		self._path_thread = QThread()
 		self._path_worker.moveToThread(self._path_thread)

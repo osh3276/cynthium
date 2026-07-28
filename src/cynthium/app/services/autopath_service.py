@@ -33,6 +33,7 @@ def _validate_segment_with_simulation(
 	center_lat: float | None = None,
 	center_lon: float | None = None,
 	start_et: float | None = None,
+	pause_durations: list[float] | None = None,
 ) -> tuple[bool, dict]:
 	"""Run physics simulation on a path and return (feasible, stats)."""
 	try:
@@ -61,6 +62,7 @@ def _validate_segment_with_simulation(
 				center_lon=center_lon,
 				start_et=start_et,
 				rover=rover, use_bicubic=use_bicubic,
+				pause_durations=pause_durations,
 			)
 		)
 		feasible = float(stats.get("traverse_feasible", 0.0)) >= 0.5
@@ -85,6 +87,7 @@ def compute_validated_path(
 	center_lat: float | None = None,
 	center_lon: float | None = None,
 	start_et: float | None = None,
+	pause_durations: list[float] | None = None,
 ) -> dict:
 	"""Pathfind with simulation validation retry loop.
 
@@ -133,6 +136,7 @@ def compute_validated_path(
 			center_lat=center_lat,
 			center_lon=center_lon,
 			start_et=start_et,
+			pause_durations=pause_durations,
 		)
 		last_stats = stats
 		last_failure_xy = (
