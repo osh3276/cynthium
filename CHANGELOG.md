@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-07-30
+
+### Added
+
+- **Sun-angle-driven illumination map switching during simulation.**
+  The simulation now uses the correct illumination raster at each timestep
+  based on the rover's current position and elapsed simulation time. When
+  the sun azimuth crosses a 12-degree bin boundary, the illumination cost
+  and solar energy accumulation switch to the corresponding angle-specific
+  raster in real time. (#9a3a025)
+- **Battery drain failure simulation.** The rover simulation now detects
+  battery depletion during drive, pivot, and pause phases. A red marker
+  appears at the exact location where the battery died, along with the
+  reason text "Battery depleted". (#8b8e3f1)
+- **Comprehensive test suite.** 13 test files covering A*, config, CSV/
+  JSON export, multi-angle illumination, the orchestrator, path sampling,
+  path statistics, PID speed controller, point conversion, rover settings,
+  simulation utilities, and site rasters — totalling over 2,300 lines.
+  (#653fe89)
+- **Statement of need and contribution guide.** `STATEMENT_OF_NEED.md`
+  and `CONTRIBUTING.md` document the project's audience, use cases,
+  development workflow, and release process. (#b7b0ea9)
+- **Docstrings across the codebase.** Google-style docstrings added to
+  engine, services, io, and ui modules. (#0ee05d8)
+
+### Fixed
+
+- **Pause durations dropped in autopath pipeline.** Per-waypoint pause
+  durations are now correctly propagated through the autopath validation
+  loop so the simulation respects them. (#750d984)
+
+### Changed
+
+- **Dead code removal.** Stripped unused modules, commented-out blocks,
+  and legacy code paths across 19 files, reducing the codebase by over
+  550 net lines. (#8081dfe)
+
+### Style
+
+- **Tabs over spaces in window.py.** Fixed two space-indented lines in
+  `window.py` to use tabs, consistent with the project convention.
+  (#cc7b668)
+
 ## [1.1.1] — 2026-07-27
 
 ### Fixed
@@ -80,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release with terrain analysis, manual waypoint planning, A*/Dijkstra
   pathfinding, rover simulation, and multi-format export.
 
+[1.2.0]: https://github.com/osh3276/cynthium/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/osh3276/cynthium/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/osh3276/cynthium/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/osh3276/cynthium/releases/tag/v1.0.0

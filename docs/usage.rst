@@ -61,7 +61,7 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      does not account for terrain occlusion, local horizon, or time of day.
      Only the azimuth of the light source is accurate to real conditions.
 
-* **Solar Illumination**: annual or daily-average solar exposure.
+**Solar Illumination**: annual or daily-average solar exposure.
 
   .. note::
 
@@ -70,6 +70,12 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      nearest 12° bin (30 bins total), and loads the pre-computed raster
      for that bin. This discretisation roughly lines up with a month's
      worth of days but is only a snapshot, not a time-weighted mean.
+
+     During simulation, the illumination raster is re-evaluated at each
+     timestep based on the rover's current position and elapsed simulation
+     time. When the sun azimuth crosses a 12° bin boundary, the
+     illumination cost and solar energy accumulation switch to the
+     corresponding angle-specific raster in real time.
 
 * **Meteor Flux**: modelled meteorite impact flux.
 
@@ -294,13 +300,14 @@ The simulation steps are:
   torque limits
 * **Feasible?**: whether the rover could complete the traverse
 * **Battery stats**: remaining charge (%), energy consumed (kJ),
-  and battery capacity (Wh)
+  battery capacity (Wh), and whether the battery was depleted mid-run
 
-If the rover gets stuck, a **red marker** appears on both the 2D map
-and 3D terrain view at the exact location where it stalled, along with
-a text reason (e.g. "Insufficient traction — rover cannot make
-progress").  The manual path and autopath each have their own marker,
-so both failure points are visible simultaneously.
+If the rover gets stuck or its battery is depleted, a **red marker**
+appears on both the 2D map and 3D terrain view at the exact location
+where it stalled, along with a text reason (e.g. "Insufficient traction
+— rover cannot make progress" or "Battery depleted").  The manual path
+and autopath each have their own marker, so both failure points are
+visible simultaneously.
 
 6. Inspect in 3D
 ****************
