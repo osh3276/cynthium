@@ -78,24 +78,9 @@ class ViewContainer(QWidget):
 		map_type: str = "Elevation",
 		date: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
 	):
-		"""
-		Loads a site from a pre-split 20 m/px tile.
-
-		Given a 5 m/px preset path (e.g. ``Haworth_5mpp_surf.tif``), derives
-		the matching 20 m/px tile (``Haworth_20mpp_surf.tif``) in the same
-		directory and loads that as the elevation data.
-
-		:param path: Path to the 5 m/px site file.
-		:type path: str
-		:param map_type: Map type identifier.
-		:type map_type: str
-		:param date: Parameter value.
-		:type date: str
-		:return: The resulting value.
-		"""
+		"""Load elevation and context rasters (slope, illumination, temperature, meteor)."""
 		path = str(ensure_data_file_path(Path(path)))
 
-		# The preset path already points to the 20 m/px tile.
 		path_20 = path
 
 		data, meta = load_geotif(path_20)
@@ -131,13 +116,7 @@ class ViewContainer(QWidget):
 		self.terrain_view.load(path_20, date, data=data, meta=meta)
 
 	def display_map_type(self, map_type: str) -> bool:
-		"""
-		Displays the map type.
-
-		:param map_type: Map type identifier.
-		:type map_type: str
-		:return: The resulting value.
-		"""
+		"""Switch the displayed raster layer to the given map type."""
 		if self._current_data is None or self._current_meta is None:
 			logger.warning("Cannot display map type before a site has been loaded.")
 			return False
@@ -147,7 +126,6 @@ class ViewContainer(QWidget):
 		map_key = re.sub(r"_+", "_", map_key).strip("_")
 
 		illumination_raster = self._illumination_raster
-		# Retry loading context rasters if they failed initially.
 		if illumination_raster[0] is None or self._temperature_raster[0] is None or self._meteor_raster[0] is None:
 			if self._current_path:
 				reloaded = load_context_rasters(self._current_path, utctime=str(self._current_datetime))
@@ -161,7 +139,7 @@ class ViewContainer(QWidget):
 		is_daily_illum = map_key in {"solar_illumination_day_avg", "solar_illumination_daily_avg"}
 		is_monthly_illum = map_key in {"solar_illumination", "solar_illumination_mo_avg", "solar_illumination_monthly_avg"}
 
-		# For daily avg, or monthly avg when monthly raster is unavailable, load daily angle.
+		# Fall back to daily angle when monthly avg is unavailable.
 		if (is_daily_illum or (is_monthly_illum and illumination_raster[0] is None)) and self._current_path:
 			daily = load_daily_avg_illumination_raster(
 				reference_path=str(self._current_path),
@@ -233,47 +211,27 @@ class ViewContainer(QWidget):
 
 	@property
 	def _elevation_raster(self) -> RasterPayload:
-		"""
-		Performs elevation raster.
-
-		:return: The resulting value.
-		"""
+		"""(current elevation data, meta)."""
 		return self._current_data, self._current_meta
 
 	@property
 	def _slope_raster(self) -> RasterPayload:
-		"""
-		Performs slope raster.
-
-		:return: The resulting value.
-		"""
+		"""(current slope data, meta)."""
 		return self._current_slope_data, self._current_slope_meta
 
 	@property
 	def _illumination_raster(self) -> RasterPayload:
-		"""
-		Performs illumination raster.
-
-		:return: The resulting value.
-		"""
+		"""(current illumination data, meta)."""
 		return self._current_illumination_data, self._current_illumination_meta
 
 	@property
 	def _temperature_raster(self) -> RasterPayload:
-		"""
-		Performs temperature raster.
-
-		:return: The resulting value.
-		"""
+		"""(current temperature data, meta)."""
 		return self._current_temperature_data, self._current_temperature_meta
 
 	@property
 	def _meteor_raster(self) -> RasterPayload:
-		"""
-		Performs meteor flux raster.
-
-		:return: The resulting value.
-		"""
+		"""(current meteor flux data, meta)."""
 		return self._current_meteor_data, self._current_meteor_meta
 
 	@property
@@ -287,11 +245,7 @@ class ViewContainer(QWidget):
 		return self._current_psr_data, self._current_psr_meta
 
 	def get_current_map_data(self):
-			"""
-			Returns the current map data.
-
-			:return: The resulting value.
-			"""
+			"""Return current map data and all context layers."""
 			return (
 				self._current_data,
 				self._current_meta,
@@ -307,15 +261,7 @@ class ViewContainer(QWidget):
 			)
 
 	def add_waypoint(self, x: float, y: float):
-		"""
-		Adds the waypoint.
-
-		:param x: X coordinate.
-		:type x: float
-		:param y: Y coordinate.
-		:type y: float
-		:return: None
-		"""
+		"""Add a waypoint on both views."""
 		self.clear_failure_point()
 		self.clear_sim_failure_point()
 		self.raster_view.add_waypoint(x, y)
@@ -329,56 +275,48 @@ class ViewContainer(QWidget):
 		self.terrain_view.edit_waypoint(index, x, y)
 
 	def remove_waypoint(self, index: int):
-		"""
-		Removes the waypoint.
-
-		:param index: Item index.
-		:type index: int
-		:return: None
-		"""
+		"""Remove a waypoint on both views."""
 		self.clear_failure_point()
 		self.clear_sim_failure_point()
 		self.raster_view.remove_waypoint(index)
 		self.terrain_view.remove_waypoint(index)
 
 	def clear_all_waypoints(self):
+		"""Clear all waypoints from both views."""
 		self.raster_view.clear_all_waypoints()
 		self.terrain_view.clear_all_waypoints()
 
 	def get_waypoint_3d_points(self):
-		"""
-		Returns the waypoint 3d points.
-
-		:return: The resulting value.
-		"""
+		"""Return waypoint positions as 3D points."""
 		return self.terrain_view.get_waypoint_3d_points()
 
 	def get_autopath_3d_points(self) -> list[list[float]]:
-		"""
-		Returns the 3D points of the autogenerated path.
-
-		:return: List of 3D points.
-		"""
+		"""Return 3D points of the autogenerated path."""
 		return self.terrain_view.get_autopath_3d_points()
 
 	def set_autopath(self, points_xy: list[tuple[float, float]]):
+		"""Set the autopath line on both views."""
 		self._autopath_xy = list(points_xy)
 		self.raster_view.set_autopath(self._autopath_xy)
 		self.terrain_view.set_autopath(self._autopath_xy)
 
 	def set_failure_point(self, x: float, y: float):
+		"""Set a failure marker on both views."""
 		self.raster_view.set_failure_point(x, y)
 		self.terrain_view.set_failure_point(x, y)
 
 	def clear_failure_point(self):
+		"""Clear the failure marker on both views."""
 		self.raster_view.clear_failure_point()
 		self.terrain_view.clear_failure_point()
 
 	def set_sim_failure_point(self, x: float, y: float):
+		"""Set the simulation failure marker on both views."""
 		self.raster_view.set_sim_failure_point(x, y)
 		self.terrain_view.set_sim_failure_point(x, y)
 
 	def clear_sim_failure_point(self):
+		"""Clear the simulation failure marker on both views."""
 		self.raster_view.clear_sim_failure_point()
 		self.terrain_view.clear_sim_failure_point()
 
@@ -453,6 +391,7 @@ class ViewContainer(QWidget):
 		blocked_cells: set[tuple[int, int]] | None = None,
 		use_bicubic: bool = False,
 	) -> list[tuple[float, float]] | None:
+		"""Compute an optimal path between two points on the current elevation map."""
 		if self._current_data is None or self._current_meta is None:
 			return None
 		if "transform" not in self._current_meta:
@@ -482,7 +421,7 @@ class ViewContainer(QWidget):
 		c0 = max(0, min(sc, gc) - pad)
 		c1 = min(W, max(sc, gc) + pad + 1)
 
-		# Pathfind at native resolution so slope checks are accurate.
+		# Native stride so slope checks are accurate.
 		stride = 1
 		upsample = 1
 
@@ -509,7 +448,6 @@ class ViewContainer(QWidget):
 			illum_data, illum_meta, elev, r0, r1, c0, c1, stride, transform,
 		)
 
-		# --- meteor flux sampling ---
 		meteor_data = self._current_meteor_data
 		meteor_meta = self._current_meteor_meta
 		if self._current_path:
@@ -525,7 +463,6 @@ class ViewContainer(QWidget):
 			meteor_data, meteor_meta, elev, r0, r1, c0, c1, stride, transform,
 		)
 
-		# --- temperature sampling ---
 		temp_norm = self._sample_raster_to_grid(
 			self._current_temperature_data, self._current_temperature_meta,
 			elev, r0, r1, c0, c1, stride, transform,
@@ -554,20 +491,17 @@ class ViewContainer(QWidget):
 
 		traversable = np.isfinite(elev)
 
-		# --- Bicubic upsampling for A* grid ---
 		if use_bicubic:
 			upsample = 4
 			elev = np.asarray(zoom(elev, upsample, order=3, mode="nearest"))
 			cell_cost = np.repeat(np.repeat(cell_cost, upsample, axis=0), upsample, axis=1)
 			traversable = np.repeat(np.repeat(traversable, upsample, axis=0), upsample, axis=1)
-			# Scale blocked cells to upsampled grid and apply directly
 			if blocked_cells:
 				for rr, cc in blocked_cells:
 					br0 = (rr - r0) * upsample
 					bc0 = (cc - c0) * upsample
 					traversable[br0:br0 + upsample, bc0:bc0 + upsample] = False
 				blocked_cells = None
-			# Adjust start/goal to upsampled local coords
 			sr_u = (sr - r0) * upsample
 			sc_u = (sc - c0) * upsample
 			gr_u = (gr - r0) * upsample
@@ -577,10 +511,8 @@ class ViewContainer(QWidget):
 			res_x = float(abs(transform.a)) / upsample
 			res_y = float(abs(transform.e)) / upsample
 
-		# Scale expansion limit to the (possibly upsampled) grid size
 		max_expanded = max(int(max_expanded), int(elev.size))
 
-		# Block cells from previous failed simulation attempts
 		if blocked_cells:
 			for rr, cc in blocked_cells:
 				rr_local = (rr - r0) // stride
@@ -592,7 +524,6 @@ class ViewContainer(QWidget):
 			start_local = (float((sr - r0) // stride), float((sc - c0) // stride))
 			goal_local = (float((gr - r0) // stride), float((gc - c0) // stride))
 
-		# Always allow start/goal cells.
 		if start_local is not None:
 			sl0, sl1 = int(start_local[0]), int(start_local[1])
 			if 0 <= sl0 < traversable.shape[0] and 0 <= sl1 < traversable.shape[1]:

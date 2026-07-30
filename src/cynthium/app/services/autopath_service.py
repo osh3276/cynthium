@@ -89,15 +89,7 @@ def compute_validated_path(
 	start_et: float | None = None,
 	pause_durations: list[float] | None = None,
 ) -> dict:
-	"""Pathfind with simulation validation retry loop.
-
-	Returns a dict with:
-	  - ``path_xy``: the final path polyline (or last attempted path)
-	  - ``feasible``: whether the path passed simulation
-	  - ``all_blocked``: set of blocked pixel coords from failed attempts
-	  - ``failure_xy``: (x, y) where rover got stuck, or None
-	  - ``stats``: simulation stats dict from last attempt
-	"""
+	"""Pathfind with simulation validation retry loop."""
 	pairs = _build_pairs(waypoints_xy, path_mode)
 	all_blocked: set[tuple[int, int]] = set()
 	overall_path: list[tuple[float, float]] = []
@@ -149,7 +141,7 @@ def compute_validated_path(
 			overall_feasible = True
 			break
 
-		# Block cells from this failed path
+		# Block cells from failed path
 		meta = dict(map_data_bundle[1]) if map_data_bundle[1] else {}
 		tr = meta.get("transform")
 		if tr is not None:

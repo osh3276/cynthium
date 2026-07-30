@@ -58,25 +58,23 @@ def _set_default_opengl_format():
 
 
 def main():
-	# --- 1. Parse CLI before any app imports (some flags affect module-level config) ---
+	"""Application entry point: parse CLI, initialise Qt, show main window."""
+	# Parse CLI
 	args = _parse_args()
 
-	# --data-dir: inject env var *before* anything imports config.py
 	if args.data_dir:
 		os.environ["CYNTHIUM_DATA_DIR"] = args.data_dir
 
-	# --verbose / --debug: configure root logger early
 	if args.debug or args.verbose:
 		import logging
 		level = logging.DEBUG if args.debug else logging.INFO
 		logging.basicConfig(level=level, force=False)
 
-	# --debug also tweaks the module-level DEBUG flag in config
 	if args.debug:
 		import cynthium.app.config as _cfg
 		_cfg.DEBUG = True
 
-	# --- 2. Normal app startup ---
+	# App startup
 	_set_default_opengl_format()
 
 	from PySide6.QtWidgets import QApplication

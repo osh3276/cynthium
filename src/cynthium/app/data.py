@@ -182,19 +182,16 @@ _store = pooch.create(
 
 
 def cache_dir() -> Path:
+	"""Return the local pooch cache directory path."""
 	return Path(str(_store.path))
 
 
 def _gui_downloader(url, output_file, _pooch, check_only=None):
-	"""Download a file with a live Qt progress dialog.
-
-	Follows the pooch custom downloader signature:
-	``(url, output_file, pooch, check_only=False)``.
-	"""
+	"""Download a file with a live Qt progress dialog."""
 	if check_only:
 		return
 
-	# Progress-bar download
+	# Progress-bar download with chunked streaming
 	from PySide6.QtCore import Qt
 	from PySide6.QtWidgets import QApplication, QProgressDialog
 
@@ -240,10 +237,9 @@ def _gui_downloader(url, output_file, _pooch, check_only=None):
 
 
 def fetch(filename: str) -> str:
-	"""Returns local path to the file, downloading if necessary.
+	"""Return local path to the file, downloading if necessary.
 
-	Shows a Qt progress dialog if a GUI application is running,
-	otherwise falls back to the terminal tqdm progress bar.
+	Uses Qt progress dialog if GUI is running, else tqdm terminal bar.
 	"""
 	from PySide6.QtWidgets import QApplication
 

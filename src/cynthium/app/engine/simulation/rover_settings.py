@@ -12,6 +12,7 @@ _MIN_CLIMB_V_MPS = 0.1  # minimum speed for power-limited climb
 
 @dataclass(frozen=True)
 class RoverSettings:
+    """Physical parameters and derived limits for a rover (mass, power, traction, etc.)."""
     mass_kg: float
     power_hp: float
     wheel_friction_coeff: float
@@ -35,26 +36,24 @@ class RoverSettings:
         """Maximum sustainable slope considering traction, power-to-mass, and torque.
 
         Returns the minimum of three limits:
-          1. Traction:  wheels slip when tan(θ) > μ − Crr
-          2. Power:     P / v ≥ m·g·(sin(θ) + Crr·cos(θ))  at v = 0.1 m/s
-          3. Torque:    T / r ≥ m·g·(sin(θ) + Crr·cos(θ))
+          1. Traction:  wheels slip when tan(theta) > mu - Crr
+          2. Power:     P / v >= m*g*(sin(theta) + Crr*cos(theta))  at v = 0.1 m/s
+          3. Torque:    T / r >= m*g*(sin(theta) + Crr*cos(theta))
         """
         mu = self.wheel_friction_coeff
         crr = self.rolling_resistance_coeff
         m = self.mass_kg
         g = G_MPS2
 
-        # ── 1. Traction limit ──
+        # Traction limit
         traction = degrees(atan(max(0.001, mu - crr)))
 
-        # ── 2. Power limit ──
-        # P / (v·m·g) = sin(θ) + Crr·cos(θ)
+        # Power limit
         p_w = self.power_w
         a_power = p_w / (_MIN_CLIMB_V_MPS * m * g)
         power = self._solve_slope(a_power, crr) if a_power > 0 else 0.0
 
-        # ── 3. Torque limit ──
-        # T / (r·m·g) = sin(θ) + Crr·cos(θ)
+        # Torque limit
         torque = 90.0  # no torque limit
         if self.motor_peak_torque_nm is not None and self.motor_peak_torque_nm > 0:
             a_torque = self.motor_peak_torque_nm / (self.wheel_radius_m * m * g)
@@ -64,10 +63,10 @@ class RoverSettings:
 
     @staticmethod
     def _solve_slope(a: float, crr: float) -> float:
-        """Solve  A = sin(θ) + Crr·cos(θ)  for θ in degrees.
+        """Solve  A = sin(theta) + Crr*cos(theta)  for theta in degrees.
 
-        Uses the identity  sin(θ) + k·cos(θ) = R·sin(θ + φ)
-        where  R = √(1 + k²)  and  φ = atan2(k, 1).
+        Uses the identity  sin(theta) + k*cos(theta) = R*sin(theta + phi)
+        where  R = sqrt(1 + k^2)  and  phi = atan2(k, 1).
         """
         r = sqrt(1.0 + crr * crr)
         phi = atan2(crr, 1.0)
@@ -153,6 +152,7 @@ def rover_settings_from_strings(
     max_brake_decel_mps2: str = "1.0",
     idle_drain_w: str = "10.0",
 ) -> RoverSettings:
+    """Parse string rover parameters into a validated RoverSettings."""
     m = float(mass_kg)
     p = float(power_hp)
     mu = float(wheel_friction_coeff)

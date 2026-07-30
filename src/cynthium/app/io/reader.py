@@ -6,6 +6,7 @@ from rasterio.windows import from_bounds
 
 
 def load_geotif(path):
+	"""Load a single-band GeoTIFF as a float32 array with metadata."""
 	with rasterio.open(path) as src:
 		data = src.read(1).astype(np.float32)
 		meta = {
@@ -18,6 +19,7 @@ def load_geotif(path):
 
 
 def load_geotif_cropped_to_reference(source_path, reference_path):
+	"""Load a GeoTIFF cropped to the spatial bounds of a reference raster."""
 	with (
 		rasterio.open(reference_path) as reference,
 		rasterio.open(source_path) as source,
