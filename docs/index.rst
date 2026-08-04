@@ -26,6 +26,7 @@ numerical accuracy, and reproducibility are critical.
    api/engine
    api/services
    api/ui
+   api/rendering
    api/io
    api/utils
    api/config

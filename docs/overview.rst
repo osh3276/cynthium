@@ -8,7 +8,7 @@ Features
 ********
 
 * **Multi-dimensional Visualization**: 2D map views and 3D terrain
-  visualisation using GeoTIFF data (LOLA / LRO).
+  visualisation using data from NASA's Lunar Reconnaissance Orbiter.
 * **Advanced Pathfinding**: Optimal path routing using A\* or Dijkstra,
   considering distance, terrain slope, solar illumination, meteor flux, and
   temperature.

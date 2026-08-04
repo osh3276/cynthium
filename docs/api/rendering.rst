@@ -1,25 +1,19 @@
-Map Views
+Rendering
 =========
 
-2D and 3D terrain visualization.
+PyVista-based 3D terrain rendering.
 
-2D Map View
------------
-
-.. automodule:: cynthium.app.ui.map.map_view
+.. automodule:: cynthium.app.rendering
    :members:
    :undoc-members:
    :show-inheritance:
 
-3D Terrain View
----------------
-
-.. automodule:: cynthium.app.ui.map.terrain_view
+.. automodule:: cynthium.app.rendering.terrain
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: cynthium.app.ui.map.view_container
+.. automodule:: cynthium.app.rendering.terrain.render
    :members:
    :undoc-members:
    :show-inheritance:
