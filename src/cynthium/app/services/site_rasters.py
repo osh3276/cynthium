@@ -255,8 +255,8 @@ def load_angle_maps(
 	start_angle_deg = round_azimuth_to_nearest_12(float(az_deg))
 
 	# SPICE ephemeris time at sim start
-	from cynthium.app.engine.illumination.sun_position import _ensure_kernels_loaded
-	_ensure_kernels_loaded()
+	from cynthium.app.engine.illumination.sun_position import ensure_kernels_loaded
+	ensure_kernels_loaded()
 	start_et = spice.utc2et(utctime)
 
 	logger.info(

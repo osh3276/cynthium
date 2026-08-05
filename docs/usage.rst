@@ -41,9 +41,6 @@ Simplified pipeline:
 #. A 20 m/px elevation tile loads automatically. A colour-mapped elevation
    image appears in the 2D map view.
 
-Sites are derived from the LDEM 20 m/px mosaic, split into individual tiles
-covering each landing site region.
-
 2. Select a Map Layer
 *********************
 
@@ -61,7 +58,7 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      does not account for terrain occlusion, local horizon, or time of day.
      Only the azimuth of the light source is accurate to real conditions.
 
-**Solar Illumination**: annual or daily-average solar exposure.
+* **Solar Illumination**: annual or daily-average solar exposure.
 
   .. note::
 
@@ -96,16 +93,9 @@ fallback.
 
 #. Click on the 2D map to place a **start point** (green marker).
 #. Click again to place a **goal point** (green marker).
-#. Click *Autopath* to find the optimal route. A progress dialog
-	   appears while the path is computed — the UI stays responsive
-	   because the calculation runs in a background thread.
-#. The optimal path is overlaid on the map as a blue polyline.
-	   If the path fails physics validation, the last attempted route
-	   is shown in blue with a **red marker** at the point where the
-	   rover got stuck.
-#. Click *Clear path* at any time to remove all waypoints, autopath
-   results, and failure markers from both the 2D map and 3D terrain
-   view at once.
+#. Click *Autopath* to find the optimal route. A progress dialog appears while the path is computed.
+#. The optimal path is overlaid on the map as a blue polyline. If the path fails physics validation, the last attempted route is shown in blue with a **red marker** at the point where the rover got stuck.
+#. Click *Clear path* at any time to remove all waypoints, autopath results, and failure markers from both the 2D map and 3D terrain view at once.
 
 **Pathfinding algorithm**: A\* (default) or Dijkstra (see :doc:`algorithms`).
 The algorithm minimises a weighted cost function that blends four terrain
@@ -118,7 +108,7 @@ factors:
 
 The cost for each step combines a per-cell penalty from the raster
 layers and a grade penalty from elevation change.  Each factor has
-its own weight slider (see *Configure Pathfinding* below) — set a
+its own weight slider (see *Configure Pathfinding* below). set a
 weight to zero to ignore that factor entirely.
 
 For the exact mathematical formulation see :doc:`algorithms`.
@@ -201,19 +191,12 @@ settings:
        Enabling it makes both autopath and simulation slower
        but more accurate.
 
-.. tip::
-
-   **Minimax** is useful for mission-critical routes where
-   exceeding a slope or shadow threshold is unacceptable.
-   **Weighted cost** is better for everyday exploration where
-   a reasonable trade-off is acceptable.
-
 4. Configure the Rover
 **********************
 
 Select a rover preset from the dropdown (Curiosity, Perseverance,
 Apollo LRV, or Artemis SR), or customise the parameters manually via
-**Tools → Rover Settings** (accessible from the toolbar or the
+**Tools > Rover Settings** (accessible from the toolbar or the
 **Rover Settings** button in the sidebar).
 
 The configurable parameters are:
@@ -255,15 +238,14 @@ The configurable parameters are:
      - Constant power draw (W) for computers, sensors, and avionics.
 
 These map directly to the physics model described under :doc:`algorithms`.
-Access the full settings dialog from **Tools → Rover Settings** or click
+Access the full settings dialog from **Tools > Rover Settings** or click
 the **Rover Settings** button in the sidebar's planning panel.
 
 5. Run a Simulation
 *******************
 
 Click *Run Simulation* to execute the physics-based 4-wheel skid-steer
-rover traverse. A progress dialog appears and the UI stays responsive
-— the simulation runs in a background thread.
+rover traverse. A progress dialog appears and the UI stays responsive.
 
 The simulation steps are:
 
@@ -274,40 +256,54 @@ The simulation steps are:
 
    * **DRIVE** — target speed set by the configured cruise speed
      (ramped over the last 10 m). A PID controller outputs throttle 0–1.
-   * **STOP** — once within 3 m of the waypoint, the rover coasts to a
-     stop via motor resistance (back-EMF + Coulomb friction — no brake).
+   * **STOP** — once within 3 m of the waypoint, the rover brakes and stops.
    * **PAUSE** (optional) — waits for the configured per-waypoint pause
      duration before continuing.
    * **PIVOT** — applies opposing left/right thrusts to rotate in place
      until the heading aligns with the next waypoint.
 
-#. At each timestep, compute wheel torques from the motor (drive) and
-   back-EMF + Coulomb friction (resistive), split per side, then
+#. At each timestep, compute wheel torques from the motor (drive) split per side, then
    integrate to update vehicle speed, position, and heading.
-#. Accumulate solar energy dose by sampling the illumination raster
+#. Accumulate solar energy, meteor energy, temperature by sampling the corresponding raster
    at the rover's current position.
 #. Consume battery energy (motor power × throttle + idle drain).
 
 **Results table** (organised into **Path**, **Slope**, and
-**Environment** tabs):
+**Environment** tabs, matching the results panel):
+
+**Path tab**
 
 * Total distance travelled and straight-line displacement
 * Elevation gain and net elevation change
-* Average / max / min traversal slope
+* Average resolution of the sampled path (m/px)
 * Average / max velocity and traversal time (including pauses)
-* Solar energy received (J/m²) and average illumination (W/m²)
 * **Max climbable slope** derived from traction, power-to-mass, and
   torque limits
-* **Feasible?**: whether the rover could complete the traverse
+* **Traverse feasible?**: whether the rover could complete the
+  traverse
 * **Battery stats**: remaining charge (%), energy consumed (kJ),
   battery capacity (Wh), and whether the battery was depleted mid-run
+
+**Slope tab**
+
+* Traversal slope (avg / max / min), derived from elevation change
+  along the path
+* Surface slope (avg / max / min), sampled from the slope raster
+
+**Environment tab**
+
+* Temperature (avg / max / min) in K
+* Illumination — percent of the path in sunlight (yearly avg),
+  time-weighted average solar illumination (W/m²), and total solar
+  energy received (J/m²)
+* Meteor flux (avg / max / min) in J/yr·m² and meteor number
+  (avg / max / min)
 
 If the rover gets stuck or its battery is depleted, a **red marker**
 appears on both the 2D map and 3D terrain view at the exact location
 where it stalled, along with a text reason (e.g. "Insufficient traction
 — rover cannot make progress" or "Battery depleted").  The manual path
-and autopath each have their own marker, so both failure points are
-visible simultaneously.
+and autopath each have their own marker.
 
 6. Inspect in 3D
 ****************
@@ -325,16 +321,16 @@ The 3D view is built with PyVista (VTK); see
 7. Export Results
 *****************
 
-Use **File → Export Manual Path** to save the current waypoints (x, y, z)
-as a CSV file, or **File → Export Auto Path** to save the computed autopath
+Use **File > Export Manual Path** to save the current waypoints (x, y, z)
+as a CSV file, or **File > Export Auto Path** to save the computed autopath
 coordinates.
 
-Use **File → Export Simulation Data** (Ctrl+E) to save the full simulation
+Use **File > Export Simulation Data** (Ctrl+E) to save the full simulation
 statistics and path waypoints as CSV. The CSV contains one row per
 simulation run with all the statistics listed above, suitable for external
 analysis in Excel, MATLAB, or pandas.
 
-Use **File → Export Settings...** to save all current configuration — rover
+Use **File > Export Settings...** to save all current configuration — rover
 preset and custom values, autopath weights/algorithm/strategy/path mode,
 bicubic flag, waypoints, and session info (site path, datetime, map type) —
 as a JSON file. This lets you restore a complete working session later.
@@ -342,14 +338,14 @@ as a JSON file. This lets you restore a complete working session later.
 8. Import Custom Data
 *********************
 
-**File → Import GeoTIFF...** (Ctrl+I) opens a custom GeoTIFF elevation raster
+**File > Import GeoTIFF...** (Ctrl+I) opens a custom GeoTIFF elevation raster
 and validates that its coordinate reference system (CRS) matches the required
 lunar south-pole stereographic projection
 (``+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m``). If the CRS
 is missing or does not match, a warning is shown explaining the requirement.
-Use **File → Open** (Ctrl+O) to load a GeoTIFF without CRS validation.
+Use **File > Open** (Ctrl+O) to load a GeoTIFF without CRS validation.
 
-**File → Import Settings...** reads a previously exported JSON settings file
+**File > Import Settings...** reads a previously exported JSON settings file
 and restores the rover parameters, autopath configuration, and waypoints. If
 the settings include a site path that still exists on disk, the site is
 loaded automatically.
@@ -379,5 +375,5 @@ Troubleshooting
   route is shown in blue with a red failure marker.
 
 **Data files not found**
-  Cynthium will attempt to download missing files via ``pooch`` on first
+  If loading a map or running a simulation for the first time, Cynthium will attempt to download missing files via ``pooch`` on first
   use. Ensure you have an internet connection for the initial fetch.

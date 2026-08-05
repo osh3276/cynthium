@@ -41,10 +41,10 @@ def _get_spice_angle_bin(
 ) -> int:
 	"""Return 12-deg bin via SPICE at start_et + elapsed_s."""
 	from cynthium.app.engine.illumination.sun_position import (
-		_sun_azimuth_at_et,
+		sun_azimuth_at_et,
 		round_azimuth_to_nearest_12,
 	)
-	az = _sun_azimuth_at_et(center_lat, center_lon, start_et + elapsed_s)
+	az = sun_azimuth_at_et(center_lat, center_lon, start_et + elapsed_s)
 	return round_azimuth_to_nearest_12(az)
 
 

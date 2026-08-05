@@ -17,7 +17,7 @@ def round_azimuth_to_nearest_12(azimuth_deg: float) -> int:
 _kernels_loaded = False
 
 
-def _ensure_kernels_loaded() -> None:
+def ensure_kernels_loaded() -> None:
 	"""Fetch SPICE kernels via pooch on first use and furnsh them once."""
 	global _kernels_loaded
 	if _kernels_loaded:
@@ -33,7 +33,7 @@ def sub_solar_latitude(utctime: str) -> float:
 	Negative = sun in southern hemisphere (summer at south pole).
 	Positive = sun in northern hemisphere (winter at south pole).
 	"""
-	_ensure_kernels_loaded()
+	ensure_kernels_loaded()
 	et = spice.utc2et(utctime)
 	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
 	pos = state[:3]
@@ -41,7 +41,7 @@ def sub_solar_latitude(utctime: str) -> float:
 	return float(np.degrees(lat))
 
 
-def _sun_azimuth_at_et(lat: float, lon: float, et: float) -> float:
+def sun_azimuth_at_et(lat: float, lon: float, et: float) -> float:
 	"""Return sun azimuth (degrees) at a given ephemeris time.
 
 	Parameters
@@ -51,7 +51,7 @@ def _sun_azimuth_at_et(lat: float, lon: float, et: float) -> float:
 	et : float
 		SPICE ephemeris time (seconds past J2000).
 	"""
-	_ensure_kernels_loaded()
+	ensure_kernels_loaded()
 	state, _ = spice.spkpos("SUN", et, "MOON_ME", "LT+S", "MOON")
 	sun_pos = np.array(state[:3])
 	sun_pos /= np.linalg.norm(sun_pos)
@@ -75,7 +75,7 @@ def sun_position(lat, lon, time):
 	lat, lon: selenographic degrees
 	et: SPICE ephemeris time (use spice.utc2et)
 	"""
-	_ensure_kernels_loaded()
+	ensure_kernels_loaded()
 	et = spice.utc2et(time)
 
 	# Get the position of the sun relative to the moon
