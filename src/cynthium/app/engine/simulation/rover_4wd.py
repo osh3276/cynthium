@@ -139,7 +139,7 @@ def simulate_rover_4wd(
 		and center_lon is not None
 		and start_et is not None
 	)
-	if _use_spice:
+	if center_lat is not None and center_lon is not None and start_et is not None:
 		_last_illum_bin = _get_spice_angle_bin(center_lat, center_lon, start_et, 0.0)
 	else:
 		_last_illum_bin = start_angle_deg
@@ -162,7 +162,7 @@ def simulate_rover_4wd(
 	_active_meteor_map = None
 	_active_meteor_xform = None
 	_inv_meteor = None
-	if _use_spice:
+	if center_lat is not None and center_lon is not None and start_et is not None:
 		_last_meteor_bin = _get_spice_angle_bin(center_lat, center_lon, start_et, 0.0)
 	else:
 		_last_meteor_bin = start_angle_deg
@@ -203,7 +203,7 @@ def simulate_rover_4wd(
 			_bin = _get_linear_angle_bin(start_angle_deg, total_time)
 
 			if illumination_maps is not None and _bin != _last_illum_bin:
-				if _use_spice:
+				if center_lat is not None and center_lon is not None and start_et is not None:
 					_spice_bin = _get_spice_angle_bin(center_lat, center_lon, start_et, total_time)
 					if _spice_bin != _last_illum_bin:
 						_last_illum_bin = _spice_bin
@@ -224,7 +224,7 @@ def simulate_rover_4wd(
 							_inv_illum = ~_active_illum_xform
 
 			if meteor_energy_maps is not None and _bin != _last_meteor_bin:
-				if _use_spice:
+				if center_lat is not None and center_lon is not None and start_et is not None:
 					_spice_bin = _get_spice_angle_bin(center_lat, center_lon, start_et, total_time)
 					if _spice_bin != _last_meteor_bin:
 						_last_meteor_bin = _spice_bin
@@ -339,7 +339,11 @@ def simulate_rover_4wd(
 			if _inv_illum is not None:
 				col, row = _inv_illum * (float(x), float(y))
 				ci, ri = int(round(col)), int(round(row))
-				if 0 <= ri < _active_illum_map.shape[0] and 0 <= ci < _active_illum_map.shape[1]:
+				if (
+					_active_illum_map is not None
+					and 0 <= ri < _active_illum_map.shape[0]
+					and 0 <= ci < _active_illum_map.shape[1]
+				):
 					illum = float(_active_illum_map[ri, ci])
 					if np.isfinite(illum):
 						energy_j_per_m2 += illum * _pause_step
@@ -348,7 +352,7 @@ def simulate_rover_4wd(
 							print(f"[dbg] pause illum not finite at ({x:.1f},{y:.1f}) pix=({ci},{ri}) val={illum}")
 				else:
 					if total_time < 5.0 or int(total_time) % 10000 == 0:
-						print(f"[dbg] pause pix out of bounds ({ci},{ri}) vs {_active_illum_map.shape}")
+						print(f"[dbg] pause pix out of bounds ({ci},{ri}) vs {_active_illum_map.shape if _active_illum_map is not None else 'None'}")
 			else:
 				if total_time < 5.0 or int(total_time) % 10000 == 0:
 					print(f"[dbg] pause _inv_illum is None, t={total_time:.0f}")
@@ -447,7 +451,11 @@ def simulate_rover_4wd(
 		if _inv_illum is not None:
 			col, row = _inv_illum * (float(x), float(y))
 			ci, ri = int(round(col)), int(round(row))
-			if 0 <= ri < _active_illum_map.shape[0] and 0 <= ci < _active_illum_map.shape[1]:
+			if (
+				_active_illum_map is not None
+				and 0 <= ri < _active_illum_map.shape[0]
+				and 0 <= ci < _active_illum_map.shape[1]
+			):
 				illum = float(_active_illum_map[ri, ci])
 				if np.isfinite(illum):
 					energy_j_per_m2 += illum * dt

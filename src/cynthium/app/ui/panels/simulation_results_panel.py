@@ -183,8 +183,8 @@ class SimulationResultsPanel(QWidget):
 		self._apply_stats(self._auto_labels, auto_stats)
 
 	@staticmethod
-	@staticmethod
 	def _apply_stats(
+			label_store: dict[str, QLabel],
 			stats: dict[str, float],
 	):
 		for key, label in label_store.items():

@@ -291,9 +291,12 @@ class PlanningPanel(QWidget):
 			return
 		if row < 0 or row >= len(self._waypoint_data):
 			return
+		item = self._table.item(row, col)
+		if item is None:
+			return
 		if col == 1:
 			try:
-				val = float(self._table.item(row, col).text())
+				val = float(item.text())
 			except (ValueError, TypeError):
 				self._refresh_table()
 				return
@@ -302,7 +305,7 @@ class PlanningPanel(QWidget):
 			self.waypoint_edited.emit(row, val, y)
 		elif col == 2:
 			try:
-				val = float(self._table.item(row, col).text())
+				val = float(item.text())
 			except (ValueError, TypeError):
 				self._refresh_table()
 				return
@@ -311,7 +314,7 @@ class PlanningPanel(QWidget):
 			self.waypoint_edited.emit(row, x, val)
 		elif col == 3:
 			try:
-				pause = float(self._table.item(row, col).text())
+				pause = float(item.text())
 			except (ValueError, TypeError):
 				self._refresh_table()
 				return
