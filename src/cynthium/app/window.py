@@ -205,7 +205,8 @@ class Window(QMainWindow):
 
 		logger.info("Window initialized")
 
-	def on_button_clicked(self):
+	@staticmethod
+	def on_button_clicked():
 		"""Handle generic button click (debug)."""
 		logger.info("Button clicked")
 
@@ -299,6 +300,7 @@ class Window(QMainWindow):
 
 	def _on_autopath_requested(self, payload: dict):
 		"""Start autopath computation in a background thread."""
+		global start_et, center_lon, center_lat
 		if self._current_path is None:
 			QMessageBox.warning(self, "Autopath", "Load a site map first.")
 			self._sidebar.set_autopath_waypoints(None)
@@ -459,6 +461,7 @@ class Window(QMainWindow):
 
 	def _on_start_simulation(self):
 		"""Start simulation in a background thread."""
+		global start_et, center_lon, center_lat, current_datetime, current_data, current_data
 		manual_points = self._view_container.get_waypoint_3d_points()
 		auto_points = self._view_container.get_autopath_3d_points()
 
@@ -942,14 +945,16 @@ class Window(QMainWindow):
 			path, self._current_datetime, self._current_map_type
 		)
 
-	def _normalize_path(self, path: str) -> str:
+	@staticmethod
+	def _normalize_path(path: str) -> str:
 		"""Normalize paths so string comparisons are stable."""
 		try:
 			return str(Path(path).expanduser().resolve())
 		except Exception:
 			return str(Path(path).expanduser())
 
-	def _normalize_datetime_str(self, datetime_str: str) -> str:
+	@staticmethod
+	def _normalize_datetime_str(datetime_str: str) -> str:
 		"""Normalize datetime strings to YYYY-mm-ddTHH:MM:SS (no tz)."""
 		try:
 			dt = datetime.fromisoformat(datetime_str)

@@ -1,5 +1,4 @@
 import math
-from typing import Any
 
 import numpy as np
 import pyvista
@@ -23,7 +22,8 @@ PATH_ELEVATION_OFFSET_METERS = 5.0
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 	"""Custom VTK interactor style mapping left-drag to pan and right-drag to rotate."""
 
-	def __init__(self):
+	def __init__(self, **properties: Any):
+		super().__init__(**properties)
 		self.AddObserver("LeftButtonDoubleClickEvent", self.on_left_double_click)  # type: ignore[arg-type]
 		self.AddObserver("LeftButtonPressEvent", self.on_left_press)  # type: ignore[arg-type]
 		self.AddObserver("LeftButtonReleaseEvent", self.on_left_release)  # type: ignore[arg-type]
@@ -52,6 +52,9 @@ class TerrainView(QtInteractor):
 	def __init__(self, parent=None):
 		"""Initialize the terrain view with resize debouncing and empty state."""
 		super().__init__(parent=parent)  # type: ignore[arg-type]
+		self._autopath_points = None
+		self._spacing = None
+		self._autopath_points = None
 		self.interactor.SetInteractorStyle(CustomInteractorStyle())
 		self._resize_timer = QTimer(self)
 		self._resize_timer.setSingleShot(True)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from math import floor
-
 import numpy as np
 import pytest
 from affine import Affine
@@ -15,6 +13,7 @@ from cynthium.app.engine.simulation._sim_utils import (
 )
 from cynthium.app.engine.simulation.rover_4wd import simulate_rover_4wd
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 

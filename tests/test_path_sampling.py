@@ -5,7 +5,6 @@ import pytest
 from affine import Affine
 
 from cynthium.app.engine.simulation.path_sampling import (
-	BICUBIC_RESOLUTION_M,
 	get_pixel_resolution_m,
 	sample_path_elevations,
 )

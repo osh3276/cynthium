@@ -84,6 +84,7 @@ def simulate_rover_4wd(
 	pause_durations: list[float] | None = None,
 ) -> dict[str, Any]:
 	"""Simulate a 4-wheel skid-steer rover with simple brake model."""
+	global step
 	t_start = time.perf_counter()
 
 	if pts_xyz.shape[0] < 2 or len(waypoints_xy) < 2:

@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
 	QApplication,
 	QCheckBox,
 	QComboBox,
-	QDoubleSpinBox,
 	QHBoxLayout,
 	QHeaderView,
 	QLabel,

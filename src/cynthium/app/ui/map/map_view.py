@@ -241,7 +241,7 @@ class MapView(QWidget):
 			val = float(self._raw_data[ri, ci])
 			if np.isfinite(val):
 				unit = _unit_for_map_type(self._map_type_label)
-				if abs(val) >= 10000 or (abs(val) > 0 and abs(val) < 0.001):
+				if abs(val) >= 10000 or (0 < abs(val) < 0.001):
 					text = f"{val:.2e} {unit}"
 				else:
 					text = f"{val:.4f} {unit}"
