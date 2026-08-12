@@ -58,7 +58,8 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      does not account for terrain occlusion, local horizon, or time of day.
      Only the azimuth of the light source is accurate to real conditions.
 
-* **Solar Illumination**: annual or daily-average solar exposure.
+* **Solar Illumination**: annual or daily-average solar exposure,
+  retrieved from :cite:`lopeswiegert`.
 
   .. note::
 
@@ -75,7 +76,7 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      corresponding angle-specific raster in real time.
 
 * **Meteor Flux**: modelled meteorite impact flux, retrieved from
-  :cite:`meteorfluxmaps`.
+  :cite:`lopeswiegert`.
 
   .. note::
 
@@ -84,7 +85,7 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      angle-specific raster is used.
 
 * **Meteor Number**: modelled meteorite impact number flux, from the
-  same source :cite:`meteorfluxmaps`.
+  same source :cite:`lopeswiegert`.
 
   .. note::
 
