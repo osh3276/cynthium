@@ -74,14 +74,26 @@ terrain, hide layers with checkboxes, and reorder them in the list:
      illumination cost and solar energy accumulation switch to the
      corresponding angle-specific raster in real time.
 
-* **Meteor Flux**: modelled meteorite impact flux.
+* **Meteor Flux**: modelled meteorite impact flux, retrieved from
+  :cite:`meteorfluxmaps`.
 
   .. note::
 
      Same discretisation as the daily-average illumination: the sun
      azimuth is rounded to the nearest 12° bin and the corresponding
      angle-specific raster is used.
-* **Average Temperature**: modelled surface temperature.
+
+* **Meteor Number**: modelled meteorite impact number flux, from the
+  same source :cite:`meteorfluxmaps`.
+
+  .. note::
+
+     Also discretised by sun azimuth into 12° bins, like the meteor
+     flux layer.
+* **Average Temperature**: modelled surface temperature, retrieved
+  from the seasonal polar temperature maps of Williams et al.
+  :cite:`williams2019`, which are compiled from Diviner Lunar
+  Radiometer Experiment (DLRE) data.
 
 Each layer is a pre-computed raster stored alongside the elevation data.
 Changing the active layer or selecting a preset map updates the display
