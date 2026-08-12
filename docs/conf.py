@@ -22,7 +22,6 @@ release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-
 extensions = [
 	"sphinx.ext.autodoc",
 	"sphinx.ext.autosummary",
@@ -30,7 +29,10 @@ extensions = [
 	"sphinx.ext.viewcode",
 	"sphinx.ext.mathjax",
 	"sphinx.ext.intersphinx",
+	"sphinxcontrib.bibtex",
 ]
+
+bibtex_bibfiles = ["references.bib"]
 
 intersphinx_mapping = {
 	"python": ("https://docs.python.org/3", None),

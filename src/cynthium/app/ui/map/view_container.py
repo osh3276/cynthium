@@ -320,9 +320,9 @@ class ViewContainer(QWidget):
 		self.raster_view.clear_sim_failure_point()
 		self.terrain_view.clear_sim_failure_point()
 
+	@staticmethod
 	def _sample_raster_to_grid(
-		self,
-		raster_data: np.ndarray | None,
+			raster_data: np.ndarray | None,
 		raster_meta: dict | None,
 		elev: np.ndarray,
 		r0: int, r1: int,

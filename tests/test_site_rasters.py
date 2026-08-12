@@ -34,11 +34,11 @@ class TestNormalizeMapKey:
 class TestFallbackIfMissing:
 	@pytest.fixture
 	def elev(self):
-		return (np.array([[1.0]]), {"some": "meta"})
+		return np.array([[1.0]]), {"some": "meta"}
 
 	@pytest.fixture
 	def requested(self):
-		return (np.array([[42.0]]), {"key": "val"})
+		return np.array([[42.0]]), {"key": "val"}
 
 	def test_returns_requested_when_present(self, requested, elev):
 		result = _fallback_if_missing(requested, elev, "Test")

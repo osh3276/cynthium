@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import asin, atan, atan2, cos, degrees, radians, sin, sqrt
+from math import asin, atan, atan2, degrees, sqrt
 
 G_MPS2 = 1.625  # lunar gravity
 _HP_TO_W = 745.699872

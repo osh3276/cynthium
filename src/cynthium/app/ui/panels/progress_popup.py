@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 
 import numpy as np
-from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
+from PySide6.QtCore import QObject, Qt, Signal, Slot
 from PySide6.QtWidgets import QDialog, QLabel, QProgressBar, QVBoxLayout
 from scipy.ndimage import zoom
 
@@ -122,6 +122,7 @@ def compute_path_segment(
 	use_bicubic: bool = False,
 ) -> list[tuple[float, float]] | None:
 	"""Pure-computation pathfinding, no file I/O or Qt access."""
+	global goal_local, start_local, goal_local, goal_local, start_local, start_local
 	if elevation_data is None or elevation_meta is None:
 		return None
 	if "transform" not in elevation_meta:

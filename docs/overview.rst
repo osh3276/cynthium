@@ -62,11 +62,3 @@ The application is organised into several subpackages under
    * - :mod:`cynthium.app.data`
      - Pooch-based file registry with SHA256 hashes for automatic
        download of data products from GitHub releases.
-
-Related Work
-************
-
-`SEXTANT <https://dspace.mit.edu/handle/1721.1/59560>`_ is a MATLAB-based tool
-with similar capabilities. Cynthium aims to provide an open-source Python
-alternative with a focus on extensibility, high performance, and modern GIS
-compatibility.

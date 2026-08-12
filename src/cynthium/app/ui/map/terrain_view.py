@@ -23,7 +23,8 @@ PATH_ELEVATION_OFFSET_METERS = 5.0
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 	"""Custom VTK interactor style mapping left-drag to pan and right-drag to rotate."""
 
-	def __init__(self):
+	def __init__(self, **properties: Any):
+		super().__init__(**properties)
 		self.AddObserver("LeftButtonDoubleClickEvent", self.on_left_double_click)  # type: ignore[arg-type]
 		self.AddObserver("LeftButtonPressEvent", self.on_left_press)  # type: ignore[arg-type]
 		self.AddObserver("LeftButtonReleaseEvent", self.on_left_release)  # type: ignore[arg-type]
@@ -52,6 +53,9 @@ class TerrainView(QtInteractor):
 	def __init__(self, parent=None):
 		"""Initialize the terrain view with resize debouncing and empty state."""
 		super().__init__(parent=parent)  # type: ignore[arg-type]
+		self._autopath_points = None
+		self._spacing = None
+		self._autopath_points = None
 		self.interactor.SetInteractorStyle(CustomInteractorStyle())
 		self._resize_timer = QTimer(self)
 		self._resize_timer.setSingleShot(True)
@@ -277,7 +281,7 @@ class TerrainView(QtInteractor):
 
 		:return: List of 3D points.
 		"""
-		return list(self._autopath_points) if hasattr(self, "_autopath_points") else []
+		return list(self._autopath_points) if self._autopath_points is not None else []
 
 	def set_autopath(self, points_xy: list[tuple[float, float]]):
 		"""Sample the auto-generated path along the terrain surface and render it."""
@@ -291,7 +295,7 @@ class TerrainView(QtInteractor):
 
 		# Sample along each segment at terrain resolution so the line follows
 		# the terrain surface instead of cutting straight through ridges.
-		if not hasattr(self, "_spacing"):
+		if self._spacing is None:
 			self._spacing = (5.0, 5.0, 1.0)
 		resolution = min(self._spacing[0], self._spacing[1])
 		path_points: list[list[float]] = []
@@ -387,6 +391,8 @@ class TerrainView(QtInteractor):
 
 	def _sample_path_surface_points(self) -> list[list[float]]:
 		path_points = []
+		if self._spacing is None:
+			return []
 		resolution = min(self._spacing[0], self._spacing[1])
 
 		for index in range(len(self._waypoint_points) - 1):
@@ -417,7 +423,7 @@ class TerrainView(QtInteractor):
 		y: float,
 		z_offset: float = 0.0,
 	) -> list[float] | None:
-		if self._data is None:
+		if self._data is None or self._spacing is None:
 			return None
 
 		col = (x - self._origin[0]) / self._spacing[0]

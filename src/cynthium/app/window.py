@@ -205,7 +205,8 @@ class Window(QMainWindow):
 
 		logger.info("Window initialized")
 
-	def on_button_clicked(self):
+	@staticmethod
+	def on_button_clicked():
 		"""Handle generic button click (debug)."""
 		logger.info("Button clicked")
 
@@ -299,6 +300,7 @@ class Window(QMainWindow):
 
 	def _on_autopath_requested(self, payload: dict):
 		"""Start autopath computation in a background thread."""
+		global start_et, center_lon, center_lat
 		if self._current_path is None:
 			QMessageBox.warning(self, "Autopath", "Load a site map first.")
 			self._sidebar.set_autopath_waypoints(None)
@@ -348,7 +350,7 @@ class Window(QMainWindow):
 		meteor_data, meteor_meta = map_data_bundle[7], map_data_bundle[8]
 		temp_data, temp_meta = map_data_bundle[3], map_data_bundle[4]
 
-		if vc._current_path and elevation_meta is not None:
+		if vc._current_path and elevation_meta is not None and elevation_data is not None:
 			H, W = int(elevation_data.shape[0]), int(elevation_data.shape[1])
 			daily_illum = load_daily_avg_illumination_raster(
 				reference_path=vc._current_path,
@@ -372,7 +374,7 @@ class Window(QMainWindow):
 		meteor_energy_maps = None
 		meteor_number_maps = None
 		start_angle_deg = 0
-		if vc._current_path and elevation_meta is not None:
+		if vc._current_path and elevation_meta is not None and elevation_data is not None:
 			H, W = int(elevation_data.shape[0]), int(elevation_data.shape[1])
 			result = load_angle_maps(
 				reference_path=vc._current_path,
@@ -416,9 +418,11 @@ class Window(QMainWindow):
 
 	def _on_autopath_done(self, result: dict):
 		"""Handle autopath completion on the main thread."""
-		self._path_popup.close()
-		self._path_thread.quit()
-		self._path_thread.deleteLater()
+		if self._path_popup is not None:
+			self._path_popup.close()
+		if self._path_thread is not None:
+			self._path_thread.quit()
+			self._path_thread.deleteLater()
 		self._path_popup = None
 		self._path_thread = None
 		self._path_worker = None
@@ -459,6 +463,7 @@ class Window(QMainWindow):
 
 	def _on_start_simulation(self):
 		"""Start simulation in a background thread."""
+		global start_et, center_lon, center_lat, current_datetime, current_data, current_data
 		manual_points = self._view_container.get_waypoint_3d_points()
 		auto_points = self._view_container.get_autopath_3d_points()
 
@@ -478,12 +483,9 @@ class Window(QMainWindow):
 		mdb = list(vc.get_current_map_data())
 		current_path = vc._current_path
 		current_meta = vc._current_meta
-		if current_path is not None and current_meta is not None:
-			current_data = vc._current_data
-			data_shape = (
-				int(current_data.shape[0]),
-				int(current_data.shape[1]),
-			) if current_data is not None else None
+		current_data = vc._current_data
+		if current_path is not None and current_meta is not None and current_data is not None:
+			data_shape = (int(current_data.shape[0]), int(current_data.shape[1]))
 			# Use UI datetime - not stale cached value
 			current_datetime = self._sidebar.get_datetime() or str(self._current_datetime)
 			daily_meteor = load_daily_avg_meteor_raster(
@@ -544,9 +546,11 @@ class Window(QMainWindow):
 
 	def _on_simulation_done(self, result: dict):
 		"""Handle simulation completion on the main thread."""
-		self._sim_popup.close()
-		self._sim_thread.quit()
-		self._sim_thread.deleteLater()
+		if self._sim_popup is not None:
+			self._sim_popup.close()
+		if self._sim_thread is not None:
+			self._sim_thread.quit()
+			self._sim_thread.deleteLater()
 		self._sim_popup = None
 		self._sim_thread = None
 		self._sim_worker = None
@@ -609,9 +613,11 @@ class Window(QMainWindow):
 
 	def _on_autopath_error(self, error_msg: str):
 		"""Handle autopath background worker failure."""
-		self._path_popup.close()
-		self._path_thread.quit()
-		self._path_thread.deleteLater()
+		if self._path_popup is not None:
+			self._path_popup.close()
+		if self._path_thread is not None:
+			self._path_thread.quit()
+			self._path_thread.deleteLater()
 		self._path_popup = None
 		self._path_thread = None
 		self._path_worker = None
@@ -620,9 +626,11 @@ class Window(QMainWindow):
 
 	def _on_simulation_error(self, error_msg: str):
 		"""Handle simulation background worker failure."""
-		self._sim_popup.close()
-		self._sim_thread.quit()
-		self._sim_thread.deleteLater()
+		if self._sim_popup is not None:
+			self._sim_popup.close()
+		if self._sim_thread is not None:
+			self._sim_thread.quit()
+			self._sim_thread.deleteLater()
 		self._sim_popup = None
 		self._sim_thread = None
 		self._sim_worker = None
@@ -942,14 +950,16 @@ class Window(QMainWindow):
 			path, self._current_datetime, self._current_map_type
 		)
 
-	def _normalize_path(self, path: str) -> str:
+	@staticmethod
+	def _normalize_path(path: str) -> str:
 		"""Normalize paths so string comparisons are stable."""
 		try:
 			return str(Path(path).expanduser().resolve())
 		except Exception:
 			return str(Path(path).expanduser())
 
-	def _normalize_datetime_str(self, datetime_str: str) -> str:
+	@staticmethod
+	def _normalize_datetime_str(datetime_str: str) -> str:
 		"""Normalize datetime strings to YYYY-mm-ddTHH:MM:SS (no tz)."""
 		try:
 			dt = datetime.fromisoformat(datetime_str)

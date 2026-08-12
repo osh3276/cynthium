@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
 	QApplication,
 	QCheckBox,
 	QComboBox,
-	QDoubleSpinBox,
 	QHBoxLayout,
 	QHeaderView,
 	QLabel,
@@ -23,7 +22,6 @@ from cynthium.app.config import (
 	METEOR_FLUX_WEIGHT,
 	TEMPERATURE_WEIGHT,
 )
-from cynthium.app.engine.raster.point_conversion import xy_to_longlat
 from cynthium.app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -94,10 +92,6 @@ class PlanningPanel(QWidget):
 		clear_btn = QPushButton("Clear all waypoints")
 		clear_btn.clicked.connect(self._on_clear_path)
 		layout.addWidget(clear_btn)
-
-		self._info_label = QLabel("")
-		self._info_label.setWordWrap(True)
-		layout.addWidget(self._info_label)
 
 		# ── Autopath ──
 		autopath_btn = QPushButton("Autopath")
@@ -171,7 +165,6 @@ class PlanningPanel(QWidget):
 		self._pause_data.append(pause_s)
 		self.waypoint_added.emit(x, y)
 		self._refresh_table()
-		self._update_info()
 
 	def remove_waypoint_at(self, index: int):
 		if 0 <= index < len(self._waypoint_data):
@@ -179,7 +172,6 @@ class PlanningPanel(QWidget):
 			self._pause_data.pop(index)
 			self.waypoint_removed.emit(index)
 			self._refresh_table()
-			self._update_info()
 
 	def clear_all_waypoints(self):
 		self._waypoint_data.clear()
@@ -234,7 +226,6 @@ class PlanningPanel(QWidget):
 			self._pause_data.append(0.0)
 			added.append((x, y))
 		self._refresh_table()
-		self._update_info()
 		return added
 
 	def get_planning_settings(self) -> dict:
@@ -292,9 +283,12 @@ class PlanningPanel(QWidget):
 			return
 		if row < 0 or row >= len(self._waypoint_data):
 			return
+		item = self._table.item(row, col)
+		if item is None:
+			return
 		if col == 1:
 			try:
-				val = float(self._table.item(row, col).text())
+				val = float(item.text())
 			except (ValueError, TypeError):
 				self._refresh_table()
 				return
@@ -303,7 +297,7 @@ class PlanningPanel(QWidget):
 			self.waypoint_edited.emit(row, val, y)
 		elif col == 2:
 			try:
-				val = float(self._table.item(row, col).text())
+				val = float(item.text())
 			except (ValueError, TypeError):
 				self._refresh_table()
 				return
@@ -312,28 +306,12 @@ class PlanningPanel(QWidget):
 			self.waypoint_edited.emit(row, x, val)
 		elif col == 3:
 			try:
-				pause = float(self._table.item(row, col).text())
+				pause = float(item.text())
 			except (ValueError, TypeError):
 				self._refresh_table()
 				return
 			if row < len(self._pause_data):
 				self._pause_data[row] = pause
-		self._update_info()
-
-	def _update_info(self):
-		if not self._waypoint_data:
-			self._info_label.setText("")
-			return
-		parts = []
-		for i, (x, y) in enumerate(self._waypoint_data):
-			ll = xy_to_longlat(x, y)
-			lon, lat = float(ll[0]), float(ll[1])
-			lat_dir = "S" if lat < 0 else "N"
-			lon_dir = "W" if lon < 0 else "E"
-			parts.append(
-				f"{i+1}. ({abs(lat):.3f}\u00b0{lat_dir}, {abs(lon):.3f}\u00b0{lon_dir})"
-			)
-		self._info_label.setText("  ".join(parts))
 
 	def _on_add_coord(self):
 		text = self._coord_field.text().strip()

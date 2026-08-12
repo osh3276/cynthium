@@ -80,10 +80,6 @@ is the **signed** grade angle in degrees (+ uphill, − downhill).
 Only uphill segments incur a grade penalty; downhill segments add
 no grade cost (gravity assists the rover).
 
-There is **no hard cutoff** — no segment is blocked based on grade alone.
-The grade penalty smoothly increases with steepness, and the simulation
-retry loop (see below) validates true physical feasibility.
-
 * :math:`\theta_{\max}` — maximum climbable slope (default 20°).
 * :math:`w_{\text{slope}}` — slope weight (default 100.0).
 * :math:`p` — grade power exponent.
@@ -107,7 +103,7 @@ is selected).
   cost of a long detour.
 
 The heuristic :math:`h` is the straight-line Euclidean distance to the
-goal (admissible, so A\* remains optimal).
+goal.
 
 Coordinate system
 =================

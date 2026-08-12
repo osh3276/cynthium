@@ -17,6 +17,7 @@ numerical accuracy, and reproducibility are critical.
    installation
    usage
    algorithms
+   references
 
 .. toctree::
    :maxdepth: 2
