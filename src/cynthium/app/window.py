@@ -934,29 +934,28 @@ class Window(QMainWindow):
 			return
 
 		try:
-			if not src_crs.is_exact_same(expected_crs):
-				src_str = src_crs.to_string()
-				expected_str = expected_crs.to_string()
-				if src_str != expected_str:
-					QMessageBox.warning(
-						self,
-						"Wrong Projection",
-						f"The selected GeoTIFF uses an unsupported CRS.\n\n"
-						f"Expected:\n{expected_str}\n\n"
-						f"Got:\n{src_str}\n\n"
-						"Only GeoTIFFs in the lunar south-pole stereographic projection\n"
-						"are supported. Load via File → Open to bypass CRS checks.",
-					)
-					return
+			matches = src_crs.equals(expected_crs)
 		except Exception:
+			matches = False
+
+		if not matches:
+			# Fallback for CRS objects that cannot be compared directly:
+			# require the projection family, pole location, and lunar radius.
 			src_str = str(src_crs).lower()
-			if "stere" not in src_str or "lat_0=-90" not in src_str:
+			if (
+				"stere" not in src_str
+				or "lat_0=-90" not in src_str
+				or "1737400" not in src_str
+			):
 				QMessageBox.warning(
 					self,
 					"Wrong Projection",
-					"The selected GeoTIFF does not appear to be in the required\n"
-					"lunar south-pole stereographic projection.\n\n"
-					"Load via File → Open to bypass CRS checks.",
+					"The selected GeoTIFF uses an unsupported CRS.\n\n"
+					"Expected:\n"
+					f"{expected_crs}\n\n"
+					"Only GeoTIFFs in the lunar south-pole stereographic projection\n"
+					"(+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m)\n"
+					"are supported. Load via File → Open to bypass CRS checks.",
 				)
 				return
 
