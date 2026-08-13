@@ -300,7 +300,8 @@ The simulation steps are:
 **Slope tab**
 
 * Traversal slope (avg / max / min), derived from elevation change
-  along the path
+  over 40 m spans along the path (averages out single-step grid
+  artifacts; configurable via ``TRAVERSAL_SLOPE_STEP_M``)
 * Surface slope (avg / max / min), sampled from the slope raster
 
 **Environment tab**
@@ -340,8 +341,10 @@ coordinates.
 
 Use **File > Export Simulation Data** (Ctrl+E) to save the full simulation
 statistics and path waypoints as CSV. The CSV contains one row per
-simulation run with all the statistics listed above, suitable for external
-analysis in Excel, MATLAB, or pandas.
+simulation run with all the statistics listed above — including battery
+consumption, remaining charge, and the failure reason if the traverse
+failed — plus the full rover configuration in the metadata section,
+suitable for external analysis in Excel, MATLAB, or pandas.
 
 Use **File > Export Settings...** to save all current configuration — rover
 preset and custom values, autopath weights/algorithm/strategy/path mode,
@@ -351,12 +354,84 @@ as a JSON file. This lets you restore a complete working session later.
 8. Import Custom Data
 *********************
 
-**File > Import GeoTIFF...** (Ctrl+I) opens a custom GeoTIFF elevation raster
-and validates that its coordinate reference system (CRS) matches the required
-lunar south-pole stereographic projection
-(``+proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m``). If the CRS
-is missing or does not match, a warning is shown explaining the requirement.
-Use **File > Open** (Ctrl+O) to load a GeoTIFF without CRS validation.
+Cynthium can load custom elevation data in addition to the bundled site
+presets. A custom GeoTIFF is treated exactly like a preset tile: it becomes
+the elevation model used for display, pathfinding, and simulation, and the
+bundled illumination, temperature, and meteor-flux rasters are cropped to
+its bounds where they overlap.
+
+Two ways to load a file:
+
+* **File > Import GeoTIFF...** (Ctrl+I) validates the file against the
+  requirements below and warns if they are not met.
+* **File > Open** (Ctrl+O) loads any GeoTIFF without checking the CRS.
+  Use this only for files you already know are in the required projection:
+  all downstream processing (coordinate display, sun position, path
+  conversion, simulation) assumes the lunar south-pole stereographic
+  projection.
+
+Required GeoTIFF specifications
+===============================
+
+The import check enforces the CRS; the remaining properties are assumed by
+the pipeline, so a file that meets all of the following works best:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Requirement
+   * - Coordinate reference system
+     - Lunar south-polar stereographic (Moon 2015 sphere, radius
+       1,737,400 m, units in metres). The file must carry the projection
+       embedded in its metadata:
+
+       .. code-block:: text
+
+          +proj=stere +lat_0=-90 +lon_0=0 +k=1 +R=1737400 +units=m +no_defs
+
+       The comparison is semantic: files whose projection describes the same
+       lunar south-polar stereographic (e.g. written with
+       ``+a=1737400 +b=1737400`` instead of ``+R=1737400``, or carrying the
+       ``+type=crs`` suffix) are accepted. Only a genuinely different CRS
+       (different projection or sphere radius) is rejected.
+   * - Data type / values
+     - Any rasterio-readable band type is accepted; values are converted
+       to float32 and used as-is. Provide float32 files with absolute
+       elevation in metres above the Moon 2015 reference sphere. Integer
+       files with an embedded scale/offset are not rescaled: the raw
+       stored values are used.
+   * - Bands
+     - Single-band. If the file has multiple bands, only band 1 is read.
+   * - Pixel size
+     - Any pixel size is supported (e.g. 5, 20, or 40 m/px). The path is
+       sampled at one pixel per step of the file's own resolution, and the
+       bicubic interpolation option upsamples the search grid by 4×.
+   * - Orientation
+     - Axis-aligned and north-up (standard GeoTIFF layout: positive pixel
+       width, negative pixel height). Rotated rasters are not supported.
+   * - No-data cells
+     - Use NaN for cells without data. Non-finite elevation is treated as
+       untraversable and is excluded from statistics. Other no-data
+       sentinels (e.g. -9999) are read as real elevation and produce
+       artifacts such as extreme slope spikes.
+   * - Geographic coverage
+     - The tile should fall within the region covered by the bundled
+       illumination, temperature, and meteor-flux rasters (roughly the
+       area within 80°S of the lunar south pole) for those layers to
+       contribute to path costs and statistics. Tiles elsewhere still
+       load and can be used for elevation display, pathfinding, and
+       simulation, but the environmental cost layers remain at their
+       neutral values.
+   * - Slope layer (optional)
+     - The slope map and surface-slope statistics come from a separate
+       slope GeoTIFF, looked up by filename in ``data/slope/``. For a
+       custom file ``my_tile.tif``, place the matching slope raster at
+       ``data/slope/my_tile_slp.tif`` (see
+       :func:`cynthium.app.config.get_slope_path` for the naming rules).
+       If no slope raster is found, the slope layer is unavailable and
+       surface-slope statistics are skipped; hillshade and traversal-slope
+       statistics still work.
 
 **File > Import Settings...** reads a previously exported JSON settings file
 and restores the rover parameters, autopath configuration, and waypoints. If

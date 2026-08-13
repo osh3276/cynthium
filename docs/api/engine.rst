@@ -25,6 +25,11 @@ Pathfinding
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: cynthium.app.engine.pathfinding.planner
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Illumination
 ------------
 
@@ -42,6 +47,11 @@ Raster Utilities
 ----------------
 
 .. automodule:: cynthium.app.engine.raster.point_conversion
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: cynthium.app.engine.raster.sampling
    :members:
    :undoc-members:
    :show-inheritance:

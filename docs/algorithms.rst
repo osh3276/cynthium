@@ -360,6 +360,15 @@ Geometric stats
    * - Average traversal slope
      - :math:`\text{mean}(\arctan(\Delta z / \Delta s_{\text{horiz}}))`
 
+Traversal slope (average, maximum, and minimum) is measured over a default
+span of 40 m of path rather than between consecutive ~20 m samples. This
+averages out single-step artifacts of the 16-connected search grid
+(diagonal and knight moves), which could otherwise appear as unrealistic
+50°+ grades in the max/min statistics. The span is controlled by
+``TRAVERSAL_SLOPE_STEP_M`` in
+:mod:`cynthium.app.engine.simulation.stats`; it affects only the reported
+statistics, not pathfinding or the simulation physics.
+
 Raster-sampled stats
 --------------------
 
