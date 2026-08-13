@@ -8,6 +8,13 @@ from cynthium.app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Span (metres) over which the traversal slope statistic is measured.
+# A single step of the 16-connected search grid can have a large elevation
+# change over a short horizontal distance (diagonal/knight moves), which
+# shows up as an unrealistic spike in the per-step max/min grade.  Measuring
+# over a longer span averages those grid artifacts out.
+TRAVERSAL_SLOPE_STEP_M = 40.0
+
 EMPTY_PATH_STATS = {
 		"total_distance": 0.0,
 		"total_distance_travelled": 0.0,
@@ -111,8 +118,9 @@ def _calculate_integrated_stats(
 		pixel_res = _get_pixel_resolution(transform)
 		stats["average_resolution"] = pixel_res
 
-		# Traversal slope: ~20m steps to avoid spike artifacts
-		slope_step = max(1, int(round(20.0 / pixel_res)))
+		# Traversal slope: average over TRAVERSAL_SLOPE_STEP_M to remove
+		# single-step grid artifacts.
+		slope_step = max(1, int(round(TRAVERSAL_SLOPE_STEP_M / pixel_res)))
 		if slope_step > 1 and len(sampled_points) > slope_step + 1:
 			slope_indices = list(range(0, len(sampled_points), slope_step))
 			if slope_indices[-1] != len(sampled_points) - 1:
