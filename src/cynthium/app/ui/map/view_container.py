@@ -9,6 +9,7 @@ from scipy.ndimage import zoom
 
 from cynthium.app.config import ensure_data_file_path, METEOR_NUMBER_RASTER_PATH
 from cynthium.app.engine.pathfinding.astar import a_star
+from cynthium.app.engine.raster.sampling import sample_raster_to_grid
 from cynthium.app.io.reader import load_geotif
 from cynthium.app.services.site_rasters import (
 	RasterPayload,
@@ -320,57 +321,6 @@ class ViewContainer(QWidget):
 		self.raster_view.clear_sim_failure_point()
 		self.terrain_view.clear_sim_failure_point()
 
-	@staticmethod
-	def _sample_raster_to_grid(
-			raster_data: np.ndarray | None,
-		raster_meta: dict | None,
-		elev: np.ndarray,
-		r0: int, r1: int,
-		c0: int, c1: int,
-		stride: int,
-		transform,
-		default_value: float = 0.5,
-	) -> np.ndarray:
-		"""Sample a raster into the elevation tile's grid and min-max normalize."""
-		sampled = np.full_like(elev, np.nan, dtype=np.float32)
-		if raster_data is not None and raster_meta is not None and "transform" in raster_meta:
-			it = raster_meta["transform"]
-			inv_it = ~it
-			ia, ib, ic = float(inv_it.a), float(inv_it.b), float(inv_it.c)
-			id_, ie, if_ = float(inv_it.d), float(inv_it.e), float(inv_it.f)
-			a, b, c_ = float(transform.a), float(transform.b), float(transform.c)
-			d, e, f_ = float(transform.d), float(transform.e), float(transform.f)
-
-			cols = np.arange(int(c0), int(c1), int(stride), dtype=np.float64) + (0.5 * float(stride))
-			for rr in range(int(r0), int(r1), int(stride)):
-				rowc = float(rr) + (0.5 * float(stride))
-				x = (a * cols) + (b * rowc) + c_
-				y = (d * cols) + (e * rowc) + f_
-				ci = np.rint((ia * x) + (ib * y) + ic).astype(np.int64)
-				ri = np.rint((id_ * x) + (ie * y) + if_).astype(np.int64)
-
-				local_r = int((rr - r0) // int(stride))
-				valid = (
-					(ri >= 0)
-					& (ci >= 0)
-					& (ri < int(raster_data.shape[0]))
-					& (ci < int(raster_data.shape[1]))
-				)
-				if np.any(valid):
-					sampled[local_r, valid] = raster_data[ri[valid], ci[valid]]
-
-		normalized = np.full_like(sampled, default_value, dtype=np.float32)
-		finite = sampled[np.isfinite(sampled)]
-		if finite.size > 0:
-			lo = float(np.min(finite))
-			hi = float(np.max(finite))
-			if hi > lo:
-				normalized = ((sampled - lo) / (hi - lo)).astype(np.float32)
-				normalized = np.clip(normalized, 0.0, 1.0)
-				normalized[~np.isfinite(normalized)] = default_value
-
-		return normalized
-
 	def compute_autopath(
 		self,
 		*,
@@ -444,7 +394,7 @@ class ViewContainer(QWidget):
 			if daily[0] is not None:
 				illum_data, illum_meta = daily
 
-		illum_norm = self._sample_raster_to_grid(
+		illum_norm = sample_raster_to_grid(
 			illum_data, illum_meta, elev, r0, r1, c0, c1, stride, transform,
 		)
 
@@ -459,11 +409,11 @@ class ViewContainer(QWidget):
 			)
 			if daily_meteor[0] is not None:
 				meteor_data, meteor_meta = daily_meteor
-		meteor_norm = self._sample_raster_to_grid(
+		meteor_norm = sample_raster_to_grid(
 			meteor_data, meteor_meta, elev, r0, r1, c0, c1, stride, transform,
 		)
 
-		temp_norm = self._sample_raster_to_grid(
+		temp_norm = sample_raster_to_grid(
 			self._current_temperature_data, self._current_temperature_meta,
 			elev, r0, r1, c0, c1, stride, transform,
 		)

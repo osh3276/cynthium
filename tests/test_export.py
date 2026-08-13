@@ -109,7 +109,11 @@ class TestWriteSimulationCSV:
 			"traversal_time_s": 700.0,
 			"solar_energy_per_m2_j": 1500.0,
 			"avg_solar_illumination_w_per_m2": 200.0,
+			"battery_energy_used_j": 900.0,
+			"battery_remaining_pct": 50.0,
+			"battery_capacity_wh": 500.0,
 			"traverse_feasible": 1.0,
+			"failure_reason": None,
 			"required_wheel_friction_coeff": 0.35,
 			"required_climb_slope_deg": 8.0,
 		}
@@ -125,6 +129,10 @@ class TestWriteSimulationCSV:
 			assert "metadata_key,metadata_value" in content
 			assert "total_displacement_m,1000.0" in content
 			assert "traversal_time_s,700.0" in content
+			assert "battery_energy_used_j,900.0" in content
+			assert "battery_remaining_pct,50.0" in content
+			assert "battery_capacity_wh,500.0" in content
+			assert "failure_reason," in content
 			assert "waypoint_index,x,y,z,pause_s" in content
 			assert "1,0.0,0.0,100.0,0.0" in content
 			assert "2,1000.0,0.0,150.0,0.0" in content

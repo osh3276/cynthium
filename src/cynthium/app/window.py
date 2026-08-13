@@ -31,9 +31,10 @@ from cynthium.app.utils.logger import get_logger
 
 from .ui.map.map_view import MapView
 from .ui.map.terrain_view import TerrainView
+from .engine.pathfinding.planner import compute_path_segment
 from .ui.map.view_container import ViewContainer
 from .ui.panels.menubar import AppMenuBar
-from .ui.panels.progress_popup import ProgressPopup, Worker, compute_path_segment
+from .ui.panels.progress_popup import ProgressPopup, Worker
 from .ui.panels.simulation_results_panel import SimulationResultsPanel
 
 logger = get_logger(__name__)
@@ -669,6 +670,26 @@ class Window(QMainWindow):
 			"datetime": self._current_datetime,
 			"map_type": self._current_map_type,
 		}
+
+		try:
+			rover = self._get_rover_settings()
+			metadata.update({
+				"rover_mass_kg": rover.mass_kg,
+				"rover_power_hp": rover.power_hp,
+				"rover_wheel_friction_coeff": rover.wheel_friction_coeff,
+				"rover_rolling_resistance_coeff": rover.rolling_resistance_coeff,
+				"rover_wheel_radius_m": rover.wheel_radius_m,
+				"rover_motor_peak_torque_nm": rover.motor_peak_torque_nm if rover.motor_peak_torque_nm is not None else "",
+				"rover_track_width_m": rover.track_width_m,
+				"rover_wheelbase_m": rover.wheelbase_m,
+				"rover_battery_capacity_wh": rover.battery_capacity_wh,
+				"rover_motor_max_rpm": rover.motor_max_rpm,
+				"rover_target_cruise_speed_mps": rover.target_cruise_speed_mps,
+				"rover_max_brake_decel_mps2": rover.max_brake_decel_mps2,
+				"rover_idle_drain_w": rover.idle_drain_w,
+			})
+		except (ValueError, KeyError, TypeError):
+			logger.warning("Could not read rover settings for simulation export")
 
 		pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 		try:

@@ -28,7 +28,11 @@ SIMULATION_STAT_EXPORT_KEYS = [
 	("traversal_time_s", "traversal_time_s"),
 	("solar_energy_per_m2_j", "solar_energy_per_m2_j"),
 	("avg_solar_illumination_w_per_m2", "avg_solar_illumination_w_per_m2"),
+	("battery_energy_used_j", "battery_energy_used_j"),
+	("battery_remaining_pct", "battery_remaining_pct"),
+	("battery_capacity_wh", "battery_capacity_wh"),
 	("traverse_feasible", "traverse_feasible"),
+	("failure_reason", "failure_reason"),
 	("required_wheel_friction_coeff", "required_wheel_friction_coeff"),
 	("required_climb_slope_deg", "required_climb_slope_deg"),
 ]
