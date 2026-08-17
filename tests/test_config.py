@@ -4,6 +4,7 @@ from pathlib import Path
 
 from cynthium.app.config import (
 	DATA_ROOT,
+	ensure_data_file_path,
 	get_slope_path,
 	resolve_data_file_path,
 )
@@ -58,3 +59,42 @@ class TestResolveDataFilePath:
 		p = DATA_ROOT / "nonexistent_file.tif"
 		result = resolve_data_file_path(p)
 		assert result == p
+
+
+class TestEnsureDataFilePathDownloadFailure:
+	"""A failed download must be reported (logged; popup only in the GUI) and
+	must fall back to returning the unresolved path."""
+
+	def test_failure_logged_and_path_returned(self, tmp_path, monkeypatch, caplog):
+		from cynthium.app import data as data_store
+
+		name = next(iter(data_store.REGISTRY))
+		p = tmp_path / name  # exists as a registry filename, but not on disk
+
+		def fake_fetch(filename):
+			raise RuntimeError("simulated network failure")
+
+		monkeypatch.setattr(data_store, "fetch", fake_fetch)
+		with caplog.at_level("ERROR", logger="cynthium.app.data"):
+			result = ensure_data_file_path(p)
+
+		assert result == p
+		assert "Failed to download" in caplog.text
+		assert "simulated network failure" in caplog.text
+
+	def test_cancelled_download_is_not_reported_as_failure(self, tmp_path, monkeypatch, caplog):
+		from cynthium.app import data as data_store
+
+		name = next(iter(data_store.REGISTRY))
+		p = tmp_path / name
+
+		def fake_fetch(filename):
+			raise Exception("Download cancelled by user")
+
+		monkeypatch.setattr(data_store, "fetch", fake_fetch)
+		with caplog.at_level("INFO", logger="cynthium.app.data"):
+			result = ensure_data_file_path(p)
+
+		assert result == p
+		assert "cancelled by user" in caplog.text
+		assert "Failed to download" not in caplog.text

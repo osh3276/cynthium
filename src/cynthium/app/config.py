@@ -52,6 +52,8 @@ def ensure_data_file_path(path: Path) -> Path:
 	"""Resolve then download (if needed) into the data cache.
 
 	Only downloads if the filename is present in `cynthium.app.data.REGISTRY`.
+	If the download fails, the failure is logged and reported with a dialog
+	(in the GUI), and the unresolved path is returned so callers can fall back.
 	"""
 	resolved = resolve_data_file_path(path)
 	if resolved.exists():
@@ -69,7 +71,8 @@ def ensure_data_file_path(path: Path) -> Path:
 
 	try:
 		fetched = data_store.fetch(name)
-	except Exception:
+	except Exception as exc:
+		data_store.report_download_failure(name, exc)
 		return resolved
 
 	return Path(str(fetched))

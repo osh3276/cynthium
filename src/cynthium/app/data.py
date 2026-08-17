@@ -4,6 +4,10 @@ from pathlib import Path
 import pooch
 import requests
 
+from cynthium.app.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 GITHUB_URL = os.environ.get(
 	"CYNTHIUM_DATA_BASE_URL",
 	"https://github.com/osh3276/cynthium/releases/download/2.0.0/",
@@ -248,6 +252,34 @@ def fetch(filename: str) -> str:
 		return _store.fetch(filename, downloader=_gui_downloader)  # type: ignore[arg-type]
 	return _store.fetch(filename, progressbar=True)
 
-def fetch_all() -> dict[str, str]:
-	"""Download all files. Returns {filename: local_path}."""
-	return {name: fetch(name) for name in REGISTRY}
+
+def report_download_failure(filename: str, exc: Exception) -> None:
+	"""Log, and pop up in the GUI, that a data download failed.
+
+	User-initiated cancellation is logged but does not raise a dialog.
+	"""
+	if "cancelled" in str(exc).lower():
+		logger.info(f"Download of '{filename}' cancelled by user")
+		return
+
+	logger.error(f"Failed to download '{filename}' from {GITHUB_URL}: {exc}")
+
+	# Only touch Qt on the main thread with a running application.
+	try:
+		from PySide6.QtCore import QThread
+		from PySide6.QtWidgets import QApplication, QMessageBox
+	except Exception:
+		return
+
+	app = QApplication.instance()
+	if app is None or QThread.currentThread() is not app.thread():
+		return
+
+	QMessageBox.warning(
+		None,
+		"Download Failed",
+		f"Cynthium could not download '{filename}' from the data repository.\n\n"
+		f"URL: {GITHUB_URL}{filename}\n"
+		f"Reason: {exc}\n\n"
+		"Check your internet connection and try again.",
+	)

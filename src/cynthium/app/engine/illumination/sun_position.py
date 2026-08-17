@@ -23,7 +23,11 @@ def ensure_kernels_loaded() -> None:
 	if _kernels_loaded:
 		return
 	for name in data_store.SPICE_KERNELS:
-		spice.furnsh(str(data_store.fetch(name)))
+		try:
+			spice.furnsh(str(data_store.fetch(name)))
+		except Exception as exc:
+			data_store.report_download_failure(name, exc)
+			raise
 	_kernels_loaded = True
 
 
