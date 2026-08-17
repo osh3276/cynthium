@@ -13,6 +13,7 @@ from cynthium.app.engine.simulation._sim_utils import (
 	_normalise_angle,
 	_sample_pitch,
 	_sample_target_speed,
+	max_traversal_duration_s,
 )
 from cynthium.app.engine.simulation.rover_settings import RoverSettings, G_MPS2
 
@@ -211,6 +212,42 @@ class TestEstimateResolution:
 		pts = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [5.0, 0.0, 0.0]])
 		res = _estimate_resolution(pts)
 		assert res == pytest.approx(5.0)
+
+
+class TestMaxTraversalDuration:
+	"""Upper bound on sim time: MAX_STEPS × 1 s/step, or battery/idle-drain."""
+
+	def test_default_rover_battery_bounded(self):
+		# 500 Wh / 10 W idle = 180 000 s < 500 000 s step cap
+		rover = RoverSettings(
+			mass_kg=200.0, power_hp=0.5,
+			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
+		)
+		assert max_traversal_duration_s(rover) == pytest.approx(500.0 * 3600.0 / 10.0)
+
+	def test_big_battery_capped_by_steps(self):
+		rover = RoverSettings(
+			mass_kg=200.0, power_hp=0.5,
+			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
+			battery_capacity_wh=50000.0,
+		)
+		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0)
+
+	def test_zero_idle_drain_uses_step_cap(self):
+		rover = RoverSettings(
+			mass_kg=200.0, power_hp=0.5,
+			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
+			idle_drain_w=0.0,
+		)
+		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0)
+
+	def test_zero_battery_uses_step_cap(self):
+		rover = RoverSettings(
+			mass_kg=200.0, power_hp=0.5,
+			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
+			battery_capacity_wh=0.0,
+		)
+		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0)
 
 
 class TestEmptyResult:

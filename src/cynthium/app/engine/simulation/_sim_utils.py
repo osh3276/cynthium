@@ -48,6 +48,21 @@ def _get_spice_angle_bin(
 	return round_azimuth_to_nearest_12(az)
 
 
+def max_traversal_duration_s(rover: RoverSettings) -> float:
+	"""Upper bound (seconds) on the sim time advanced by `simulate_rover_4wd`.
+
+	Each loop iteration advances sim time by at most 1 s (the pause step), and
+	the loop is capped at `MAX_STEPS` iterations.  Battery capacity is a second
+	bound: idle drain is the minimum draw, so the sim stops once the battery is
+	exhausted.  Used to decide which sun-angle rasters a traversal can possibly
+	need, so only those are downloaded.
+	"""
+	step_cap_s = float(MAX_STEPS) * 1.0  # 1 s max per step (pause mode)
+	if rover.idle_drain_w > 0 and rover.battery_capacity_j > 0:
+		return min(step_cap_s, rover.battery_capacity_j / rover.idle_drain_w)
+	return step_cap_s
+
+
 def _clamp(val: float, lo: float, hi: float) -> float:
 	"""Clamp val to [lo, hi]."""
 	return max(lo, min(hi, val))

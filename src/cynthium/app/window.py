@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from rasterio.crs import CRS
 
 from cynthium.app.config import LUNAR_CRS_PROJ
+from cynthium.app.engine.simulation._sim_utils import max_traversal_duration_s
 from cynthium.app.io.export.path_csv import write_path_csv
 from cynthium.app.io.export.settings_json import write_settings_json
 from cynthium.app.io.export.simulation_csv import write_simulation_csv
@@ -382,6 +383,7 @@ class Window(QMainWindow):
 				reference_meta=elevation_meta,
 				reference_shape=(H, W),
 				utctime=current_datetime,
+				max_duration_s=max_traversal_duration_s(rover),
 			)
 			illumination_maps = result[0]
 			meteor_energy_maps = result[1]
@@ -516,6 +518,7 @@ class Window(QMainWindow):
 				reference_meta=current_meta,
 				reference_shape=data_shape,
 				utctime=current_datetime,
+				max_duration_s=max_traversal_duration_s(rover),
 			)
 			illumination_maps = result[0]
 			meteor_energy_maps = result[1]

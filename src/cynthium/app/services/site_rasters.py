@@ -12,6 +12,8 @@ from cynthium.app.config import (
 	METEOR_FLUX_RASTER_PATH,
 	PSR_RASTER_PATH,
 	ANGLE_BIN_DEG,
+	LUNAR_DAY_S,
+	NUM_ANGLE_BINS,
 	ensure_data_file_path,
 	get_slope_path,
 	resolve_data_file_path,
@@ -218,12 +220,28 @@ def load_daily_avg_meteor_number_raster(
 	)
 
 
+def needed_angle_bins(start_angle_deg: int, max_duration_s: float) -> list[int]:
+	"""Return the 12° sun-angle bins a traversal of at most `max_duration_s` can visit.
+
+	The sun's azimuth advances ~360° per lunar day, so a traversal of
+	`max_duration_s` seconds sweeps `360 * max_duration_s / LUNAR_DAY_S` degrees
+	of azimuth, starting at `start_angle_deg`.  Bins round to the nearest 12°,
+	so the swept arc is covered by the start bin plus one bin per 12° crossed,
+	plus one extra bin of margin.  The list wraps mod 360 and is capped at
+	`NUM_ANGLE_BINS` (a full lunar day).
+	"""
+	span_deg = 360.0 * float(max_duration_s) / LUNAR_DAY_S
+	n_bins = min(NUM_ANGLE_BINS, int(span_deg // ANGLE_BIN_DEG) + 2)
+	return [(start_angle_deg + k * ANGLE_BIN_DEG) % 360 for k in range(n_bins)]
+
+
 def load_angle_maps(
 	*,
 	reference_path: str,
 	reference_meta: dict | None,
 	reference_shape: tuple[int, int],
 	utctime: str,
+	max_duration_s: float | None = None,
 ) -> tuple[
 	dict[int, RasterPayload] | None,
 	dict[int, RasterPayload] | None,
@@ -233,7 +251,13 @@ def load_angle_maps(
 	float | None,
 	float | None,
 ]:
-	"""Load all 30 angle maps for illumination, meteor energy, and meteor number."""
+	"""Load the sun-angle maps a traversal of at most `max_duration_s` can need.
+
+	Only the 12° bins the sun passes through during the traversal are downloaded
+	and cropped (the start bin plus the forward arc swept by the sun), instead of
+	all 30 bins.  Pass `max_duration_s=None` to keep the previous behaviour of
+	loading every bin.
+	"""
 	import spiceypy as spice
 
 	if not reference_meta or "transform" not in reference_meta:
@@ -257,16 +281,22 @@ def load_angle_maps(
 	ensure_kernels_loaded()
 	start_et = spice.utc2et(utctime)
 
+	if max_duration_s is None or max_duration_s <= 0:
+		bins_to_load = list(range(0, 360, ANGLE_BIN_DEG))
+	else:
+		bins_to_load = needed_angle_bins(start_angle_deg, max_duration_s)
+
 	logger.info(
-		f"Loading angle maps: start azimuth={float(az_deg):.2f}°, "
-		f"start bin={start_angle_deg}°"
+		f"Loading {len(bins_to_load)} angle map bin(s) for a traversal of up to "
+		f"{'a full lunar day' if max_duration_s is None else f'{max_duration_s:.0f}s'}: "
+		f"start bin {start_angle_deg}°, bins {bins_to_load}"
 	)
 
 	illum_maps: dict[int, RasterPayload] = {}
 	meteor_energy_maps: dict[int, RasterPayload] = {}
 	meteor_number_maps: dict[int, RasterPayload] = {}
 
-	for bin_angle in range(0, 360, ANGLE_BIN_DEG):
+	for bin_angle in bins_to_load:
 		# Illumination
 		il_path = ensure_data_file_path(
 			resolve_data_file_path(ILLUMINATION_ANGLES_DIR / f"illum_angle_{bin_angle}.tif")
