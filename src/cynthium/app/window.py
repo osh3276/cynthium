@@ -274,6 +274,11 @@ class Window(QMainWindow):
 				motor_peak_torque_nm=override.motor_peak_torque_nm,
 				track_width_m=override.track_width_m,
 				wheelbase_m=override.wheelbase_m,
+				battery_capacity_wh=override.battery_capacity_wh,
+				motor_max_rpm=override.motor_max_rpm,
+				target_cruise_speed_mps=override.target_cruise_speed_mps,
+				max_brake_decel_mps2=override.max_brake_decel_mps2,
+				idle_drain_w=override.idle_drain_w,
 			)
 		return base
 
@@ -778,7 +783,7 @@ class Window(QMainWindow):
 		}
 		pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 		try:
-			write_path_csv(path, points, label="manual", metadata=metadata, pause_durations=pause_durations)
+			write_path_csv(path, points, metadata=metadata, pause_durations=pause_durations)
 		except OSError as exc:
 			logger.error(f"Failed to export manual path: {exc}")
 			QMessageBox.critical(self, "Export Failed", f"Failed to export manual path:\n{exc}")
@@ -818,7 +823,7 @@ class Window(QMainWindow):
 		}
 		pause_durations = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 		try:
-			write_path_csv(path, points, label="auto", metadata=metadata, pause_durations=pause_durations)
+			write_path_csv(path, points, metadata=metadata, pause_durations=pause_durations)
 		except OSError as exc:
 			logger.error(f"Failed to export autopath: {exc}")
 			QMessageBox.critical(self, "Export Failed", f"Failed to export autopath:\n{exc}")
@@ -829,6 +834,29 @@ class Window(QMainWindow):
 	def _export_settings(self):
 		"""Export all current settings (rover, autopath, waypoints, etc.) as JSON."""
 		settings = self._sidebar.export_settings()
+
+		# Full rover model, including the advanced parameters from the rover
+		# settings dialog, so the export can round-trip through Import Settings.
+		try:
+			rover = self._get_rover_settings()
+			settings["rover"] = {
+				"preset": settings["rover"].get("preset", ""),
+				"mass_kg": rover.mass_kg,
+				"power_hp": rover.power_hp,
+				"wheel_friction_coeff": rover.wheel_friction_coeff,
+				"rolling_resistance_coeff": rover.rolling_resistance_coeff,
+				"wheel_radius_m": rover.wheel_radius_m,
+				"motor_peak_torque_nm": rover.motor_peak_torque_nm,
+				"track_width_m": rover.track_width_m,
+				"wheelbase_m": rover.wheelbase_m,
+				"battery_capacity_wh": rover.battery_capacity_wh,
+				"motor_max_rpm": rover.motor_max_rpm,
+				"target_cruise_speed_mps": rover.target_cruise_speed_mps,
+				"max_brake_decel_mps2": rover.max_brake_decel_mps2,
+				"idle_drain_w": rover.idle_drain_w,
+			}
+		except (ValueError, KeyError, TypeError):
+			logger.warning("Could not read rover settings for settings export")
 
 		settings["session"] = {
 			"site_path": self._current_path or "",
@@ -891,6 +919,40 @@ class Window(QMainWindow):
 
 		# import_settings auto-syncs view container via waypoint signals
 		self._sidebar.import_settings(settings)
+
+		# Restore the advanced rover parameters (from the rover settings
+		# dialog) so an exported session round-trips completely.
+		rover_data = settings.get("rover", {})
+		advanced_keys = (
+			"wheel_radius_m", "motor_peak_torque_nm", "track_width_m",
+			"wheelbase_m", "battery_capacity_wh", "motor_max_rpm",
+			"target_cruise_speed_mps", "max_brake_decel_mps2", "idle_drain_w",
+		)
+		if any(k in rover_data for k in advanced_keys):
+			from cynthium.app.engine.simulation.rover_settings import (
+				rover_settings_from_strings,
+			)
+			torque = rover_data.get("motor_peak_torque_nm")
+			try:
+				self._rover_settings_override = rover_settings_from_strings(
+					str(rover_data.get("mass_kg", "")),
+					str(rover_data.get("power_hp", "")),
+					str(rover_data.get("wheel_friction_coeff", "")),
+					str(rover_data.get("rolling_resistance_coeff", "")),
+					wheel_radius_m=str(rover_data.get("wheel_radius_m", "0.5")),
+					motor_peak_torque_nm=str(torque) if torque not in (None, "") else None,
+					track_width_m=str(rover_data.get("track_width_m", "1.0")),
+					wheelbase_m=str(rover_data.get("wheelbase_m", "1.5")),
+					battery_capacity_wh=str(rover_data.get("battery_capacity_wh", "500.0")),
+					motor_max_rpm=str(rover_data.get("motor_max_rpm", "200.0")),
+					target_cruise_speed_mps=str(rover_data.get("target_cruise_speed_mps", "2.0")),
+					max_brake_decel_mps2=str(rover_data.get("max_brake_decel_mps2", "1.0")),
+					idle_drain_w=str(rover_data.get("idle_drain_w", "10.0")),
+				)
+			except (ValueError, KeyError, TypeError):
+				self._rover_settings_override = None
+		else:
+			self._rover_settings_override = None
 
 		session = settings.get("session", {})
 		site_path = session.get("site_path", "")

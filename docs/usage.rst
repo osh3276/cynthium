@@ -347,9 +347,12 @@ failed — plus the full rover configuration in the metadata section,
 suitable for external analysis in Excel, MATLAB, or pandas.
 
 Use **File > Export Settings...** to save all current configuration — rover
-preset and custom values, autopath weights/algorithm/strategy/path mode,
-bicubic flag, waypoints, and session info (site path, datetime, map type) —
-as a JSON file. This lets you restore a complete working session later.
+preset and the full rover model (including the advanced parameters from the
+rover settings dialog: wheel radius, motor torque, track width, wheelbase,
+battery capacity, motor speed, cruise speed, braking, and idle drain),
+autopath weights/algorithm/strategy/path mode, bicubic flag, waypoints, and
+session info (site path, datetime, map type) — as a JSON file. This lets you
+restore a complete working session later.
 
 8. Import Custom Data
 *********************
