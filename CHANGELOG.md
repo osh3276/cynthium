@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-08-17
+
+### Added
+
+- **Cancellable autopath and simulation runs.** Both progress dialogs now
+  have a **Cancel** button, and closing the dialog (X button or Esc) stops
+  the running computation. The background worker shuts down cleanly, so
+  closing the popup or the application mid-run no longer crashes with
+  "QThread: Destroyed while thread is still running". (#33f98e6, #e19d590)
+
+- **Full rover configuration in exported settings.** Export Settings now
+  writes the complete rover model, including the advanced parameters from
+  the rover settings dialog (wheel radius, motor torque, track width,
+  wheelbase, battery capacity, motor speed, cruise speed, braking, idle
+  drain), and Import Settings restores them, so a saved session round-trips
+  completely. (#5dfc35c)
+
+### Fixed
+
+- **Rover settings dialog fields not applied to the simulation.** Edits to
+  battery capacity, motor max RPM, target cruise speed, maximum brake
+  deceleration, and idle power drain in the rover settings dialog were
+  silently ignored, and the simulation always ran with the default values
+  for these parameters. They now take effect. (#5dfc35c)
+
 ## [1.2.2] - 2026-08-17
 
 ### Added
@@ -159,6 +184,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release with terrain analysis, manual waypoint planning, A*/Dijkstra
   pathfinding, rover simulation, and multi-format export.
 
+[1.2.3]: https://github.com/osh3276/cynthium/compare/v1.2.2...v1.2.3
 [1.2.1]: https://github.com/osh3276/cynthium/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/osh3276/cynthium/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/osh3276/cynthium/compare/v1.1.0...v1.1.1
