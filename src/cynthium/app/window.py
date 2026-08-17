@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import threading
 
 import rasterio
 from PySide6.QtCore import QThread, Qt
@@ -59,6 +60,7 @@ def _run_autopath(
 		center_lon=None,
 		start_et=None,
 		pause_durations=None,
+		cancel_event=None,
 ):
 	"""Run autopath computation in a background thread (no file I/O, no Qt)."""
 	def _pathfind_segment(start_xy, goal_xy, blocked):
@@ -82,6 +84,7 @@ def _run_autopath(
 			algorithm=algorithm,
 			blocked_cells=blocked,
 			use_bicubic=use_bicubic,
+			cancel_event=cancel_event,
 		)
 
 	return compute_validated_path(
@@ -99,6 +102,7 @@ def _run_autopath(
 		center_lon=center_lon,
 		start_et=start_et,
 		pause_durations=pause_durations,
+		cancel_event=cancel_event,
 	)
 
 
@@ -110,7 +114,8 @@ def _run_simulation(manual_points, auto_points, mdb, rover,
 					start_angle_deg=0,
 					center_lat=None,
 					center_lon=None,
-					start_et=None):
+					start_et=None,
+					cancel_event=None):
 	"""Run simulation in background thread with pre-loaded meteor rasters."""
 	manual_stats, manual_points_array = calculate_simulation_stats(
 		manual_points,
@@ -125,6 +130,7 @@ def _run_simulation(manual_points, auto_points, mdb, rover,
 		center_lat=center_lat,
 		center_lon=center_lon,
 		start_et=start_et,
+		cancel_event=cancel_event,
 	)
 
 	auto_stats = None
@@ -143,6 +149,7 @@ def _run_simulation(manual_points, auto_points, mdb, rover,
 			center_lat=center_lat,
 			center_lon=center_lon,
 			start_et=start_et,
+			cancel_event=cancel_event,
 		)
 
 	return {
@@ -174,6 +181,8 @@ class Window(QMainWindow):
 		self._last_autopath_stats = None
 		self._last_autopath_points = None
 		self._rover_settings_override = None
+		self._path_cancel_event = None
+		self._sim_cancel_event = None
 
 		self._menubar = AppMenuBar(self)
 		self.setMenuBar(self._menubar)
@@ -400,7 +409,9 @@ class Window(QMainWindow):
 
 		pause_durs = self._sidebar.get_pause_durations() if hasattr(self, "_sidebar") else []
 
+		self._path_cancel_event = threading.Event()
 		self._path_popup = ProgressPopup("Autopath", "Computing autopath...", self)
+		self._path_popup.cancelled.connect(self._request_cancel_autopath)
 		self._path_worker = Worker(
 			_run_autopath,
 			user_wps, path_mode, rover, map_data_bundle,
@@ -415,25 +426,68 @@ class Window(QMainWindow):
 			meteor_number_maps, start_angle_deg,
 			center_lat, center_lon, start_et,
 			pause_durs,
+			cancel_event=self._path_cancel_event,
 		)
 		self._path_thread = QThread()
 		self._path_worker.moveToThread(self._path_thread)
 		self._path_thread.started.connect(self._path_worker.run)
 		self._path_worker.finished.connect(self._on_autopath_done)
 		self._path_worker.failed.connect(self._on_autopath_error)
+		self._path_worker.cancelled.connect(self._on_autopath_cancelled)
 		self._path_thread.start()
 		self._path_popup.show()
 
-	def _on_autopath_done(self, result: dict):
-		"""Handle autopath completion on the main thread."""
-		if self._path_popup is not None:
-			self._path_popup.close()
+	def _request_cancel_autopath(self):
+		"""Request cancellation of a running autopath computation."""
+		if self._path_cancel_event is not None:
+			self._path_cancel_event.set()
+
+	def _request_cancel_simulation(self):
+		"""Request cancellation of a running simulation."""
+		if self._sim_cancel_event is not None:
+			self._sim_cancel_event.set()
+
+	def _teardown_autopath(self):
+		"""Stop and dispose of the autopath worker thread."""
 		if self._path_thread is not None:
 			self._path_thread.quit()
+			self._path_thread.wait(3000)
 			self._path_thread.deleteLater()
-		self._path_popup = None
 		self._path_thread = None
 		self._path_worker = None
+		self._path_cancel_event = None
+		if self._path_popup is not None:
+			self._path_popup.finish()
+			self._path_popup.close()
+		self._path_popup = None
+
+	def _teardown_simulation(self):
+		"""Stop and dispose of the simulation worker thread."""
+		if self._sim_thread is not None:
+			self._sim_thread.quit()
+			self._sim_thread.wait(3000)
+			self._sim_thread.deleteLater()
+		self._sim_thread = None
+		self._sim_worker = None
+		self._sim_cancel_event = None
+		if self._sim_popup is not None:
+			self._sim_popup.finish()
+			self._sim_popup.close()
+		self._sim_popup = None
+
+	def _on_autopath_cancelled(self):
+		"""Handle autopath cancellation on the main thread."""
+		self._teardown_autopath()
+		self.statusBar().showMessage("Autopath cancelled")
+
+	def _on_simulation_cancelled(self):
+		"""Handle simulation cancellation on the main thread."""
+		self._teardown_simulation()
+		self.statusBar().showMessage("Simulation cancelled")
+
+	def _on_autopath_done(self, result: dict):
+		"""Handle autopath completion on the main thread."""
+		self._teardown_autopath()
 
 		self._view_container.clear_failure_point()
 
@@ -536,7 +590,9 @@ class Window(QMainWindow):
 		use_bicubic = self._sidebar.get_bicubic_enabled()
 		pause_durs = self._sidebar.get_pause_durations()
 
+		self._sim_cancel_event = threading.Event()
 		self._sim_popup = ProgressPopup("Simulation", "Running simulation...", self)
+		self._sim_popup.cancelled.connect(self._request_cancel_simulation)
 		self._sim_worker = Worker(
 			_run_simulation,
 			manual_points, auto_points, tuple(mdb), rover,
@@ -544,25 +600,20 @@ class Window(QMainWindow):
 			illumination_maps, meteor_energy_maps,
 			meteor_number_maps, start_angle_deg,
 			center_lat, center_lon, start_et,
+			cancel_event=self._sim_cancel_event,
 		)
 		self._sim_thread = QThread()
 		self._sim_worker.moveToThread(self._sim_thread)
 		self._sim_thread.started.connect(self._sim_worker.run)
 		self._sim_worker.finished.connect(self._on_simulation_done)
 		self._sim_worker.failed.connect(self._on_simulation_error)
+		self._sim_worker.cancelled.connect(self._on_simulation_cancelled)
 		self._sim_thread.start()
 		self._sim_popup.show()
 
 	def _on_simulation_done(self, result: dict):
 		"""Handle simulation completion on the main thread."""
-		if self._sim_popup is not None:
-			self._sim_popup.close()
-		if self._sim_thread is not None:
-			self._sim_thread.quit()
-			self._sim_thread.deleteLater()
-		self._sim_popup = None
-		self._sim_thread = None
-		self._sim_worker = None
+		self._teardown_simulation()
 
 		manual_stats = result["manual_stats"]
 		manual_points_array = result["manual_points_array"]
@@ -622,29 +673,25 @@ class Window(QMainWindow):
 
 	def _on_autopath_error(self, error_msg: str):
 		"""Handle autopath background worker failure."""
-		if self._path_popup is not None:
-			self._path_popup.close()
-		if self._path_thread is not None:
-			self._path_thread.quit()
-			self._path_thread.deleteLater()
-		self._path_popup = None
-		self._path_thread = None
-		self._path_worker = None
+		self._teardown_autopath()
 		logger.error(f"Autopath failed: {error_msg}")
 		QMessageBox.critical(self, "Autopath", f"Autopath failed.\n\n{error_msg}")
 
 	def _on_simulation_error(self, error_msg: str):
 		"""Handle simulation background worker failure."""
-		if self._sim_popup is not None:
-			self._sim_popup.close()
-		if self._sim_thread is not None:
-			self._sim_thread.quit()
-			self._sim_thread.deleteLater()
-		self._sim_popup = None
-		self._sim_thread = None
-		self._sim_worker = None
+		self._teardown_simulation()
 		logger.error(f"Simulation failed: {error_msg}")
 		QMessageBox.critical(self, "Simulation", f"Simulation failed.\n\n{error_msg}")
+
+	def closeEvent(self, event):
+		"""Cancel any running background work before the window closes."""
+		self._request_cancel_autopath()
+		self._request_cancel_simulation()
+		for thread in (self._path_thread, self._sim_thread):
+			if thread is not None:
+				thread.quit()
+				thread.wait(3000)
+		super().closeEvent(event)
 
 	def _export_simulation_data(self):
 		"""Export the last simulation results to CSV files."""

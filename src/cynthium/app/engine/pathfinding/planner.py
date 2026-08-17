@@ -9,6 +9,8 @@ thread; the autopath worker in the UI calls it with pre-loaded arrays.
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 from scipy.ndimage import zoom
 
@@ -39,6 +41,7 @@ def compute_path_segment(
 	max_expanded: int = 500000,
 	blocked_cells: set[tuple[int, int]] | None = None,
 	use_bicubic: bool = False,
+	cancel_event: threading.Event | None = None,
 ) -> list[tuple[float, float]] | None:
 	"""Plan a route between two world-coordinate points on the elevation grid.
 
@@ -179,6 +182,7 @@ def compute_path_segment(
 		grade_power=grade_power,
 		max_expanded=int(max_expanded),
 		dijkstra=use_dijkstra,
+		cancel_event=cancel_event,
 	)
 
 	if result is None or not result.path_rc:

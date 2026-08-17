@@ -1,5 +1,6 @@
 """Orchestrates path sampling, physics simulation, and result assembly."""
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -31,6 +32,7 @@ def compute_traversal_dynamics(
 	rover: RoverSettings,
 	use_bicubic: bool = False,
 	pause_durations: list[float] | None = None,
+	cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
 	"""Run the physics simulation once and return results."""
 
@@ -87,6 +89,7 @@ def compute_traversal_dynamics(
 			v0_mps=0.0,
 			v_min_power_mps=0.001,
 			pause_durations=pause_durations,
+			cancel_event=cancel_event,
 		)
 
 	return {

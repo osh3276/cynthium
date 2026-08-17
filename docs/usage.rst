@@ -107,6 +107,7 @@ fallback.
 #. Click on the 2D map to place a **start point** (green marker).
 #. Click again to place a **goal point** (green marker).
 #. Click *Autopath* to find the optimal route. A progress dialog appears while the path is computed.
+#. The progress dialog has a **Cancel** button; closing it (or pressing Esc) stops the computation, and the background worker shuts down cleanly.
 #. The optimal path is overlaid on the map as a blue polyline. If the path fails physics validation, the last attempted route is shown in blue with a **red marker** at the point where the rover got stuck.
 #. Click *Clear path* at any time to remove all waypoints, autopath results, and failure markers from both the 2D map and 3D terrain view at once.
 
@@ -259,6 +260,8 @@ the **Rover Settings** button in the sidebar's planning panel.
 
 Click *Run Simulation* to execute the physics-based 4-wheel skid-steer
 rover traverse. A progress dialog appears and the UI stays responsive.
+The dialog can be cancelled with the **Cancel** button, the close (X)
+button, or Esc; the simulation stops at the next physics step.
 
 The simulation steps are:
 

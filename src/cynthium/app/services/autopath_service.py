@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Any, Callable
 
 import numpy as np
@@ -9,6 +10,7 @@ import numpy as np
 from cynthium.app.engine.simulation.sim_orchestrator import compute_traversal_dynamics
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
 from cynthium.app.engine.simulation.stats import calculate_path_stats
+from cynthium.app.utils.cancellation import CancelledError
 
 
 def _build_pairs(
@@ -34,6 +36,7 @@ def _validate_segment_with_simulation(
 	center_lon: float | None = None,
 	start_et: float | None = None,
 	pause_durations: list[float] | None = None,
+	cancel_event: threading.Event | None = None,
 ) -> tuple[bool, dict]:
 	"""Run physics simulation on a path and return (feasible, stats)."""
 	try:
@@ -63,10 +66,13 @@ def _validate_segment_with_simulation(
 				start_et=start_et,
 				rover=rover, use_bicubic=use_bicubic,
 				pause_durations=pause_durations,
+				cancel_event=cancel_event,
 			)
 		)
 		feasible = float(stats.get("traverse_feasible", 0.0)) >= 0.5
 		return feasible, stats
+	except CancelledError:
+		raise
 	except Exception:
 		return False, {}
 
@@ -88,6 +94,7 @@ def compute_validated_path(
 	center_lon: float | None = None,
 	start_et: float | None = None,
 	pause_durations: list[float] | None = None,
+	cancel_event: threading.Event | None = None,
 ) -> dict:
 	"""Pathfind with simulation validation retry loop."""
 	pairs = _build_pairs(waypoints_xy, path_mode)
@@ -98,10 +105,14 @@ def compute_validated_path(
 	last_failure_xy = None
 
 	for attempt in range(max_attempts):
+		if cancel_event is not None and cancel_event.is_set():
+			raise CancelledError
 		segments: list[list[tuple[float, float]]] = []
 		pathfind_failed = False
 
 		for start_xy, goal_xy in pairs:
+			if cancel_event is not None and cancel_event.is_set():
+				raise CancelledError
 			seg = pathfind_fn(start_xy, goal_xy, all_blocked if all_blocked else None)
 			if not seg or len(seg) < 2:
 				pathfind_failed = True
@@ -129,6 +140,7 @@ def compute_validated_path(
 			center_lon=center_lon,
 			start_et=start_et,
 			pause_durations=pause_durations,
+			cancel_event=cancel_event,
 		)
 		last_stats = stats
 		last_failure_xy = (

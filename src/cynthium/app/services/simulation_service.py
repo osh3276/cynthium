@@ -22,6 +22,7 @@ def calculate_simulation_stats(
 		center_lat: float | None = None,
 		center_lon: float | None = None,
 		start_et: float | None = None,
+		cancel_event=None,
 ) -> tuple[dict[str, float], np.ndarray]:
 		"""Calculate simulation stats from points and map data bundle."""
 		(
@@ -85,6 +86,7 @@ def calculate_simulation_stats(
 					rover=rover,
 					use_bicubic=use_bicubic,
 					pause_durations=pause_durations,
+					cancel_event=cancel_event,
 				)
 			)
 

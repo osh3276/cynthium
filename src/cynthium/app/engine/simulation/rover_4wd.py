@@ -10,6 +10,7 @@ to face the next waypoint, then drives again.
 
 from __future__ import annotations
 
+import threading
 import time
 from math import atan2, cos, sin, sqrt
 from typing import Any
@@ -30,6 +31,7 @@ from cynthium.app.engine.simulation._sim_utils import (
 	SpeedPIDController,
 )
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
+from cynthium.app.utils.cancellation import CancelledError
 
 _PIVOT_YAW_RATE_MAX = 0.4  # rad/s during pivot
 _HEADING_K = 2.0  # proportional gain for heading-while-driving
@@ -82,6 +84,7 @@ def simulate_rover_4wd(
 	v_min_power_mps: float = 0.05,
 	max_steps: int = 500000,
 	pause_durations: list[float] | None = None,
+	cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
 	"""Simulate a 4-wheel skid-steer rover with simple brake model."""
 	global step
@@ -195,6 +198,8 @@ def simulate_rover_4wd(
 	BIN_CHECK_INTERVAL = 60.0
 
 	for step in range(max_steps):
+		if cancel_event is not None and cancel_event.is_set():
+			raise CancelledError
 		_do_check = total_time >= _next_bin_check and (
 			illumination_maps is not None or meteor_energy_maps is not None
 		)

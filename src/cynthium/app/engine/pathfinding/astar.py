@@ -1,8 +1,11 @@
 import heapq
 import math
+import threading
 from dataclasses import dataclass
 
 import numpy as np
+
+from cynthium.app.utils.cancellation import CancelledError
 
 
 @dataclass(frozen=True)
@@ -83,6 +86,7 @@ def a_star(
 	max_expanded: int = 500000,
 	blocked_pixels: set[tuple[int, int]] | None = None,
 	dijkstra: bool = False,
+	cancel_event: threading.Event | None = None,
 ) -> PathResult | None:
 	"""A* over a 16-connected grid.
 
@@ -144,6 +148,8 @@ def a_star(
 
 	expanded = 0
 	while open_heap:
+		if cancel_event is not None and cancel_event.is_set():
+			raise CancelledError
 		cost, r, c = heapq.heappop(open_heap)
 		if closed[r, c]:
 			continue
