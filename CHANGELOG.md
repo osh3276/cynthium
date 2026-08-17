@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-08-17
+
+### Added
+
+- **Download-failure reporting.** When a managed data file cannot be
+  downloaded, the failure is now logged with the file name and source URL,
+  and in the GUI a dialog explains what failed and how to recover, instead
+  of silently surfacing as a "missing raster" warning. Cancelling the
+  download progress dialog is logged but does not raise an error dialog.
+  The unused `fetch_all` helper was removed from `cynthium.app.data`.
+  (#23a536b)
+
+- **Documentation updates.** The usage guide now covers importing custom
+  GeoTIFFs (with and without CRS validation), the simulation CSV export
+  format (including battery and rover metadata), and the 40 m traversal
+  slope statistic; the API docs add autodoc for the pathfinding planner
+  and raster sampling modules. (#e6a4bb4)
+
+### Fixed
+
+- **Semantically equal projections no longer rejected when loading sites.**
+  CRS validation now compares projections semantically instead of by exact
+  string match, with a fallback check for the lunar south-pole
+  stereographic family (stere, lat_0=-90, R=1737400), so valid tiles with
+  equivalent-but-differently-written CRS definitions load without a
+  "Wrong Projection" warning. (#b14cb18)
+
+### Changed
+
+- **Simulations download only the sun-angle maps they can use.** Angle-map
+  pre-loading now takes the maximum possible traversal duration (bounded by
+  the simulation step cap and rover battery) and downloads the start bin
+  plus the forward arc swept by the sun, instead of all 30 bins for each of
+  the illumination, meteor-energy, and meteor-number products. A typical
+  rover now downloads ~4 bins (12 files) rather than 30 (90 files).
+  (#b879164)
+
 ## [1.2.1] - 2026-08-13
 
 ### Added
