@@ -45,8 +45,9 @@ The application is organised into several subpackages under
      - Responsibility
    * - :mod:`cynthium.app.engine`
      - Core algorithms: pathfinding (A\*, Dijkstra), illumination (sun
-       position, shadows), rover simulation (4WD skid-steer, PID speed
-       control, resistive motor model, battery drain).
+       position, shadows), rover simulation (4WD skid-steer, adaptive
+       cruise for slow rovers, PID speed control, brake model, battery
+       drain).
    * - :mod:`cynthium.app.services`
      - High-level orchestration: site raster management, autopath
        validation loop, simulation lifecycle.

@@ -270,8 +270,12 @@ The simulation steps are:
 #. For each waypoint segment, drive toward the waypoint using a
    **stop-pivot-go** state machine:
 
-   * **DRIVE** — target speed set by the configured cruise speed
-     (ramped over the last 10 m). A PID controller outputs throttle 0–1.
+   * **DRIVE** — target speed set by the configured cruise speed,
+     ramped down over the last few metres. Rovers cruising at 2 m/s or
+     less use **adaptive cruise**: a large timestep bounded to at most
+     1 m travelled per step, with a one-step deadbeat throttle, so slow
+     missions simulate in a fraction of the steps. Faster rovers use
+     the classic PID controller at a 0.02–0.1 s timestep.
    * **STOP** — once within 3 m of the waypoint, the rover brakes and stops.
    * **PAUSE** (optional) — waits for the configured per-waypoint pause
      duration before continuing.

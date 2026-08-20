@@ -5,9 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.3] - 2026-08-17
+## [1.2.3] - 2026-08-20
 
 ### Added
+
+- **Adaptive cruise timestep for slow rovers.** Rovers with a cruise
+  speed at or below 2 m/s (`CRUISE_ADAPTIVE_SPEED_MPS`) no longer step
+  the physics at the fixed 0.1 s control timestep. On straight cruise
+  sections the timestep is chosen from the current speed so the rover
+  advances at most 1 m per step (`CRUISE_STEP_DIST_M`, capped at 30 s),
+  and a one-step **deadbeat throttle** replaces the PID speed
+  controller, which limit-cycled with ±100% speed error at low speeds.
+  A downhill braking branch prevents runaways on descending grades, the
+  yaw rate is zeroed on entering cruise so a leftover pivot rate cannot
+  halve the drive force, the approach ramp is shortened for slow rovers,
+  and terrain-pitch sampling searches a window around the previous best
+  segment instead of the whole path. Pauses advance in chunks of up to
+  60 s of simulated time, and the simulation result now includes
+  `simulation_steps`. A slow rover that previously needed ~25,000+ steps
+  per 100 m now completes in a few hundred steps, so slow missions
+  (e.g. Curiosity at 0.04 m/s) simulate in well under a second of wall
+  time. Rovers faster than 2 m/s keep the original dt ≤ 0.1 s control
+  loop with unchanged results. (#86ee3a2)
 
 - **Cancellable autopath and simulation runs.** Both progress dialogs now
   have a **Cancel** button, and closing the dialog (X button or Esc) stops
@@ -21,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wheelbase, battery capacity, motor speed, cruise speed, braking, idle
   drain), and Import Settings restores them, so a saved session round-trips
   completely. (#5dfc35c)
+
+### Changed
+
+- **Curiosity preset cruise speed set to 0.04 m/s.** The Curiosity rover
+  preset now uses its real-world top speed instead of inheriting the
+  2 m/s dataclass default. (#86ee3a2)
 
 ### Fixed
 

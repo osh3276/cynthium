@@ -207,43 +207,107 @@ to face the next one, then drives again.
 
 **Stop-Pivot-Go state machine:**
 
-1. **DRIVE** \u2014 target speed comes from the configured cruise speed
-   (ramped down over the last 10\u2009m for a smooth approach).  A PID
-   controller outputs throttle 0\u20131.
-2. **STOP** \u2014 once within 3\u2009m of the waypoint, target speed \u2192 0.
-   The rover coasts to a stop via motor resistance \u2014 no brake.
-3. **PAUSE** (optional) \u2014 waits for the configured per-waypoint
-   pause duration before pivoting.
-4. **PIVOT** \u2014 applies opposing left/right thrusts to rotate in
-   place until the heading aligns with the next waypoint.
+1. **DRIVE** — the target speed comes from the configured cruise speed,
+   ramped down over the last few metres for a smooth approach.  Two
+   control regimes are used (see `Adaptive cruise timestep`_ below):
 
-Motor model
+   * Rovers cruising at **2 m/s or less** use *adaptive cruise*: a large
+     timestep (up to 30 s, bounded so the rover advances at most 1 m per
+     step) with a one-step deadbeat throttle and heading correction.
+   * Faster rovers use the classic PID speed controller at the small
+     control timestep (0.02–0.1 s).
+
+2. **STOP** — once within 3 m of the waypoint, the target speed is set
+   to zero and the rover brakes to a halt at its configured maximum brake
+   deceleration (a single step for adaptive-cruise rovers).
+3. **PAUSE** (optional) — waits for the configured per-waypoint pause
+   duration before pivoting.  No dynamics are integrated during a pause,
+   so it advances in chunks of up to 60 s of simulated time per step.
+4. **PIVOT** — applies opposing left/right thrusts to rotate in place
+   until the heading aligns with the next waypoint.
+
+Adaptive cruise timestep
+------------------------
+
+A fixed 0.1 s control timestep makes slow rovers prohibitively slow to
+simulate: a 100 m traverse at 0.04 m/s is 2,500 s of simulated time
+(~25,000 steps at dt = 0.1 s), and simply raising the timestep uniformly
+makes the PID speed and yaw controllers oscillate around the waypoints.
+Rovers with a cruise speed at or below ``CRUISE_ADAPTIVE_SPEED_MPS``
+(2 m/s) therefore switch to **adaptive cruise** on straight sections,
+where the timestep is chosen from the current speed so the rover advances
+at most ``CRUISE_STEP_DIST_M`` (1 m) per step:
+
+.. math::
+
+   \Delta t_{\text{cruise}} =
+   \operatorname{clamp}\left(\frac{1\,\text{m}}{v},\; 0.02\,\text{s},\;
+   30\,\text{s}\right)
+
+**Deadbeat throttle.**  Instead of a PID loop, the throttle is solved so
+the rover reaches the target speed :math:`v_t` in a single step.  The
+required net force is
+
+.. math::
+
+   F_{\text{desired}} = F_{\text{roll}} + F_{\text{grade}} +
+   m \cdot \frac{v_t - v}{\Delta t}
+
+and the throttle is the ratio of that force to the power-limited drive
+force available at the current speed,
+:math:`F_{\text{power}} = P / \max(v, v_{\min})`:
+
+.. math::
+
+   \text{throttle} = \operatorname{clamp}\left(
+   \frac{F_{\text{desired}}}{F_{\text{power}}},\; 0,\; 1\right)
+
+This one-step deadbeat is stable at any timestep, whereas the PID speed
+controller limit-cycles at low speeds (at 0.04 m/s it toggles the speed
+between 0 and ~0.08 m/s — a ±100% error).  On descending grades
+:math:`F_{\text{desired}}` can be negative; the throttle is then zeroed
+and the rover brakes instead:
+
+.. math::
+
+   \text{brake\_decel} = \operatorname{clamp}\left(
+   -\frac{F_{\text{desired}}}{m},\; 0,\; \text{max\_brake\_decel}\right)
+
+Without this branch the rover would accelerate without bound on
+downhill sections.  Acceleration from rest is timed exactly rather than
+billed as a full cruise step, and the approach ramp is shortened to
+:math:`\operatorname{clamp}(v \cdot 5\,\text{s},\; 3\,\text{m},\; 10\,\text{m})`
+so slow rovers do not waste steps crawling to a stop.
+
+**Heading.**  During cruise the yaw rate is set directly to the deadbeat
+value :math:`\dot\psi = \operatorname{clamp}(\psi_{\text{err}} / \Delta t,\;
+\pm \dot\psi_{\max})` (traction-limited) instead of integrating the
+yaw-error controller, and any leftover pivot yaw rate is zeroed on
+entering cruise so the power-limited wheel model sees both wheels at the
+same speed.
+
+**Terrain pitch.**  The pitch under the vehicle is sampled from the
+nearest path segment; adaptive-cruise rovers search a small window around
+the previously best segment instead of the whole path, keeping the
+per-step cost roughly constant as the rover advances.
+
+Each loop iteration now advances at most ``MAX_STEP_S`` (60 s) of
+simulated time, and ``max_traversal_duration_s`` uses this bound when
+deciding which sun-angle rasters a traversal can possibly need.
+Convergence checks against smaller cruise steps show the discretisation
+error stays well under 1% of the traversal time.
+
+Drive model
 -----------
 
-Each wheel has a DC motor directly coupled to it (no freewheel). The
-motor provides both drive torque (when accelerating) and resistive
-torque from back-EMF (when coasting or overspeed):
+Each wheel is driven by a DC motor (no freewheel).  The available drive
+force per side is power-limited and capped by the motor torque and the
+wheel traction:
 
-.. math::
-
-   I \cdot \frac{d\omega}{dt} = -b \cdot \omega - \tau_c \cdot \text{sign}(\omega)
-
-where:
-
-* :math:`\omega` = wheel angular velocity (rad/s)
-* :math:`I` = wheel rotational inertia (kg\u00b7m\u00b2)
-* :math:`b` = motor damping coefficient (N\u00b7m\u00b7s, back-EMF)
-* :math:`\tau_c` = Coulomb friction torque (N\u00b7m)
-
-The resistive force at the wheel contact patch is:
-
-.. math::
-
-   F_{\text{resist}} = \frac{b \cdot \omega + \tau_c}{r}
-
-where :math:`r` is the wheel radius.  This force always opposes motion,
-so the rover naturally decelerates when the motor is not powered \u2014
-no separate brake needed.
+* Power limit: :math:`F_{\text{power}} = P_{\text{side}} / v_{\text{side}}`
+  (falls back to :math:`v_{\min}` near standstill to avoid a singularity)
+* Torque limit: :math:`F_{\text{torque}} = T_{\text{peak}} / r`
+* Traction limit: :math:`F_{\text{trac}} = \frac{1}{2} \mu \cdot m \cdot g \cdot |\cos\theta|`
 
 Max wheel speed is determined by the motor's no-load RPM and wheel
 radius:
@@ -252,18 +316,12 @@ radius:
 
    v_{\text{max}} = \frac{\text{RPM} \cdot \pi}{30} \cdot r
 
-At speeds above :math:`v_{\text{max}}`, the motor generates negative
-torque (regenerative braking), preventing runaway.
-
-**Drive torque** (from power-limited motor) is split per side, capped
-by:
-
-* Power limit: :math:`F_{\text{power}} = P_{\text{side}} / v_{\text{side}}`
-* Torque limit: :math:`F_{\text{torque}} = T_{\text{peak}} / r`
-* Traction limit: :math:`F_{\text{trac}} = \frac{1}{2} \mu \cdot m \cdot g \cdot |\cos\theta|`
-
-Per-side forces are summed, a yaw differential from heading error is
-added, then integrated to update vehicle speed, position, and heading.
+Above :math:`v_{\text{max}}` the drive force is not applied, so the
+rover cannot exceed this speed.  Braking is modelled as a direct
+deceleration (m/s²) up to the configured ``max_brake_decel`` — there is
+no motor back-EMF or Coulomb-friction model.  Per-side forces are
+summed, a yaw differential from the heading error is added, then
+integrated to update vehicle speed, position, and heading.
 
 Battery drain
 -------------
@@ -310,6 +368,9 @@ Key outputs
      - Total energy drawn from battery (J)
    * - ``battery_remaining_pct``
      - Remaining battery charge (%)
+   * - ``simulation_steps``
+     - Physics loop iterations used (adaptive cruise keeps slow rovers
+       in the hundreds rather than tens of thousands)
 
 Lunar parameters
 ================
