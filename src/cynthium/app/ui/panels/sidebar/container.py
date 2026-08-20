@@ -24,6 +24,7 @@ class AppSidebar(QWidget):
 	waypoint_removed = Signal(int)
 	waypoint_edited = Signal(int, float, float)
 	waypoints_cleared = Signal()
+	waypoints_reordered = Signal(int, int)
 	autopath_requested = Signal(object)
 	rover_settings_requested = Signal()
 
@@ -60,6 +61,7 @@ class AppSidebar(QWidget):
 		self._planning_panel.waypoint_added.connect(self.waypoint_added.emit)
 		self._planning_panel.waypoint_removed.connect(self.waypoint_removed.emit)
 		self._planning_panel.waypoints_cleared.connect(self.waypoints_cleared.emit)
+		self._planning_panel.waypoints_reordered.connect(self.waypoints_reordered.emit)
 		self._planning_panel.autopath_requested.connect(self.autopath_requested.emit)
 		self._planning_panel.waypoint_edited.connect(self.waypoint_edited.emit)
 		scroll_layout.addWidget(self._planning_panel)

@@ -253,6 +253,7 @@ class Window(QMainWindow):
 		)
 		self._sidebar.waypoint_removed.connect(self._view_container.remove_waypoint)
 		self._sidebar.waypoint_edited.connect(self._view_container.edit_waypoint)
+		self._sidebar.waypoints_reordered.connect(self._view_container.reorder_waypoint)
 		self._sidebar.waypoints_cleared.connect(self._on_clear_waypoints)
 		self._sidebar.autopath_requested.connect(self._on_autopath_requested)
 		self._sidebar.rover_settings_requested.connect(

@@ -282,6 +282,11 @@ class ViewContainer(QWidget):
 		self.raster_view.remove_waypoint(index)
 		self.terrain_view.remove_waypoint(index)
 
+	def reorder_waypoint(self, old_index: int, new_index: int):
+		"""Move a waypoint from old_index to new_index on both views."""
+		self.raster_view.reorder_waypoint(old_index, new_index)
+		self.terrain_view.reorder_waypoint(old_index, new_index)
+
 	def clear_all_waypoints(self):
 		"""Clear all waypoints from both views."""
 		self.raster_view.clear_all_waypoints()

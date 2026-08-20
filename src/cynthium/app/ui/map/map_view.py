@@ -280,34 +280,49 @@ class MapView(QWidget):
 			self._waypoint_list[index] = (x, y)
 			self._update_graph()
 
+	def reorder_waypoint(self, old_index: int, new_index: int):
+		"""Move the waypoint at old_index to new_index."""
+		if 0 <= old_index < len(self._waypoint_list):
+			pt = self._waypoint_list.pop(old_index)
+			self._waypoint_list.insert(new_index, pt)
+			self._update_graph()
+
 	def clear_all_waypoints(self):
 		"""Remove all waypoints and update the display."""
 		self._waypoint_list.clear()
 		self._update_graph()
 
 	def _update_graph(self):
-		"""Update the waypoint scatter plot."""
+		"""Update the waypoint scatter plot and its numbered labels."""
 		self._waypoints.setData(
 			pos=np.array(self._waypoint_list)
 			if self._waypoint_list
 			else np.empty((0, 2))
 		)
 
-		# Update waypoint labels
-		for label in self._waypoint_labels:
-			self._plot.removeItem(label)
-		self._waypoint_labels.clear()
-		for i, (x, y) in enumerate(self._waypoint_list):
+		# Reconcile the number labels with the waypoint list.  Reuse the
+		# existing TextItems when the count is unchanged, updating their
+		# text/position in place, so the numbers always match the waypoint
+		# order and repaints cannot drop them.  Only create/remove items when
+		# the waypoint count actually changes.
+		count = len(self._waypoint_list)
+		while len(self._waypoint_labels) > count:
+			self._plot.removeItem(self._waypoint_labels.pop())
+		while len(self._waypoint_labels) < count:
 			label = pg.TextItem(
-				text=str(i + 1),
+				text="",
 				color=(255, 255, 255),
 				fill=pg.mkBrush(0, 0, 0, 180),
 				anchor=(1, 0.0),
 			)
-			label.setPos(x, y)
 			label.setZValue(21)
 			self._plot.addItem(label)
 			self._waypoint_labels.append(label)
+		for i, (x, y) in enumerate(self._waypoint_list):
+			label = self._waypoint_labels[i]
+			label.setText(str(i + 1))
+			label.setPos(x, y)
+			label.setVisible(True)
 
 		if len(self._waypoint_list) > 1:
 			xs = [p[0] for p in self._waypoint_list]
@@ -315,6 +330,7 @@ class MapView(QWidget):
 			self._path_line.setData(xs, ys)
 		else:
 			self._path_line.setData([], [])
+		self._view.update()
 
 	def clear_failure_point(self):
 		"""Remove the failure point marker."""

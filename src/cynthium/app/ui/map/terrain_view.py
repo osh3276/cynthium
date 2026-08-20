@@ -261,6 +261,16 @@ class TerrainView(QtInteractor):
 			self._waypoint_points.insert(index, pt)
 			self._waypoint_actors.insert(index, actor)
 
+	def reorder_waypoint(self, old_index: int, new_index: int):
+		"""Move the waypoint at old_index to new_index on the terrain."""
+		if not (0 <= old_index < len(self._waypoint_actors)):
+			return
+		pt = self._waypoint_points.pop(old_index)
+		actor = self._waypoint_actors.pop(old_index)
+		self._waypoint_points.insert(new_index, pt)
+		self._waypoint_actors.insert(new_index, actor)
+		self._update_path()
+
 	def clear_all_waypoints(self):
 		"""Remove all waypoint actors and clear the waypoint list."""
 		for actor in self._waypoint_actors:

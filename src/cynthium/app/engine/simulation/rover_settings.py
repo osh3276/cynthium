@@ -110,6 +110,7 @@ ROVER_PRESETS: dict[str, RoverSettings] = {
         wheel_radius_m=0.25,
         motor_peak_torque_nm=None,
         target_cruise_speed_mps=0.04,
+        battery_capacity_wh=3528.0,  # 84 Ah × 42 V (MSL rechargeable Li-ion)
     ),
     "Apollo LRV": RoverSettings(
         mass_kg=210.0,

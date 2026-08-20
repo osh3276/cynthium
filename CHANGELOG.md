@@ -41,11 +41,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drain), and Import Settings restores them, so a saved session round-trips
   completely. (#5dfc35c)
 
+- **Waypoint reordering.** Waypoint rows in the planning table can now be
+  moved one step at a time with the **Up/Down** buttons; pause durations
+  travel with each waypoint, waypoint numbers stay ordered in the table
+  and on the map, and the 2D map and 3D terrain views update immediately.
+
 ### Changed
 
 - **Curiosity preset cruise speed set to 0.04 m/s.** The Curiosity rover
   preset now uses its real-world top speed instead of inheriting the
   2 m/s dataclass default. (#86ee3a2)
+
+- **Curiosity preset battery set to 3,528 Wh.** The Curiosity rover
+  preset now ships with an 84 Ah × 42 V (3,528 Wh) battery instead of
+  inheriting the 500 Wh dataclass default, matching the MSL rover's
+  rechargeable lithium-ion pack.
 
 ### Fixed
 

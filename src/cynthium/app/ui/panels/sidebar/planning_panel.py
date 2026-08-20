@@ -46,6 +46,7 @@ class PlanningPanel(QWidget):
 	waypoint_added = Signal(float, float)
 	waypoint_removed = Signal(int)
 	waypoints_cleared = Signal()
+	waypoints_reordered = Signal(int, int)
 	autopath_requested = Signal(object)
 	waypoint_edited = Signal(int, float, float)
 
@@ -84,9 +85,23 @@ class PlanningPanel(QWidget):
 		header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
 		self._table.verticalHeader().setVisible(False)
 		self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+		self._table.setToolTip("Use the Up/Down buttons to reorder the waypoints")
 		self._table.cellChanged.connect(self._on_cell_changed)
+		self._table.itemSelectionChanged.connect(self._update_move_buttons)
 		self._table.setMaximumHeight(200)
 		layout.addWidget(self._table)
+
+		# ── Reorder buttons (move the selected row) ──
+		move_row = QHBoxLayout()
+		self._up_btn = QPushButton("▲ Up")
+		self._up_btn.setToolTip("Move the selected waypoint up")
+		self._up_btn.clicked.connect(self._on_move_up)
+		move_row.addWidget(self._up_btn)
+		self._down_btn = QPushButton("▼ Down")
+		self._down_btn.setToolTip("Move the selected waypoint down")
+		self._down_btn.clicked.connect(self._on_move_down)
+		move_row.addWidget(self._down_btn)
+		layout.addLayout(move_row)
 
 		# ── Clear ──
 		clear_btn = QPushButton("Clear all waypoints")
@@ -277,6 +292,44 @@ class PlanningPanel(QWidget):
 			del_btn.clicked.connect(lambda checked, idx=i: self.remove_waypoint_at(idx))
 			self._table.setCellWidget(i, 4, del_btn)
 		self._block_table_edit = False
+		self._update_move_buttons()
+
+	def _update_move_buttons(self):
+		"""Enable/disable the reorder buttons based on the selected row."""
+		if not hasattr(self, "_up_btn"):
+			return
+		row = self._table.currentRow()
+		n = self._table.rowCount()
+		self._up_btn.setEnabled(row > 0)
+		self._down_btn.setEnabled(0 <= row < n - 1)
+
+	def _move_waypoint(self, old_index: int, new_index: int):
+		"""Move the waypoint at old_index to new_index, keeping data in sync."""
+		n = len(self._waypoint_data)
+		if not (0 <= old_index < n):
+			return
+		new_index = max(0, min(n - 1, new_index))
+		if new_index == old_index:
+			return
+		pt = self._waypoint_data.pop(old_index)
+		pause = self._pause_data.pop(old_index)
+		self._waypoint_data.insert(new_index, pt)
+		self._pause_data.insert(new_index, pause)
+		self._refresh_table()
+		self._table.setCurrentCell(new_index, 1)
+		self.waypoints_reordered.emit(old_index, new_index)
+
+	def _on_move_up(self):
+		"""Move the selected waypoint up one position."""
+		row = self._table.currentRow()
+		if row > 0:
+			self._move_waypoint(row, row - 1)
+
+	def _on_move_down(self):
+		"""Move the selected waypoint down one position."""
+		row = self._table.currentRow()
+		if 0 <= row < self._table.rowCount() - 1:
+			self._move_waypoint(row, row + 1)
 
 	def _on_cell_changed(self, row: int, col: int):
 		if self._block_table_edit:

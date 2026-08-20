@@ -111,6 +111,11 @@ fallback.
 #. The optimal path is overlaid on the map as a blue polyline. If the path fails physics validation, the last attempted route is shown in blue with a **red marker** at the point where the rover got stuck.
 #. Click *Clear path* at any time to remove all waypoints, autopath results, and failure markers from both the 2D map and 3D terrain view at once.
 
+Waypoints are listed in the **Planning** panel table, where you can edit
+their coordinates and pause durations, delete them, or reorder them with
+the **Up/Down** buttons — waypoint numbers stay in order and the 2D map
+and 3D terrain view update immediately.
+
 **Pathfinding algorithm**: A\* (default) or Dijkstra (see :doc:`algorithms`).
 The algorithm minimises a weighted cost function that blends four terrain
 factors:
@@ -213,6 +218,41 @@ Apollo LRV, or Artemis SR), or customise the parameters manually via
 **Tools > Rover Settings** (accessible from the toolbar or the
 **Rover Settings** button in the sidebar).
 
+The built-in presets are:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Preset
+     - Mass (kg)
+     - Power (hp)
+     - Cruise speed (m/s)
+     - Battery (Wh)
+   * - Curiosity
+     - 899
+     - 0.13
+     - 0.04
+     - 3,528
+   * - Perseverance
+     - 1,025
+     - 0.14
+     - 2.0
+     - 500
+   * - Apollo LRV
+     - 210
+     - 1.0
+     - 2.0
+     - 500
+   * - Artemis SR
+     - 530
+     - 0.72
+     - 2.0
+     - 500
+
+Curiosity's battery is an 84 Ah pack at 42 V (the MSL rover's
+rechargeable lithium-ion system), i.e. 3,528 Wh; the other presets use
+the 500 Wh default.
+
 The configurable parameters are:
 
 .. list-table::
@@ -242,12 +282,9 @@ The configurable parameters are:
      - No-load max wheel speed (RPM). Determines :math:`v_{\text{max}}` via wheel radius.
    * - ``Cruise Speed``
      - Target driving speed (m/s).
-   * - ``Wheel Inertia``
-     - Rotational inertia per wheel (kg\,m\ :sup:`2`). Affects acceleration/deceleration.
-   * - ``Motor Damping``
-     - Back-EMF damping coefficient (N\,m\,s). Resistive torque proportional to \ :math:`\omega`.
-   * - ``Coulomb Friction``
-     - Constant friction torque per wheel (N\,m). Resistive torque independent of \ :math:`\omega`.
+   * - ``Max Brake Decel``
+     - Maximum braking deceleration (m/s\ :sup:`2`) used to stop at
+       waypoints and on descents.
    * - ``Idle Drain``
      - Constant power draw (W) for computers, sensors, and avionics.
 
