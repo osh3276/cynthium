@@ -18,10 +18,16 @@ from typing import Any
 import numpy as np
 
 from cynthium.app.engine.simulation._sim_utils import (
+	CRUISE_ADAPTIVE_SPEED_MPS,
+	CRUISE_HEADING_TOL_RAD,
+	CRUISE_STEP_DIST_M,
+	DT_CRUISE_MAX,
 	DT_MAX,
 	DT_MIN,
+	PAUSE_STEP_MAX_S,
 	SPEED_EPS,
 	_clamp,
+	_cruise_throttle,
 	_empty_result,
 	_estimate_resolution,
 	_get_linear_angle_bin,
@@ -55,12 +61,14 @@ def _heading_error_to_waypoint(
 	return _normalise_angle(atan2(ty - y, tx - x) - heading)
 
 
-def _sample_target_speed(dist_to_wp: float, rover: RoverSettings) -> float:
+def _sample_target_speed(
+	dist_to_wp: float, rover: RoverSettings, ramp_dist: float = 10.0
+) -> float:
 	"""Target speed ramping down near waypoint."""
 	cruise = rover.target_cruise_speed_mps
-	if dist_to_wp > 10.0:
+	if dist_to_wp > ramp_dist:
 		return float(cruise)
-	return float(cruise * max(0.3, dist_to_wp / 10.0))
+	return float(cruise * max(0.3, dist_to_wp / ramp_dist))
 
 
 def simulate_rover_4wd(
@@ -117,6 +125,14 @@ def simulate_rover_4wd(
 	current_wp = 1
 	mode = 0  # 0 = DRIVE, 1 = STOPPING, 2 = PIVOTING, 3 = PAUSE
 	resolution_m = _estimate_resolution(pts_xyz)
+
+	# Adaptive cruise dt for rovers at/below the threshold (2 m/s).  Rovers
+	# faster than that keep dt <= DT_MAX.  Slow rovers stop so quickly that
+	# the standard 10 m approach ramp only wastes sim steps, so shrink it.
+	_gated = rover.target_cruise_speed_mps <= CRUISE_ADAPTIVE_SPEED_MPS
+	_ramp_dist = _clamp(rover.target_cruise_speed_mps * 5.0, 3.0, 10.0) if _gated else 10.0
+	cruise_active = False
+	_pitch_hint = 0
 
 	heading = atan2(
 		waypoints_xy[1, 1] - waypoints_xy[0, 1],
@@ -251,7 +267,9 @@ def simulate_rover_4wd(
 		tx, ty = waypoints_xy[current_wp]
 		dist_to_wp = sqrt((tx - x) ** 2 + (ty - y) ** 2)
 
-		pitch = _sample_pitch(x, y, pts_xyz)
+		pitch, _pitch_hint = _sample_pitch(
+			x, y, pts_xyz, hint_idx=_pitch_hint if _gated else None
+		)
 		cos_pitch = abs(cos(pitch))
 		sin_pitch = sin(pitch)
 
@@ -263,7 +281,66 @@ def simulate_rover_4wd(
 				mode = 1
 				continue
 
+			target_speed = _sample_target_speed(dist_to_wp, rover, _ramp_dist)
+			cruise_active = (
+				_gated
+				and dist_to_wp >= _WP_ARRIVE_DIST
+				and abs(heading_err) < CRUISE_HEADING_TOL_RAD
+			)
+			if cruise_active:
+				# Straight cruise for slow rovers: large timestep (bounded
+				# distance per step) with a one-step deadbeat throttle and
+				# heading correction.  The PID speed controller limit-cycles at
+				# low speeds, so it is not used here.  Zero the yaw rate so the
+				# power-limited wheel model sees both wheels at the same speed
+				# (otherwise a leftover pivot yaw rate halves the drive force).
+				yaw_rate = 0.0
+				dt = _clamp(
+					CRUISE_STEP_DIST_M / max(speed, SPEED_EPS), DT_MIN, DT_CRUISE_MAX
+				)
+				if speed < 0.9 * target_speed:
+					# Time the acceleration-from-rest accurately instead of
+					# billing a full cruise step for it.
+					f_net_max = max(
+						mu * m * g * cos_pitch
+						- crr * m * g * cos_pitch
+						- m * g * sin_pitch,
+						1e-9,
+					)
+					dt = min(dt, m * (target_speed - speed) / f_net_max)
+				f_desired = (
+					crr * m * g * cos_pitch
+					+ m * g * sin_pitch
+					+ m * (target_speed - speed) / max(dt, 1e-9)
+				)
+				if f_desired > 0:
+					throttle = _cruise_throttle(
+						speed=speed,
+						target_speed=target_speed,
+						dt=dt,
+						f_grade=m * g * sin_pitch,
+						f_roll=crr * m * g * cos_pitch,
+						power_w=p_w,
+						v_min_power_mps=v_min_power_mps,
+						m=m,
+					)
+					brake_decel = 0.0
+				else:
+					# Downhill / overspeed: deadbeat needs the brakes, not just
+					# throttle, or the rover runs away on descending grades.
+					throttle = 0.0
+					brake_decel = _clamp(
+						-f_desired / m, 0.0, rover.max_brake_decel_mps2
+					)
+			else:
+				dt = _clamp(resolution_m / max(speed, 0.5), DT_MIN, DT_MAX)
+				throttle, brake_decel = _pid.update(speed, target_speed, dt)
+
 		elif mode == 1:  # STOPPING
+			if dt > DT_MAX:  # inherited from a large cruise step (slow rovers)
+				dt = _clamp(
+					speed / max(rover.max_brake_decel_mps2, 1e-9), DT_MIN, 1.0
+				)
 			yaw_cmd = 0.0
 			if speed > 0.0:
 				speed = max(0.0, speed - rover.max_brake_decel_mps2 * dt)
@@ -329,8 +406,9 @@ def simulate_rover_4wd(
 		elif mode == 3:  # PAUSE
 			speed = 0.0
 			yaw_rate = 0.0
-			# Larger dt during pause (up to 1s) to avoid exhausting max_steps
-			_pause_step = min(1.0, _pause_timer)
+			# Larger dt during pause (no dynamics; solar accumulation is linear)
+			# to avoid exhausting max_steps on long pauses.
+			_pause_step = min(PAUSE_STEP_MAX_S, _pause_timer)
 			_pause_timer -= _pause_step
 			total_time += _pause_step
 			battery_energy_used_j += rover.idle_drain_w * _pause_step
@@ -372,14 +450,14 @@ def simulate_rover_4wd(
 			dt = DT_MIN
 			continue
 
-		target_speed = _sample_target_speed(dist_to_wp, rover)
-		throttle, brake_decel = _pid.update(speed, target_speed, dt)
-
 		v_left = speed - yaw_rate * tw / 2.0
 		v_right = speed + yaw_rate * tw / 2.0
 
 		f_n_total = m * g * cos_pitch
 		f_trac_side = mu * f_n_total * 0.5
+		max_lat_accel = mu * g * cos_pitch
+		max_lateral_accel = max(max_lateral_accel, max_lat_accel)
+		yaw_rate_max = max_lat_accel / max(speed, SPEED_EPS) if speed > SPEED_EPS else 0.5
 
 		if throttle > 0 and speed < rover.max_wheel_speed_mps:
 			f_power_left = p_side / max(v_left, v_min_power_mps)
@@ -403,11 +481,17 @@ def simulate_rover_4wd(
 		f_right = _clamp(f_right, -f_trac_side, f_trac_side)
 
 		heading_err = _heading_error_to_waypoint(x, y, heading, tx, ty)
-		yaw_cmd = _HEADING_K * heading_err
-		yaw_error = yaw_cmd - yaw_rate
-		m_desired = I_z * 2.0 * yaw_error
-		m_resist = _skid_steer_resistive_moment(f_n_total, mu, tw, yaw_rate)
-		m_diff_desired = m_desired - m_resist
+		if cruise_active:
+			# One-step (deadbeat) heading correction, traction-limited.
+			yaw_rate = _clamp(heading_err / max(dt, 1e-9), -yaw_rate_max, yaw_rate_max)
+			m_resist = 0.0
+			m_diff_desired = 0.0
+		else:
+			yaw_cmd = _HEADING_K * heading_err
+			yaw_error = yaw_cmd - yaw_rate
+			m_desired = I_z * 2.0 * yaw_error
+			m_resist = _skid_steer_resistive_moment(f_n_total, mu, tw, yaw_rate)
+			m_diff_desired = m_desired - m_resist
 
 		f_left += -m_diff_desired / tw
 		f_right += m_diff_desired / tw
@@ -426,10 +510,6 @@ def simulate_rover_4wd(
 		f_net = f_total_actual - f_grade - f_roll - f_brake
 		a_long = f_net / m
 		alpha = m_net / I_z
-
-		max_lat_accel = mu * g * cos_pitch
-		max_lateral_accel = max(max_lateral_accel, max_lat_accel)
-		yaw_rate_max = max_lat_accel / max(speed, SPEED_EPS) if speed > SPEED_EPS else 0.5
 
 		yaw_rate = _clamp(yaw_rate + alpha * dt, -yaw_rate_max, yaw_rate_max)
 		speed = max(0.0, speed + a_long * dt)
@@ -515,6 +595,7 @@ def simulate_rover_4wd(
 		"battery_energy_used_j": float(battery_energy_used_j),
 		"battery_remaining_pct": float(batt_remaining_pct),
 		"battery_capacity_wh": float(rover.battery_capacity_wh),
+		"simulation_steps": int(step + 1),
 	}
 
 

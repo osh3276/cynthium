@@ -7,6 +7,7 @@ import pytest
 from cynthium.app.engine.simulation._sim_utils import (
 	_clamp,
 	_compute_target_speeds,
+	_cruise_throttle,
 	_detect_corners,
 	_empty_result,
 	_estimate_resolution,
@@ -156,24 +157,26 @@ class TestSampleTargetSpeed:
 class TestSamplePitch:
 	def test_flat_terrain(self):
 		pts = np.array([[0.0, 0.0, 100.0], [10.0, 0.0, 100.0]])
-		pitch = _sample_pitch(5.0, 0.0, pts)
+		pitch, idx = _sample_pitch(5.0, 0.0, pts)
 		assert pitch == pytest.approx(0.0, abs=1e-6)
+		assert idx == 0
 
 	def test_uphill(self):
 		pts = np.array([[0.0, 0.0, 100.0], [10.0, 0.0, 110.0]])
-		pitch = _sample_pitch(5.0, 0.0, pts)
+		pitch, _ = _sample_pitch(5.0, 0.0, pts)
 		# Rise 10 over 10 = 45°
 		assert pitch == pytest.approx(np.arctan2(10.0, 10.0))
 
 	def test_downhill_negative(self):
 		pts = np.array([[0.0, 0.0, 110.0], [10.0, 0.0, 100.0]])
-		pitch = _sample_pitch(5.0, 0.0, pts)
+		pitch, _ = _sample_pitch(5.0, 0.0, pts)
 		assert pitch == pytest.approx(np.arctan2(-10.0, 10.0))
 
 	def test_less_than_two_points(self):
 		pts = np.array([[5.0, 5.0, 100.0]])
-		pitch = _sample_pitch(5.0, 5.0, pts)
+		pitch, idx = _sample_pitch(5.0, 5.0, pts)
 		assert pitch == 0.0
+		assert idx == 0
 
 	def test_hint_idx_restricts_search(self):
 		pts = np.zeros((50, 3), dtype=np.float64)
@@ -181,12 +184,13 @@ class TestSamplePitch:
 		pts[:, 2] = 100.0
 		# Steep section at index 10
 		pts[11, 2] = 110.0
-		pitch = _sample_pitch(10.5, 0.0, pts, hint_idx=10)
+		pitch, idx = _sample_pitch(10.5, 0.0, pts, hint_idx=10)
 		assert pitch > 0.0
+		assert idx == 10
 
 	def test_hint_idx_out_of_range_no_crash(self):
 		pts = np.array([[0.0, 0.0, 100.0], [10.0, 0.0, 100.0]])
-		pitch = _sample_pitch(5.0, 0.0, pts, hint_idx=999)
+		pitch, _ = _sample_pitch(5.0, 0.0, pts, hint_idx=999)
 		assert isinstance(pitch, float)
 
 
@@ -229,9 +233,9 @@ class TestMaxTraversalDuration:
 		rover = RoverSettings(
 			mass_kg=200.0, power_hp=0.5,
 			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
-			battery_capacity_wh=50000.0,
+			battery_capacity_wh=100000.0,
 		)
-		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0)
+		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0 * 60.0)
 
 	def test_zero_idle_drain_uses_step_cap(self):
 		rover = RoverSettings(
@@ -239,7 +243,7 @@ class TestMaxTraversalDuration:
 			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
 			idle_drain_w=0.0,
 		)
-		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0)
+		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0 * 60.0)
 
 	def test_zero_battery_uses_step_cap(self):
 		rover = RoverSettings(
@@ -247,7 +251,63 @@ class TestMaxTraversalDuration:
 			wheel_friction_coeff=0.6, rolling_resistance_coeff=0.02,
 			battery_capacity_wh=0.0,
 		)
-		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0)
+		assert max_traversal_duration_s(rover) == pytest.approx(500_000.0 * 60.0)
+
+
+class TestCruiseThrottle:
+	"""The deadbeat cruise throttle reaches its target speed in one step."""
+
+	@staticmethod
+	def _v_after(th, v, dt, f_grade, f_roll, power_w, v_min, m, mu, g):
+		"""Emulate the drive model used in rover_4wd."""
+		f_power_total = power_w / max(v, v_min)
+		f_trac_max = mu * m * g
+		f_drive = min(f_power_total * th, f_trac_max)
+		return max(0.0, v + (f_drive - f_grade - f_roll) / m * dt)
+
+	def test_holds_cruise_speed(self):
+		m, power_w, v_min, crr, g, mu = 530.0, 537.0, 0.001, 0.15, 1.625, 0.7
+		v, target, dt = 0.04, 0.04, 25.0
+		f_roll = crr * m * g
+		th = _cruise_throttle(
+			speed=v, target_speed=target, dt=dt,
+			f_grade=0.0, f_roll=f_roll,
+			power_w=power_w, v_min_power_mps=v_min, m=m,
+		)
+		assert 0.0 <= th <= 1.0
+		v_new = self._v_after(th, v, dt, 0.0, f_roll, power_w, v_min, m, mu, g)
+		assert v_new == pytest.approx(target, abs=1e-9)
+
+	def test_accelerates_to_target_in_one_step(self):
+		m, power_w, v_min, g = 530.0, 537.0, 0.001, 1.625
+		v, target, dt = 0.0, 0.04, 30.0
+		th = _cruise_throttle(
+			speed=v, target_speed=target, dt=dt,
+			f_grade=0.0, f_roll=0.0,
+			power_w=power_w, v_min_power_mps=v_min, m=m,
+		)
+		assert 0.0 <= th <= 1.0
+		v_new = self._v_after(th, v, dt, 0.0, 0.0, power_w, v_min, m, 0.7, g)
+		assert v_new == pytest.approx(target, abs=1e-9)
+
+	def test_reaches_target_from_small_error(self):
+		m, power_w, v_min, g = 530.0, 537.0, 0.001, 1.625
+		v, target, dt = 0.035, 0.04, 28.6
+		th = _cruise_throttle(
+			speed=v, target_speed=target, dt=dt,
+			f_grade=0.0, f_roll=0.0,
+			power_w=power_w, v_min_power_mps=v_min, m=m,
+		)
+		v_new = self._v_after(th, v, dt, 0.0, 0.0, power_w, v_min, m, 0.7, g)
+		assert v_new == pytest.approx(target, abs=1e-9)
+
+	def test_clamps_at_full_throttle(self):
+		th = _cruise_throttle(
+			speed=0.04, target_speed=5.0, dt=0.01,
+			f_grade=0.0, f_roll=0.0,
+			power_w=537.0, v_min_power_mps=0.001, m=530.0,
+		)
+		assert th == 1.0
 
 
 class TestEmptyResult:
@@ -259,7 +319,7 @@ class TestEmptyResult:
 			"avg_solar_illumination_w_per_m2", "failure_x", "failure_y",
 			"failure_reason", "rollover_occurred", "max_lateral_accel_mps2",
 			"braking_events", "max_braking_decel_mps2", "battery_energy_used_j",
-			"battery_remaining_pct", "battery_capacity_wh",
+			"battery_remaining_pct", "battery_capacity_wh", "simulation_steps",
 		}
 		assert set(result.keys()) == expected_keys
 

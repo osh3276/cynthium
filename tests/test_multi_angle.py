@@ -18,6 +18,104 @@ from cynthium.app.engine.simulation.rover_settings import RoverSettings
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 
 
+class TestSlowRoverAdaptiveDt:
+	"""Slow rovers must complete traverses without exhausting max_steps,
+	and fast rovers must keep the original control timestep (unchanged results)."""
+
+	@staticmethod
+	def _run(pts, waypoints_xy, rover):
+		return simulate_rover_4wd(
+			pts_xyz=pts,
+			waypoints_xy=waypoints_xy,
+			rover=rover,
+			wheel_friction_coeff=float(rover.wheel_friction_coeff),
+			power_w=float(rover.power_w),
+			g_mps2=1.625,
+			v0_mps=0.0,
+			v_min_power_mps=0.001,
+		)
+
+	@staticmethod
+	def _slow_rover() -> RoverSettings:
+		return RoverSettings(
+			mass_kg=899.0,
+			power_hp=0.13,
+			wheel_friction_coeff=0.5,
+			rolling_resistance_coeff=0.02,
+			wheel_radius_m=0.25,
+			target_cruise_speed_mps=0.04,
+			battery_capacity_wh=50000.0,
+		)
+
+	def test_slow_rover_completes_straight_traverse(self):
+		pts = np.zeros((101, 3), dtype=np.float64)
+		pts[:, 0] = np.arange(101, dtype=np.float64)
+		waypoints_xy = np.array([[0.0, 0.0], [100.0, 0.0]], dtype=np.float64)
+		result = self._run(pts, waypoints_xy, self._slow_rover())
+
+		assert result["traverse_feasible"] == 1.0
+		# 100 m at 0.04 m/s ≈ 2500 s of driving
+		assert result["traversal_time_s"] == pytest.approx(100.0 / 0.04, rel=0.15)
+		# Adaptive cruise: ~100 cruise steps + accel, far below the 500k cap.
+		# Without the adaptive dt this would need ~25k steps.
+		assert result["simulation_steps"] < 3000
+
+	def test_slow_rover_turns_at_waypoints_without_oscillating(self):
+		# L-shaped path forces a 90° pivot at the corner waypoint
+		pts = np.zeros((201, 3), dtype=np.float64)
+		pts[:101, 0] = np.arange(101, dtype=np.float64)
+		pts[101:, 0] = 100.0
+		pts[101:, 1] = np.arange(1, 101, dtype=np.float64)
+		waypoints_xy = np.array(
+			[[0.0, 0.0], [100.0, 0.0], [100.0, 100.0]], dtype=np.float64
+		)
+		result = self._run(pts, waypoints_xy, self._slow_rover())
+
+		assert result["traverse_feasible"] == 1.0, result["failure_reason"]
+		assert result["failure_reason"] is None
+		# 200 m at 0.04 m/s + one pivot; still tiny compared to max_steps
+		assert result["simulation_steps"] < 5000
+
+	def test_rover_at_threshold_uses_adaptive_cruise(self):
+		# A 2 m/s rover (the adaptive-cruise threshold) must use the large
+		# cruise timestep: ~200 cruise steps, not ~2000 control steps.
+		pts = np.zeros((201, 3), dtype=np.float64)
+		pts[:, 0] = np.arange(201, dtype=np.float64)
+		waypoints_xy = np.array([[0.0, 0.0], [200.0, 0.0]], dtype=np.float64)
+		rover = RoverSettings(
+			mass_kg=530.0,
+			power_hp=0.72,
+			wheel_friction_coeff=0.7,
+			rolling_resistance_coeff=0.15,
+			target_cruise_speed_mps=2.0,
+			battery_capacity_wh=50000.0,
+		)
+		result = self._run(pts, waypoints_xy, rover)
+
+		assert result["traverse_feasible"] == 1.0
+		assert result["simulation_steps"] < 400
+
+	def test_rover_above_threshold_keeps_control_timestep(self):
+		# A 3 m/s rover is above the adaptive-cruise threshold, so it keeps
+		# dt = 0.1 s: ~200 m at 3 m/s ≈ 67 s ≈ 670 steps, well above the
+		# ~200 steps adaptive cruise would use.
+		pts = np.zeros((201, 3), dtype=np.float64)
+		pts[:, 0] = np.arange(201, dtype=np.float64)
+		waypoints_xy = np.array([[0.0, 0.0], [200.0, 0.0]], dtype=np.float64)
+		rover = RoverSettings(
+			mass_kg=530.0,
+			power_hp=0.72,
+			wheel_friction_coeff=0.7,
+			rolling_resistance_coeff=0.15,
+			target_cruise_speed_mps=3.0,
+			battery_capacity_wh=50000.0,
+		)
+		result = self._run(pts, waypoints_xy, rover)
+
+		assert result["traverse_feasible"] == 1.0
+		assert result["simulation_steps"] > 400
+
+
 def _slow_rover() -> RoverSettings:
 	"""A rover that drives slowly (low power) but can still complete a short path."""
 	return RoverSettings(

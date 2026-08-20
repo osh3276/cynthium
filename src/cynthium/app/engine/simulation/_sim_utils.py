@@ -14,6 +14,15 @@ SPEED_EPS = 0.01
 MAX_STEPS = 500_000
 DT_MIN = 0.02
 DT_MAX = 0.1
+
+# Adaptive timestep for slow rovers: large dt on straight cruise, small dt
+# whenever the control loops (speed PID, yaw) are actively correcting.
+DT_CRUISE_MAX = 30.0  # max dt on a straight cruise step (s)
+CRUISE_STEP_DIST_M = 1.0  # max distance travelled per cruise step (m)
+CRUISE_ADAPTIVE_SPEED_MPS = 2.0  # rovers cruising at/below this use adaptive dt
+CRUISE_HEADING_TOL_RAD = 3.0 * (3.14159 / 180.0)  # heading tolerance for cruise
+PAUSE_STEP_MAX_S = 60.0  # max sim time per pause step (s)
+MAX_STEP_S = PAUSE_STEP_MAX_S  # max sim time advanced per loop iteration
 CORNER_ANGLE_THRESHOLD_DEG = 5.0
 STOP_APPROACH_DIST_M = 5.0
 
@@ -51,13 +60,14 @@ def _get_spice_angle_bin(
 def max_traversal_duration_s(rover: RoverSettings) -> float:
 	"""Upper bound (seconds) on the sim time advanced by `simulate_rover_4wd`.
 
-	Each loop iteration advances sim time by at most 1 s (the pause step), and
-	the loop is capped at `MAX_STEPS` iterations.  Battery capacity is a second
-	bound: idle drain is the minimum draw, so the sim stops once the battery is
-	exhausted.  Used to decide which sun-angle rasters a traversal can possibly
-	need, so only those are downloaded.
+	Each loop iteration advances sim time by at most `MAX_STEP_S` seconds
+	(large pause or cruise steps), and the loop is capped at `MAX_STEPS`
+	iterations.  Battery capacity is a second bound: idle drain is the
+	minimum draw, so the sim stops once the battery is exhausted.  Used to
+	decide which sun-angle rasters a traversal can possibly need, so only
+	those are downloaded.
 	"""
-	step_cap_s = float(MAX_STEPS) * 1.0  # 1 s max per step (pause mode)
+	step_cap_s = float(MAX_STEPS) * MAX_STEP_S
 	if rover.idle_drain_w > 0 and rover.battery_capacity_j > 0:
 		return min(step_cap_s, rover.battery_capacity_j / rover.idle_drain_w)
 	return step_cap_s
@@ -66,6 +76,28 @@ def max_traversal_duration_s(rover: RoverSettings) -> float:
 def _clamp(val: float, lo: float, hi: float) -> float:
 	"""Clamp val to [lo, hi]."""
 	return max(lo, min(hi, val))
+
+
+def _cruise_throttle(
+	*,
+	speed: float,
+	target_speed: float,
+	dt: float,
+	f_grade: float,
+	f_roll: float,
+	power_w: float,
+	v_min_power_mps: float,
+	m: float,
+) -> float:
+	"""One-step deadbeat throttle for cruise steps.
+
+	Chooses the throttle so the rover reaches `target_speed` in a single
+	step of `dt` under the power- and traction-limited drive model, which is
+	stable at large dt unlike the PID speed controller.
+	"""
+	f_power_total = power_w / max(speed, v_min_power_mps)
+	f_desired = f_roll + f_grade + m * (target_speed - speed) / max(dt, 1e-9)
+	return _clamp(f_desired / max(f_power_total, 1e-9), 0.0, 1.0)
 
 
 def _normalise_angle(a: float) -> float:
@@ -198,10 +230,16 @@ def _sample_target_speed(
 
 def _sample_pitch(
 	x: float, y: float, pts_xyz: np.ndarray, hint_idx: int | None = None
-) -> float:
-	"""Estimate terrain pitch (rad) under vehicle from nearest path point (uphill = positive)."""
+) -> tuple[float, int]:
+	"""Estimate terrain pitch (rad) under vehicle from nearest path point.
+
+	Returns ``(pitch, best_segment_index)`` (uphill = positive).  Passing the
+	previous best segment as ``hint_idx`` narrows the search to a window
+	around it, keeping the per-step cost roughly constant as the vehicle
+	advances along the path.
+	"""
 	if len(pts_xyz) < 2:
-		return 0.0
+		return 0.0, 0
 
 	n_seg = len(pts_xyz) - 1
 
@@ -238,8 +276,8 @@ def _sample_pitch(
 		+ (pts_xyz[i_clamped + 1, 1] - pts_xyz[i_clamped, 1]) ** 2
 	)
 	if dhoriz > 0.01:
-		return atan2(dz, dhoriz)
-	return 0.0
+		return atan2(dz, dhoriz), i_clamped
+	return 0.0, i_clamped
 
 
 def _estimate_resolution(pts_xyz: np.ndarray) -> float:
@@ -272,4 +310,5 @@ def _empty_result() -> dict[str, Any]:
 		"battery_energy_used_j": 0.0,
 		"battery_remaining_pct": 100.0,
 		"battery_capacity_wh": 0.0,
+		"simulation_steps": 0,
 	}

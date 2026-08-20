@@ -109,6 +109,7 @@ ROVER_PRESETS: dict[str, RoverSettings] = {
         rolling_resistance_coeff=0.02,
         wheel_radius_m=0.25,
         motor_peak_torque_nm=None,
+        target_cruise_speed_mps=0.04,
     ),
     "Apollo LRV": RoverSettings(
         mass_kg=210.0,
