@@ -297,6 +297,15 @@ deciding which sun-angle rasters a traversal can possibly need.
 Convergence checks against smaller cruise steps show the discretisation
 error stays well under 1% of the traversal time.
 
+**Sun-angle rasters.**  The simulation samples the solar azimuth from
+SPICE every 60 s and switches to the 12° shadow map of the current bin.
+The preload (``swept_angle_bins``) samples the same azimuth trajectory
+at the same cadence, so the set of bins it downloads is exactly the set
+the simulation can request.  The azimuth is not assumed to advance: seen
+from a site south of the sub-solar latitude (every south-polar site) it
+recedes, and at low latitudes it is non-monotonic, so a forward-only
+preload would miss the bins needed later in the traverse.
+
 Drive model
 -----------
 

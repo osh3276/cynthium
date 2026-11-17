@@ -9,6 +9,7 @@ from cynthium.app.engine.pathfinding.astar import (
 	PathResult,
 	a_star,
 	_grade_deg,
+	_heuristic,
 	_segment_cost,
 )
 
@@ -34,6 +35,40 @@ class TestGradeDeg:
 		assert _grade_deg(float("nan"), 100.0, 10.0) == 0.0
 		assert _grade_deg(100.0, float("nan"), 10.0) == 0.0
 		assert _grade_deg(float("inf"), 100.0, 10.0) == 0.0
+
+
+# ── _heuristic ──────────────────────────────────────────────────────────
+
+class TestHeuristic:
+	def test_square_pixels_diagonal(self):
+		# 3 rows, 4 cols at 2 units/pixel → 2 * hypot(3, 4) = 10
+		h = _heuristic((1, 1), (4, 5), res_x=2.0, res_y=2.0)
+		assert h == pytest.approx(10.0)
+
+	def test_row_delta_scales_with_res_y(self):
+		# Rows advance along y, so a row delta uses res_y, not res_x.
+		h = _heuristic((0, 0), (2, 0), res_x=1.0, res_y=10.0)
+		assert h == pytest.approx(20.0)
+
+	def test_col_delta_scales_with_res_x(self):
+		h = _heuristic((0, 0), (0, 2), res_x=10.0, res_y=1.0)
+		assert h == pytest.approx(20.0)
+
+	def test_symmetric(self):
+		a = _heuristic((0, 0), (3, 7), res_x=4.0, res_y=9.0)
+		b = _heuristic((3, 7), (0, 0), res_x=4.0, res_y=9.0)
+		assert a == pytest.approx(b)
+
+	def test_matches_horizontal_step_cost(self):
+		"""Heuristic for one horizontal step equals its flat-terrain cost."""
+		cost = _segment_cost(
+			rc0=(5, 5), rc1=(5, 6),
+			cell_cost=np.ones((10, 10), dtype=np.float64),
+			elev=np.zeros((10, 10), dtype=np.float64),
+			res_x=3.0, res_y=7.0,
+			max_slope_deg=20.0, slope_weight=1.0, grade_power=2.0,
+		)
+		assert _heuristic((5, 5), (5, 6), res_x=3.0, res_y=7.0) == pytest.approx(cost)
 
 
 # ── _segment_cost ───────────────────────────────────────────────────────
@@ -168,6 +203,26 @@ class TestAStar:
 		assert result_astar is not None
 		# Both should find a path, Dijkstra typically expands more
 		assert result_dijk.total_cost == pytest.approx(result_astar.total_cost)
+
+	def test_non_square_pixels_match_dijkstra(self):
+		"""Heuristic must stay admissible with non-square pixels.
+
+		If row/col resolutions are swapped in the heuristic it can overestimate
+		remaining cost and yield a suboptimal path.
+	"""
+		rng = np.random.default_rng(0)
+		cell_cost = rng.uniform(1.0, 4.0, size=(20, 20))
+		world = dict(
+			traversable=np.ones((20, 20), dtype=bool),
+			cell_cost=cell_cost,
+			elev=np.zeros((20, 20), dtype=np.float64),
+			res_x=10.0, res_y=1.0,
+			max_slope_deg=20.0, slope_weight=1.0, grade_power=2.0,
+		)
+		astar = a_star(start_rc=(1, 1), goal_rc=(18, 18), **world)
+		dijk = a_star(start_rc=(1, 1), goal_rc=(18, 18), **{**world, "dijkstra": True})
+		assert astar is not None and dijk is not None
+		assert astar.total_cost == pytest.approx(dijk.total_cost)
 
 	def test_max_expanded_limit(self, flat_world):
 		result = a_star(

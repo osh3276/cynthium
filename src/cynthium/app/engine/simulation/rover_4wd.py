@@ -234,7 +234,12 @@ def simulate_rover_4wd(
 							_active_illum_xform = _extract_xform(_raw_xform)
 							if _active_illum_xform is not None:
 								_inv_illum = ~_active_illum_xform
-						print(f"[dbg] swapped illum bin {_last_illum_bin} at t={total_time:.0f}s")
+							print(f"[dbg] swapped illum bin {_last_illum_bin} at t={total_time:.0f}s")
+						else:
+							print(
+								f"[dbg] no illum map for bin {_last_illum_bin} at "
+								f"t={total_time:.0f}s - keeping previous map"
+							)
 				else:
 					_last_illum_bin = _bin
 					_entry = illumination_maps.get(_last_illum_bin)

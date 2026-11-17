@@ -1,4 +1,6 @@
+import math
 import re
+from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
@@ -12,14 +14,14 @@ from cynthium.app.config import (
 	METEOR_FLUX_RASTER_PATH,
 	PSR_RASTER_PATH,
 	ANGLE_BIN_DEG,
-	LUNAR_DAY_S,
-	NUM_ANGLE_BINS,
 	ensure_data_file_path,
 	get_slope_path,
 	resolve_data_file_path,
 )
 from cynthium.app.engine.illumination.sun_position import (
+	ensure_kernels_loaded,
 	round_azimuth_to_nearest_12,
+	sun_azimuth_at_et,
 	sun_position,
 )
 from cynthium.app.engine.raster.point_conversion import xy_to_longlat
@@ -220,19 +222,57 @@ def load_daily_avg_meteor_number_raster(
 	)
 
 
-def needed_angle_bins(start_angle_deg: int, max_duration_s: float) -> list[int]:
-	"""Return the 12° sun-angle bins a traversal of at most `max_duration_s` can visit.
+# The simulation re-checks the sun bin every 60 s of simulated time, so any bin
+# it can request is occupied for at least that long.  Sampling the azimuth at
+# the same cadence therefore sees every requestable bin without assuming which
+# way the azimuth moves.  The sample budget bounds the cost on long traversals;
+# hitting it falls back to loading every bin, which is always a superset.
+BIN_SAMPLE_INTERVAL_S = 60.0
+MAX_BIN_SAMPLES = 20_000
 
-	The sun's azimuth advances ~360° per lunar day, so a traversal of
-	`max_duration_s` seconds sweeps `360 * max_duration_s / LUNAR_DAY_S` degrees
-	of azimuth, starting at `start_angle_deg`.  Bins round to the nearest 12°,
-	so the swept arc is covered by the start bin plus one bin per 12° crossed,
-	plus one extra bin of margin.  The list wraps mod 360 and is capped at
-	`NUM_ANGLE_BINS` (a full lunar day).
+
+def angle_bins_from_azimuths(azimuths: Iterable[float]) -> list[int]:
+	"""Ordered unique 12° bins covered by a sequence of sun azimuths.
+
+	Order is preserved so the returned list shows which way the sun swept,
+	and bins are de-duplicated so a non-monotonic sun is not loaded twice.
 	"""
-	span_deg = 360.0 * float(max_duration_s) / LUNAR_DAY_S
-	n_bins = min(NUM_ANGLE_BINS, int(span_deg // ANGLE_BIN_DEG) + 2)
-	return [(start_angle_deg + k * ANGLE_BIN_DEG) % 360 for k in range(n_bins)]
+	bins: list[int] = []
+	for az in azimuths:
+		bin_deg = round_azimuth_to_nearest_12(float(az))
+		if bin_deg not in bins:
+			bins.append(bin_deg)
+	return bins
+
+
+def swept_angle_bins(
+	center_lat: float,
+	center_lon: float,
+	start_et: float,
+	max_duration_s: float,
+) -> list[int]:
+	"""Return the 12° bins the sun passes through during a traversal.
+
+	The sun's azimuth does not always advance: seen from a site south of the
+	sub-solar latitude (every south-polar site, including all bundled data)
+	and from low latitudes it recedes.  Sampling the SPICE azimuth along the
+	traversal and keeping the bins actually visited is direction-agnostic, so
+	the preloaded set always covers what `simulate_rover_4wd` will request.
+
+	A traversal longer than the sample budget has swept more than half the
+	lunar day, so every bin is returned instead of sampling further.
+	"""
+	ensure_kernels_loaded()
+	n_samples = math.ceil(float(max_duration_s) / BIN_SAMPLE_INTERVAL_S)
+	if n_samples > MAX_BIN_SAMPLES:
+		return list(range(0, 360, ANGLE_BIN_DEG))
+
+	lat = float(center_lat)
+	lon = float(center_lon)
+	return angle_bins_from_azimuths(
+		sun_azimuth_at_et(lat, lon, start_et + (i * BIN_SAMPLE_INTERVAL_S))
+		for i in range(n_samples + 1)
+	)
 
 
 def load_angle_maps(
@@ -254,9 +294,8 @@ def load_angle_maps(
 	"""Load the sun-angle maps a traversal of at most `max_duration_s` can need.
 
 	Only the 12° bins the sun passes through during the traversal are downloaded
-	and cropped (the start bin plus the forward arc swept by the sun), instead of
-	all 30 bins.  Pass `max_duration_s=None` to keep the previous behaviour of
-	loading every bin.
+	and cropped, instead of all 30 bins.  Pass `max_duration_s=None` to keep the
+	previous behaviour of loading every bin.
 	"""
 	import spiceypy as spice
 
@@ -269,22 +308,20 @@ def load_angle_maps(
 	center_y = float(transform.f + (0.5 * cols * transform.d) + (0.5 * rows * transform.e))
 	center_lon, center_lat = xy_to_longlat(center_x, center_y)
 
-	time_for_az = utctime
-	if "T" in utctime:
-		time_for_az = f"{utctime.split('T', 1)[0]}T12:00:00"
-
-	az_deg, _el_deg = sun_position(float(center_lat), float(center_lon), time_for_az)
-	start_angle_deg = round_azimuth_to_nearest_12(float(az_deg))
-
-	# SPICE ephemeris time at sim start
-	from cynthium.app.engine.illumination.sun_position import ensure_kernels_loaded
+	# SPICE ephemeris time at sim start.  The start bin must be the one the
+	# simulation itself resolves for t=0, i.e. at `utctime` - not at local noon.
 	ensure_kernels_loaded()
 	start_et = spice.utc2et(utctime)
+	start_angle_deg = round_azimuth_to_nearest_12(
+		sun_azimuth_at_et(float(center_lat), float(center_lon), start_et)
+	)
 
 	if max_duration_s is None or max_duration_s <= 0:
 		bins_to_load = list(range(0, 360, ANGLE_BIN_DEG))
 	else:
-		bins_to_load = needed_angle_bins(start_angle_deg, max_duration_s)
+		bins_to_load = swept_angle_bins(
+			float(center_lat), float(center_lon), start_et, float(max_duration_s)
+		)
 
 	logger.info(
 		f"Loading {len(bins_to_load)} angle map bin(s) for a traversal of up to "

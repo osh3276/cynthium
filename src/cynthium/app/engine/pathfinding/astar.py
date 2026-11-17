@@ -30,6 +30,22 @@ def _grade_deg(
 	return float(math.degrees(math.atan2(dz, horiz)))
 
 
+def _heuristic(
+	rc0: tuple[int, int],
+	rc1: tuple[int, int],
+	res_x: float,
+	res_y: float,
+) -> float:
+	"""Straight-line distance in world units between two cells.
+
+	Rows advance along y (``res_y``), columns along x (``res_x``).  With
+	square pixels this is the usual diagonal metric.
+	"""
+	dr = float(rc1[0] - rc0[0]) * float(res_y)
+	dc = float(rc1[1] - rc0[1]) * float(res_x)
+	return float(math.hypot(dr, dc))
+
+
 def _segment_cost(
 	*,
 	rc0: tuple[int, int],
@@ -123,7 +139,7 @@ def a_star(
 	parent_r[sr, sc] = sr
 	parent_c[sr, sc] = sc
 
-	h0 = math.hypot(float(gr - sr) * float(res_x), float(gc - sc) * float(res_y))
+	h0 = _heuristic((sr, sc), (gr, gc), res_x=res_x, res_y=res_y)
 	open_heap: list[tuple[float, int, int]] = []
 	heapq.heappush(open_heap, (h0, sr, sc))
 
@@ -188,7 +204,7 @@ def a_star(
 				parent_r[nr, nc] = r
 				parent_c[nr, nc] = c
 				if not dijkstra:
-					h = math.hypot(float(gr - nr) * float(res_x), float(gc - nc) * float(res_y))
+					h = _heuristic((nr, nc), (gr, gc), res_x=res_x, res_y=res_y)
 				else:
 					h = 0.0
 				heapq.heappush(open_heap, (float(new_g) + h, nr, nc))

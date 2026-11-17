@@ -3,48 +3,50 @@
 import numpy as np
 import pytest
 
-from cynthium.app.config import ANGLE_BIN_DEG, LUNAR_DAY_S, NUM_ANGLE_BINS
+from cynthium.app.config import ANGLE_BIN_DEG, NUM_ANGLE_BINS
 from cynthium.app.services.site_rasters import (
 	_fallback_if_missing,
 	_normalize_map_key,
-	needed_angle_bins,
+	angle_bins_from_azimuths,
 	select_display_raster,
 )
 
 
-# ── needed_angle_bins ────────────────────────────────────────────────
+# ── angle_bins_from_azimuths ─────────────────────────────────────────
 
-class TestNeededAngleBins:
-	"""The sun sweeps 360° per lunar day; bins round to the nearest 12°."""
+class TestAngleBinsFromAzimuths:
+	"""Bins must follow the sun's actual azimuth path, in either direction."""
 
-	def test_zero_duration_only_start_bin(self):
-		assert needed_angle_bins(0, 0.0) == [0, 12]
-		assert needed_angle_bins(36, 0.0) == [36, 48]
+	def test_single_sample(self):
+		assert angle_bins_from_azimuths([0.0]) == [0]
+		assert angle_bins_from_azimuths([36.0]) == [36]
 
-	def test_short_traversal_stays_in_start_bin(self):
-		# Less than half a bin interval → sun never leaves the start bin
-		assert needed_angle_bins(0, LUNAR_DAY_S / 30 * 0.4) == [0, 12]
+	def test_increasing_azimuth(self):
+		assert angle_bins_from_azimuths([0.0, 12.0, 24.0]) == [0, 12, 24]
 
-	def test_one_bin_interval_covers_three_bins(self):
-		# A full 12° sweep crosses the start bin plus the next bin (plus margin)
-		assert needed_angle_bins(0, LUNAR_DAY_S / 30) == [0, 12, 24]
-		assert needed_angle_bins(72, LUNAR_DAY_S / 30) == [72, 84, 96]
+	def test_decreasing_azimuth(self):
+		# Regression: south-polar sites see the azimuth recede, so the bins
+		# must be preloaded downwards, not upwards.
+		assert angle_bins_from_azimuths([288.0, 276.0, 264.0]) == [288, 276, 264]
 
-	def test_advances_one_bin_per_interval(self):
-		bins = needed_angle_bins(0, LUNAR_DAY_S / 30 * 3.5)
-		assert bins == [0, 12, 24, 36, 48]
+	def test_samples_inside_one_bin_collapse(self):
+		assert angle_bins_from_azimuths([1.0, 3.0, 5.0]) == [0]
 
-	def test_wraps_around_360(self):
-		assert needed_angle_bins(348, LUNAR_DAY_S / 30) == [348, 0, 12]
+	def test_wraps_through_north(self):
+		assert angle_bins_from_azimuths([348.0, 0.0, 12.0]) == [348, 0, 12]
 
-	def test_full_lunar_day_returns_all_bins(self):
-		assert needed_angle_bins(0, LUNAR_DAY_S) == list(range(0, 360, ANGLE_BIN_DEG))
-		assert len(needed_angle_bins(0, LUNAR_DAY_S)) == NUM_ANGLE_BINS
+	def test_wraps_downwards_through_north(self):
+		assert angle_bins_from_azimuths([12.0, 0.0, 348.0]) == [12, 0, 348]
 
-	def test_capped_at_full_day_for_long_durations(self):
-		assert needed_angle_bins(120, LUNAR_DAY_S * 5) == [
-			(120 + k * ANGLE_BIN_DEG) % 360 for k in range(NUM_ANGLE_BINS)
-		]
+	def test_bins_never_repeat(self):
+		# Non-monotonic sun (low latitudes) revisits a bin; load it once.
+		assert angle_bins_from_azimuths([10.0, 20.0, 10.0]) == [12, 24]
+
+	def test_full_sweep_covers_every_bin(self):
+		azimuths = [float(a) for a in range(0, 360, 5)]
+		bins = angle_bins_from_azimuths(azimuths)
+		assert bins == list(range(0, 360, ANGLE_BIN_DEG))
+		assert len(bins) == NUM_ANGLE_BINS
 
 
 # ── _normalize_map_key ───────────────────────────────────────────────

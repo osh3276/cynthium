@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-11-17
+
+### Fixed
+
+- **Sun-angle maps are preloaded in the direction the sun actually moves.**
+  `load_angle_maps` assumed the solar azimuth always advanced, preloading
+  the start bin plus the bins *above* it. Seen from any site south of the
+  sub-solar latitude (every south-polar site, i.e. all bundled data) and
+  from low latitudes the azimuth recedes instead, so the bins needed
+  later in a traverse were never downloaded. `simulate_rover_4wd` then
+  found no map for the new bin and silently kept using the previous one,
+  computing solar energy from a stale shadow map for the rest of the run.
+  Bins are now taken from the sampled SPICE azimuth along the traversal
+  (`swept_angle_bins`), which needs no assumption about direction, sweep
+  rate, or monotonicity.
+
+- **The start bin is resolved at the simulation start time.**
+  `load_angle_maps` rounded the azimuth at local noon of the given date
+  rather than at `utctime`, so the preloaded start bin could disagree
+  with the bin the simulation resolves for `t=0` (observed at low
+  latitudes, where the two differed in 3 of 24 sampled runs).
+
+- **Missing angle maps are reported instead of mislogged.** The
+  simulation printed "swapped illum bin ..." even when no map existed
+  for the new bin and the previous map was kept, which hid the failure
+  above.
+
 ## [1.2.3] - 2026-08-20
 
 ### Added
