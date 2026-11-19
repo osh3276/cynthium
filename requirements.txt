@@ -14,19 +14,6 @@ requests
 tqdm
 
 pytest
-pytest
 pooch
-affine
-pytest
 matplotlib
 affine
-pytest
-pytest
-pytest
-affine
-pytest
-pooch
-pytest
-pytest
-affine
-pytest
