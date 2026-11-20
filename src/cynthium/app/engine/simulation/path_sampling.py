@@ -22,8 +22,13 @@ def sample_path_elevations(
 ) -> np.ndarray:
 	"""Sample (x,y,z) along the waypoint polyline.
 
-	Default: ~1 px spacing, nearest-neighbor.
-	With bicubic: 5 m spacing, smoother profiles.
+	Default: ~1 px spacing, bilinear interpolation.
+	With bicubic: 5 m spacing, bicubic interpolation (smoother profiles).
+
+	Elevations are interpolated rather than taken from the nearest pixel:
+	samples are spaced along the path, not on the pixel grid, so
+	nearest-pixel lookup gives a stair-stepped profile whose jumps the
+	simulator reads as spurious steep pitches on side slopes.
 	"""
 	inverse_transform = ~transform
 	pixel_resolution = get_pixel_resolution_m(transform)
@@ -63,30 +68,21 @@ def sample_path_elevations(
 	if len(sampled_xy) == 0:
 		return np.empty((0, 3), dtype=np.float64)
 
-	# Convert XY to pixel coordinates
-	col, row = inverse_transform * (float(sampled_xy[0, 0]), float(sampled_xy[0, 1]))
-	all_cols = np.empty(len(sampled_xy), dtype=np.float64)
-	all_rows = np.empty(len(sampled_xy), dtype=np.float64)
-	all_cols[0] = float(col)
-	all_rows[0] = float(row)
-	for i in range(1, len(sampled_xy)):
-		col, row = inverse_transform * (float(sampled_xy[i, 0]), float(sampled_xy[i, 1]))
-		all_cols[i] = float(col)
-		all_rows[i] = float(row)
+	# Fractional pixel coordinates.  The affine transform maps pixel *corners*
+	# to integers (pixel k spans [k, k+1), centre k + 0.5), whereas
+	# map_coordinates places pixel centres at integer indices, hence the -0.5.
+	inv = inverse_transform
+	xs, ys = sampled_xy[:, 0], sampled_xy[:, 1]
+	cols = inv.a * xs + inv.b * ys + inv.c
+	rows = inv.d * xs + inv.e * ys + inv.f
+	coords = np.vstack([rows - 0.5, cols - 0.5])
 
-	if use_bicubic:
-		# Bicubic sub-pixel interpolation
-		elevations = map_coordinates(
-			elevation_map,
-			np.vstack([all_rows, all_cols]),
-			order=3,
-			mode="nearest",
-		).astype(np.float64)
-	else:
-		# Nearest-neighbor: snap to closest integer pixel
-		col_i = np.clip(np.round(all_cols).astype(np.int64), 0, elevation_map.shape[1] - 1)
-		row_i = np.clip(np.round(all_rows).astype(np.int64), 0, elevation_map.shape[0] - 1)
-		elevations = elevation_map[row_i, col_i].astype(np.float64)
+	elevations = map_coordinates(
+		elevation_map,
+		coords,
+		order=3 if use_bicubic else 1,
+		mode="nearest",
+	).astype(np.float64)
 
 	result = np.column_stack([sampled_xy, elevations])
 	return result

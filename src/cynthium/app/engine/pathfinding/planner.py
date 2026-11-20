@@ -9,6 +9,7 @@ thread; the autopath worker in the UI calls it with pre-loaded arrays.
 
 from __future__ import annotations
 
+import math
 import threading
 
 import numpy as np
@@ -57,10 +58,10 @@ def compute_path_segment(
 	inv = ~transform
 	sc_f, sr_f = inv * (float(start_xy[0]), float(start_xy[1]))
 	gc_f, gr_f = inv * (float(goal_xy[0]), float(goal_xy[1]))
-	sr = int(round(float(sr_f)))
-	sc = int(round(float(sc_f)))
-	gr = int(round(float(gr_f)))
-	gc = int(round(float(gc_f)))
+	sr = math.floor(sr_f)
+	sc = math.floor(sc_f)
+	gr = math.floor(gr_f)
+	gc = math.floor(gc_f)
 
 	H = int(elevation_data.shape[0])
 	W = int(elevation_data.shape[1])

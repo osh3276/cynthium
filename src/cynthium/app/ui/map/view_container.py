@@ -1,3 +1,4 @@
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -356,10 +357,10 @@ class ViewContainer(QWidget):
 		inv = ~transform
 		sc_f, sr_f = inv * (float(start_xy[0]), float(start_xy[1]))
 		gc_f, gr_f = inv * (float(goal_xy[0]), float(goal_xy[1]))
-		sr = int(round(float(sr_f)))
-		sc = int(round(float(sc_f)))
-		gr = int(round(float(gr_f)))
-		gc = int(round(float(gc_f)))
+		sr = math.floor(sr_f)
+		sc = math.floor(sc_f)
+		gr = math.floor(gr_f)
+		gc = math.floor(gc_f)
 
 		H = int(self._current_data.shape[0])
 		W = int(self._current_data.shape[1])

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import threading
 import time
-from math import atan2, cos, sin, sqrt
+from math import atan2, cos, floor, sin, sqrt
 from typing import Any
 
 import numpy as np
@@ -426,7 +426,7 @@ def simulate_rover_4wd(
 			# Accumulate solar during pause
 			if _inv_illum is not None:
 				col, row = _inv_illum * (float(x), float(y))
-				ci, ri = int(round(col)), int(round(row))
+				ci, ri = floor(col), floor(row)
 				if (
 					_active_illum_map is not None
 					and 0 <= ri < _active_illum_map.shape[0]
@@ -540,7 +540,7 @@ def simulate_rover_4wd(
 
 		if _inv_illum is not None:
 			col, row = _inv_illum * (float(x), float(y))
-			ci, ri = int(round(col)), int(round(row))
+			ci, ri = floor(col), floor(row)
 			if (
 				_active_illum_map is not None
 				and 0 <= ri < _active_illum_map.shape[0]
