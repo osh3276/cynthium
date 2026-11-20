@@ -127,8 +127,9 @@ factors:
 
 The cost for each step combines a per-cell penalty from the raster
 layers and a grade penalty from elevation change.  Each factor has
-its own weight slider (see *Configure Pathfinding* below). set a
-weight to zero to ignore that factor entirely.
+its own weight field in the **Planning** panel (see *Configure
+Pathfinding* below). Weights must be non-negative; set a weight to
+zero to ignore that factor entirely.
 
 For the exact mathematical formulation see :doc:`algorithms`.
 
