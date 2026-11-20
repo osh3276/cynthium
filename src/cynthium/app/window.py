@@ -498,6 +498,24 @@ class Window(QMainWindow):
 
 		site_path_xy = result["path_xy"]
 
+		if not result["feasible"] and (not site_path_xy or len(site_path_xy) < 2):
+			# The planner itself found no route: every route crosses ground
+			# steeper than the rover's slope limit (or the search gave up).
+			try:
+				limit = f"{self._get_rover_settings().max_climbable_slope_deg:.1f}°"
+			except (ValueError, KeyError, TypeError):
+				limit = "the rover's limit"
+			QMessageBox.warning(
+				self, "Autopath",
+				f"No route found within the rover's slope limit ({limit}).\n"
+				"Every route between these waypoints crosses ground steeper than "
+				"the rover can climb or descend.\n"
+				"Try different waypoints, or adjust the rover's friction coefficient."
+			)
+			self._view_container.set_autopath([])
+			self._sidebar.set_autopath_waypoints(None)
+			return
+
 		if not result["feasible"]:
 			if site_path_xy and len(site_path_xy) >= 2:
 				self._view_container.set_autopath(site_path_xy)

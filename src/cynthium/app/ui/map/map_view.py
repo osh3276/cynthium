@@ -1,3 +1,4 @@
+import math
 import re
 
 import numpy as np
@@ -236,7 +237,7 @@ class MapView(QWidget):
 			return
 		col = (mx - tr.c) / tr.a
 		row = (my - tr.f) / tr.e
-		ci, ri = int(round(col)), int(round(row))
+		ci, ri = math.floor(col), math.floor(row)
 		if 0 <= ri < self._raw_data.shape[0] and 0 <= ci < self._raw_data.shape[1]:
 			val = float(self._raw_data[ri, ci])
 			if np.isfinite(val):

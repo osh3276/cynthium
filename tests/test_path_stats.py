@@ -142,6 +142,37 @@ class TestSampleRasterValues:
 		values = _sample_raster_values(pts, raster, transform)
 		assert len(values) == 0
 
+	@pytest.mark.parametrize("fx, fy", [
+		(0.5, 0.5),    # pixel centre
+		(0.01, 0.01),  # near top-left corner
+		(0.99, 0.01),  # near top-right corner
+		(0.01, 0.99),  # near bottom-left corner
+		(0.99, 0.99),  # near bottom-right corner
+		(0.0, 0.0),    # exactly on the top-left corner (belongs to this pixel)
+	])
+	def test_any_point_in_pixel_returns_that_pixel(self, raster, transform, fx, fy):
+		"""A point anywhere inside pixel (row, col) returns raster[row, col].
+
+		fx, fy are fractions across the pixel from its top-left corner.
+		Regression: round() on corner-based pixel coordinates returned the
+		right/lower neighbour for points in the right/lower half of a pixel.
+		"""
+		for row in range(3):
+			for col in range(3):
+				x = col + fx
+				y = 3.0 - (row + fy)
+				values = _sample_raster_values(np.array([[x, y]]), raster, transform)
+				assert values.tolist() == [raster[row, col]], (row, col, x, y)
+
+	@pytest.mark.parametrize("x, y", [
+		(-0.01, 1.5),  # just west of the raster
+		(3.0, 1.5),    # on the east edge (belongs to the next, missing, column)
+		(1.5, 3.01),   # just north
+		(1.5, 0.0),    # on the south edge
+	])
+	def test_points_just_outside_rejected(self, raster, transform, x, y):
+		assert len(_sample_raster_values(np.array([[x, y]]), raster, transform)) == 0
+
 
 # ── _add_context_stats ───────────────────────────────────────────────
 

@@ -46,6 +46,33 @@ def _heuristic(
 	return float(math.hypot(dr, dc))
 
 
+def _midpoint_elevation(
+	elev: np.ndarray,
+	rc0: tuple[int, int],
+	rc1: tuple[int, int],
+) -> float | None:
+	"""Elevation at the midpoint of a long (knight's-move) step, else None.
+
+	A (2, 1) or (1, 2) step spans ~2.2 pixels and passes between two
+	intermediate pixels; its midpoint lies on their shared edge, so its
+	elevation is their mean.  Returns None for 8-neighbour steps, which
+	have no intermediate pixel.
+	"""
+	dr = rc1[0] - rc0[0]
+	dc = rc1[1] - rc0[1]
+	if abs(dr) == 2 and abs(dc) == 1:
+		r = rc0[0] + dr // 2
+		a = float(elev[r, rc0[1]])
+		b = float(elev[r, rc1[1]])
+	elif abs(dr) == 1 and abs(dc) == 2:
+		c = rc0[1] + dc // 2
+		a = float(elev[rc0[0], c])
+		b = float(elev[rc1[0], c])
+	else:
+		return None
+	return 0.5 * (a + b)
+
+
 def _segment_cost(
 	*,
 	rc0: tuple[int, int],
@@ -58,12 +85,17 @@ def _segment_cost(
 	slope_weight: float,
 	grade_power: float = 1.0,
 ) -> float:
-	"""Cost of moving between two adjacent cells (8-connected).
+	"""Cost of moving between two neighbouring cells (16-connected).
 
-	Base cost from cell_cost (sun, etc.), plus grade penalty from
-	elevation difference.
-	grade_power=1 is linear (weighted cost).
-	grade_power > 1 is minimax (punishes steep grades).
+	Base cost from cell_cost (sun, etc.), plus an uphill grade penalty
+	``slope_weight * (grade / max_slope_deg) ** grade_power * step``.
+	grade_power=1 is linear (weighted cost); > 1 is minimax.
+
+	Steps steeper than ``max_slope_deg`` in either direction are
+	impassable and return ``math.inf``: the rover cannot climb them, and
+	cannot hold itself on (or climb back out of) descents that steep.
+	Long knight's-move steps are checked in two halves through their
+	midpoint so they cannot hop over a narrow steep rim.
 	"""
 	cc0 = float(cell_cost[rc0[0], rc0[1]])
 	cc1 = float(cell_cost[rc1[0], rc1[1]])
@@ -78,10 +110,17 @@ def _segment_cost(
 		if math.isfinite(e0) and math.isfinite(e1):
 			g = _grade_deg(e0, e1, step)  # signed: + uphill, - downhill
 			max_slope = float(max_slope_deg)
-			# No hard cutoff - per-step grade can exceed limit; retry loop handles feasibility
-			if g > 0 and max_slope > 0:
-				grade_norm = min(1.0, g / max_slope)
-				cost += float(slope_weight) * (grade_norm ** float(grade_power)) * step
+			if max_slope > 0:
+				if abs(g) > max_slope:
+					return math.inf
+				em = _midpoint_elevation(elev, rc0, rc1)
+				if em is not None and math.isfinite(em):
+					half = 0.5 * step
+					if (abs(_grade_deg(e0, em, half)) > max_slope
+							or abs(_grade_deg(em, e1, half)) > max_slope):
+						return math.inf
+				if g > 0:
+					cost += float(slope_weight) * ((g / max_slope) ** float(grade_power)) * step
 
 	return float(cost)
 
@@ -110,7 +149,8 @@ def a_star(
 	the heuristic is set to zero, making it pure Dijkstra (uniform-cost
 	search).  No line-of-sight shortcuts - every step follows a concrete
 	grid neighbour so the slope limit is enforced on every individual
-	transition.
+	transition: steps steeper than ``max_slope_deg`` (up or down) are
+	impassable, so no path is returned if every route needs one.
 
 	- `traversable`: True where allowed (finite elevation, etc.).
 	- `cell_cost`: per-cell coefficient for sun/shadow cost (>=1 recommended).
@@ -188,7 +228,7 @@ def a_star(
 			if blocked_pixels and (nr, nc) in blocked_pixels:
 				continue
 
-			new_g = g[r, c] + _segment_cost(
+			step_cost = _segment_cost(
 				rc0=(r, c),
 				rc1=(nr, nc),
 				cell_cost=cell_cost,
@@ -199,6 +239,9 @@ def a_star(
 				slope_weight=slope_weight,
 				grade_power=grade_power,
 			)
+			if not math.isfinite(step_cost):
+				continue  # steeper than the rover's slope limit
+			new_g = g[r, c] + step_cost
 			if new_g < g[nr, nc]:
 				g[nr, nc] = float(new_g)
 				parent_r[nr, nc] = r
