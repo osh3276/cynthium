@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Autopath weights can be edited again.** The slope, sun, meteor flux
+  and temperature weight fields in the Planning panel had become
+  non-editable push buttons, so the weights could only be changed by
+  importing a settings file. They are text fields again, restricted to
+  non-negative numbers.
+
 ## [1.2.4] - 2026-11-17
 
 ### Fixed

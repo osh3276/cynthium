@@ -1,6 +1,7 @@
 """Planning panel with editable waypoint table and per-waypoint pause."""
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QLocale, Qt, Signal
+from PySide6.QtGui import QDoubleValidator
 from PySide6.QtWidgets import (
 	QApplication,
 	QCheckBox,
@@ -130,22 +131,22 @@ class PlanningPanel(QWidget):
 		layout.addWidget(QLabel("Autopath settings:"))
 		cfg2 = QHBoxLayout()
 		cfg2.addWidget(QLabel("Slope weight:"))
-		self.slope_weight_field = QPushButton(str(ALPHA_SLOPE))
+		self.slope_weight_field = self._make_weight_field(ALPHA_SLOPE)
 		self.slope_weight_field.setFixedWidth(60)
 		cfg2.addWidget(self.slope_weight_field)
 		cfg2.addWidget(QLabel("Sun weight:"))
-		self.sun_weight_field = QPushButton(str(BETA_SHADOW))
+		self.sun_weight_field = self._make_weight_field(BETA_SHADOW)
 		self.sun_weight_field.setFixedWidth(60)
 		cfg2.addWidget(self.sun_weight_field)
 		layout.addLayout(cfg2)
 
 		cfg4 = QHBoxLayout()
 		cfg4.addWidget(QLabel("Met. flux weight:"))
-		self.meteor_flux_weight_field = QPushButton(str(METEOR_FLUX_WEIGHT))
+		self.meteor_flux_weight_field = self._make_weight_field(METEOR_FLUX_WEIGHT)
 		self.meteor_flux_weight_field.setFixedWidth(60)
 		cfg4.addWidget(self.meteor_flux_weight_field)
 		cfg4.addWidget(QLabel("Temperature weight:"))
-		self.temperature_weight_field = QPushButton(str(TEMPERATURE_WEIGHT))
+		self.temperature_weight_field = self._make_weight_field(TEMPERATURE_WEIGHT)
 		self.temperature_weight_field.setFixedWidth(60)
 		cfg4.addWidget(self.temperature_weight_field)
 		layout.addLayout(cfg4)
@@ -206,6 +207,18 @@ class PlanningPanel(QWidget):
 			self._autopath_table.setItem(i, 0, num_item)
 			self._autopath_table.setItem(i, 1, _FloatItem(x))
 			self._autopath_table.setItem(i, 2, _FloatItem(y))
+
+	@staticmethod
+	def _make_weight_field(default: float) -> QLineEdit:
+		"""Editable text field for a non-negative autopath cost weight."""
+		field = QLineEdit(str(default))
+		validator = QDoubleValidator(field)
+		validator.setBottom(0.0)
+		validator.setLocale(QLocale.c())
+		validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+		field.setValidator(validator)
+		field.setToolTip("Cost weight (>= 0); 0 ignores this factor")
+		return field
 
 	def set_planning_config(self, config: dict):
 		if "slope_weight" in config:
