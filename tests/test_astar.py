@@ -321,3 +321,38 @@ class TestAStar:
 		# linear: penalty = 1 * 0.286^1 ≈ 0.286
 		# exp:    penalty = 1 * 0.286^3 ≈ 0.023
 		assert cost_linear > cost_exp
+
+
+class TestComputePathSegmentSnapping:
+	"""Start/goal are snapped to the pixel that contains them (floor, not round)."""
+
+	@pytest.fixture
+	def flat_dem(self):
+		from affine import Affine
+		elev = np.full((10, 10), 100.0, dtype=np.float32)
+		meta = {"transform": Affine(1.0, 0.0, 0.0, 0.0, -1.0, 10.0)}
+		return elev, meta
+
+	def _plan(self, dem, start, goal):
+		from cynthium.app.engine.pathfinding.planner import compute_path_segment
+		elev, meta = dem
+		return compute_path_segment(
+			start_xy=start, goal_xy=goal, elevation_data=elev, elevation_meta=meta,
+			illumination_data=None, illumination_meta=None, meteor_data=None,
+			meteor_meta=None, temperature_data=None, temperature_meta=None,
+		)
+
+	def test_points_in_last_half_pixel_are_inside(self, flat_dem):
+		# x = 9.7 and y = 0.3 lie in the last column / row; round() put them
+		# outside the grid and the planner returned None.
+		path = self._plan(flat_dem, (0.5, 9.5), (9.7, 0.3))
+		assert path is not None
+		assert path[-1] == (9.7, 0.3)
+
+	def test_interior_points_snap_to_containing_pixel(self, flat_dem):
+		# Start in the upper-right quarter of pixel (row 2, col 2), goal at the
+		# centre of pixel (row 2, col 6): a straight east path along row 2.
+		path = self._plan(flat_dem, (2.9, 7.9), (6.5, 7.5))
+		assert path is not None
+		ys = [y for _, y in path[1:]]
+		assert all(y == pytest.approx(7.5) for y in ys)  # row 2 centres

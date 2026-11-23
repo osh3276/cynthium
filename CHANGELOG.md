@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **No more false "Insufficient traction" failures on side slopes.** With
+  default settings the simulator took path elevations from the nearest
+  pixel, and indexed pixels with `round()` on corner-based coordinates, so
+  about half the samples read a neighbouring pixel and the profile was
+  stair-stepped. On side slopes the steps looked like very steep pitches
+  (a 4.9 deg segment was read as 31.6 deg) and feasible routes were
+  reported as stalled. Path elevations are now interpolated bilinearly
+  (bicubic when that option is on), with the half-pixel offset corrected
+  in both modes. Traverse times and battery use can change slightly.
+- **Point lookups use the pixel that contains the point.** Illumination
+  sampled during the simulation (received solar energy), path statistics,
+  autopath start/goal snapping and the map cursor readout used `round()`
+  and often read the neighbouring pixel. Start/goal points in the last
+  half-pixel at the east or south edge of a map no longer make the
+  autopath fail.
+
 ## [1.2.5]
 
 ### Fixed

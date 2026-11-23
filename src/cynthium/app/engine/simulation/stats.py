@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from cynthium.app.engine.simulation.path_sampling import (
@@ -261,8 +263,8 @@ def _sample_raster_values(
 	values = []
 	for x, y in points_xy:
 		col, row = inverse_transform * (float(x), float(y))
-		col = int(round(col))
-		row = int(round(row))
+		col = math.floor(col)
+		row = math.floor(row)
 		if 0 <= row < raster.shape[0] and 0 <= col < raster.shape[1]:
 			value = raster[row, col]
 			if np.isfinite(value):
