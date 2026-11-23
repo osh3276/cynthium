@@ -102,21 +102,45 @@ class TestSegmentCost:
 
 	def test_uphill_adds_grade_penalty(self, base):
 		elev = np.zeros((10, 10), dtype=np.float64)
-		elev[5, 6] = 2.0  # 2m rise over 1m = ~63.4°
+		elev[5, 6] = 0.2  # 0.2 m rise over 1 m = 11.31 deg, under the 20 deg limit
 		cost = _segment_cost(**{**base, "elev": elev})
-		# grade_norm = min(1, 63.4/20) = 1.0
-		# penalty = 1.0 * 1.0^2 * 1.0 = 1.0
-		# base = 1.0 * 0.5 * 2 = 1.0
-		# total = 2.0
-		assert cost == pytest.approx(2.0, abs=0.01)
+		g = math.degrees(math.atan(0.2))
+		# base 1.0 + slope_weight * (g / 20) ** 2 * step
+		assert cost == pytest.approx(1.0 + (g / 20.0) ** 2, rel=1e-9)
 
 	def test_downhill_no_penalty(self, base):
 		elev = np.zeros((10, 10), dtype=np.float64)
-		elev[5, 5] = 5.0
-		elev[5, 6] = 0.0  # dropping 5m → downhill
+		elev[5, 5] = 0.2
+		elev[5, 6] = 0.0  # 11.3 deg downhill, within the limit
 		cost = _segment_cost(**{**base, "elev": elev})
-		# Downhill should not add grade penalty
-		assert cost == pytest.approx(1.0, abs=0.01)
+		assert cost == pytest.approx(1.0, abs=1e-9)
+
+	@pytest.mark.parametrize("rise", [2.0, -2.0])  # 63.4 deg up / down
+	def test_steeper_than_limit_is_impassable(self, base, rise):
+		elev = np.zeros((10, 10), dtype=np.float64)
+		elev[5, 6] = rise
+		assert _segment_cost(**{**base, "elev": elev}) == math.inf
+
+	def test_just_under_limit_is_passable(self, base):
+		elev = np.zeros((10, 10), dtype=np.float64)
+		elev[5, 6] = math.tan(math.radians(19.9))
+		cost = _segment_cost(**{**base, "elev": elev})
+		assert math.isfinite(cost)
+
+	def test_knight_move_cannot_hop_a_narrow_rim(self, base):
+		"""A (1, 2) step over a one-pixel-wide steep rim is impassable.
+
+		The end points are level, so only the midpoint check catches it.
+		"""
+		elev = np.zeros((10, 10), dtype=np.float64)
+		elev[:, 6] = 1.0  # rim column: rises 1 m over ~1.1 m to the midpoint (~42 deg)
+		cost = _segment_cost(**{**base, "elev": elev, "rc1": (6, 7)})
+		assert cost == math.inf
+
+	def test_knight_move_on_gentle_slope_is_passable(self, base):
+		elev = np.tile(np.arange(10, dtype=np.float64) * 0.1, (10, 1))  # 5.7 deg ramp
+		cost = _segment_cost(**{**base, "elev": elev, "rc1": (6, 7)})
+		assert math.isfinite(cost)
 
 
 # ── a_star ──────────────────────────────────────────────────────────────
@@ -196,6 +220,43 @@ class TestAStar:
 		# Path should stay on flat row 5
 		assert all(c == 5 or r == 5 for r, c in result.path_rc)
 
+	def test_routes_around_pit_with_too_steep_walls(self, flat_world):
+		"""Straight line crosses a pit with 45 deg walls; path must go around."""
+		elev = np.zeros((15, 15), dtype=np.float64)
+		elev[5:10, 5:10] = -1.0  # 1 m drop over a 1 m pixel = 45 deg wall
+		world = {**flat_world, "elev": elev,
+				 "traversable": np.ones((15, 15), dtype=bool),
+				 "cell_cost": np.ones((15, 15), dtype=np.float64)}
+		result = a_star(start_rc=(7, 1), goal_rc=(7, 13), **world)
+		assert result is not None
+		for r, c in result.path_rc:
+			assert not (5 <= r < 10 and 5 <= c < 10), f"entered the pit at {(r, c)}"
+		# and no step on the path exceeds the limit
+		for (r0, c0), (r1, c1) in zip(result.path_rc, result.path_rc[1:]):
+			assert math.isfinite(_segment_cost(
+				rc0=(r0, c0), rc1=(r1, c1), cell_cost=world["cell_cost"], elev=elev,
+				res_x=1.0, res_y=1.0, max_slope_deg=20.0, slope_weight=1.0))
+
+	def test_crosses_pit_with_gentle_walls(self, flat_world):
+		"""Same pit with ~5.7 deg walls: the straight route through it is fine."""
+		elev = np.zeros((15, 15), dtype=np.float64)
+		elev[5:10, 5:10] = -0.1
+		world = {**flat_world, "elev": elev, "slope_weight": 0.0,
+				 "traversable": np.ones((15, 15), dtype=bool),
+				 "cell_cost": np.ones((15, 15), dtype=np.float64)}
+		result = a_star(start_rc=(7, 1), goal_rc=(7, 13), **world)
+		assert result is not None
+		assert all(r == 7 for r, _ in result.path_rc)
+
+	def test_walled_in_start_returns_none(self, flat_world):
+		elev = np.zeros((15, 15), dtype=np.float64)
+		elev[3:12, 3:12] = 10.0   # high plateau with vertical cliffs...
+		elev[4:11, 4:11] = -10.0  # ...ringing a deep pit around the start
+		world = {**flat_world, "elev": elev,
+				 "traversable": np.ones((15, 15), dtype=bool),
+				 "cell_cost": np.ones((15, 15), dtype=np.float64)}
+		assert a_star(start_rc=(7, 7), goal_rc=(7, 14), **world) is None
+
 	def test_dijkstra_flag(self, flat_world):
 		result_dijk = a_star(start_rc=(5, 1), goal_rc=(5, 8), **{**flat_world, "dijkstra": True})
 		result_astar = a_star(start_rc=(5, 1), goal_rc=(5, 8), **flat_world)
@@ -242,33 +303,21 @@ class TestAStar:
 		assert result.total_cost > 0.0
 
 	def test_slope_penalty_alters_path(self):
-		"""Create a ridge: a line of high elevation. A* should prefer a route
-		with less grade when slope_weight is high."""
+		"""A climbable ridge with a gap at one end: a high slope weight sends
+		the route through the gap, a zero weight goes straight over."""
 		trav = np.ones((30, 30), dtype=bool)
 		cell_cost = np.ones((30, 30), dtype=np.float64)
 		elev = np.zeros((30, 30), dtype=np.float64)
-		# Ridge across the middle
-		elev[15, :] = 15.0
+		elev[15, :26] = 0.3  # ~16.7 deg flanks, under the 20 deg limit; gap at cols 26-29
+		kw = dict(start_rc=(5, 5), goal_rc=(25, 5), traversable=trav, cell_cost=cell_cost,
+				  elev=elev, res_x=1.0, res_y=1.0, max_slope_deg=20.0, grade_power=2.0)
 
-		high_weight = a_star(
-			start_rc=(5, 5), goal_rc=(25, 25),
-			traversable=trav, cell_cost=cell_cost, elev=elev,
-			res_x=1.0, res_y=1.0,
-			max_slope_deg=20.0, slope_weight=100.0, grade_power=2.0,
-		)
-		low_weight = a_star(
-			start_rc=(5, 5), goal_rc=(25, 25),
-			traversable=trav, cell_cost=cell_cost, elev=elev,
-			res_x=1.0, res_y=1.0,
-			max_slope_deg=20.0, slope_weight=0.0, grade_power=2.0,
-		)
+		high_weight = a_star(slope_weight=100.0, **kw)
+		low_weight = a_star(slope_weight=0.0, **kw)
 		assert high_weight is not None
 		assert low_weight is not None
-		# With high slope weight, the path should avoid climbing the ridge
-		# This may go around; the low-weight path may go over it
-		# Just verify both find a path
-		assert high_weight.total_cost > 0
-		assert low_weight.total_cost > 0
+		assert all(not (r == 15 and c < 26) for r, c in high_weight.path_rc)  # used the gap
+		assert any(r == 15 and c < 26 for r, c in low_weight.path_rc)  # went over
 
 	def test_grade_power_linear_vs_exponential(self):
 		"""Linear grade_power=1 vs exponential grade_power=4 should produce

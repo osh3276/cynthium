@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   half-pixel at the east or south edge of a map no longer make the
   autopath fail.
 
+### Changed
+
+- **The autopath now respects the rover's slope limit.** Steps steeper
+  than the rover's maximum climbable slope, uphill or downhill, are
+  impassable, so the planner goes around steep crater walls instead of
+  relying on the simulate-and-retry loop. Long diagonal steps are checked
+  at their midpoint so they cannot hop over a narrow steep rim. If every
+  route crosses ground that steep, the autopath reports that no route
+  exists within the slope limit.
+
 ## [1.2.5]
 
 ### Fixed
