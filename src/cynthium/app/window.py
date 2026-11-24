@@ -76,6 +76,7 @@ def _run_autopath(
 			temperature_data=temperature_data,
 			temperature_meta=temperature_meta,
 			max_slope_deg=float(max_slope_deg),
+			max_cross_slope_deg=float(rover.cross_slope_limit_deg),
 			slope_weight=slope_weight,
 			sun_weight=sun_weight,
 			meteor_flux_weight=meteor_flux_weight,
@@ -289,6 +290,7 @@ class Window(QMainWindow):
 				target_cruise_speed_mps=override.target_cruise_speed_mps,
 				max_brake_decel_mps2=override.max_brake_decel_mps2,
 				idle_drain_w=override.idle_drain_w,
+				max_cross_slope_deg=override.max_cross_slope_deg,
 			)
 		return base
 
@@ -502,15 +504,19 @@ class Window(QMainWindow):
 			# The planner itself found no route: every route crosses ground
 			# steeper than the rover's slope limit (or the search gave up).
 			try:
-				limit = f"{self._get_rover_settings().max_climbable_slope_deg:.1f}°"
+				_rv = self._get_rover_settings()
+				limit = f"{_rv.max_climbable_slope_deg:.1f}°"
+				if _rv.cross_slope_limit_deg > 0:
+					limit += f", cross-slope {_rv.cross_slope_limit_deg:.1f}°"
 			except (ValueError, KeyError, TypeError):
 				limit = "the rover's limit"
 			QMessageBox.warning(
 				self, "Autopath",
-				f"No route found within the rover's slope limit ({limit}).\n"
-				"Every route between these waypoints crosses ground steeper than "
-				"the rover can climb or descend.\n"
-				"Try different waypoints, or adjust the rover's friction coefficient."
+				f"No route found within the rover's slope limits ({limit}).\n"
+				"Every route between these waypoints climbs or descends ground steeper "
+				"than the rover can manage, or crosses a side slope it would slide on.\n"
+				"Try different waypoints, or adjust the rover's friction coefficient "
+				"or cross-slope limit."
 			)
 			self._view_container.set_autopath([])
 			self._sidebar.set_autopath_waypoints(None)
@@ -761,6 +767,7 @@ class Window(QMainWindow):
 				"rover_target_cruise_speed_mps": rover.target_cruise_speed_mps,
 				"rover_max_brake_decel_mps2": rover.max_brake_decel_mps2,
 				"rover_idle_drain_w": rover.idle_drain_w,
+				"rover_max_cross_slope_deg": rover.cross_slope_limit_deg,
 			})
 		except (ValueError, KeyError, TypeError):
 			logger.warning("Could not read rover settings for simulation export")
@@ -920,6 +927,7 @@ class Window(QMainWindow):
 				"target_cruise_speed_mps": rover.target_cruise_speed_mps,
 				"max_brake_decel_mps2": rover.max_brake_decel_mps2,
 				"idle_drain_w": rover.idle_drain_w,
+				"max_cross_slope_deg": rover.max_cross_slope_deg,
 			}
 		except (ValueError, KeyError, TypeError):
 			logger.warning("Could not read rover settings for settings export")
@@ -993,12 +1001,14 @@ class Window(QMainWindow):
 			"wheel_radius_m", "motor_peak_torque_nm", "track_width_m",
 			"wheelbase_m", "battery_capacity_wh", "motor_max_rpm",
 			"target_cruise_speed_mps", "max_brake_decel_mps2", "idle_drain_w",
+			"max_cross_slope_deg",
 		)
 		if any(k in rover_data for k in advanced_keys):
 			from cynthium.app.engine.simulation.rover_settings import (
 				rover_settings_from_strings,
 			)
 			torque = rover_data.get("motor_peak_torque_nm")
+			cross = rover_data.get("max_cross_slope_deg")
 			try:
 				self._rover_settings_override = rover_settings_from_strings(
 					str(rover_data.get("mass_kg", "")),
@@ -1014,6 +1024,7 @@ class Window(QMainWindow):
 					target_cruise_speed_mps=str(rover_data.get("target_cruise_speed_mps", "2.0")),
 					max_brake_decel_mps2=str(rover_data.get("max_brake_decel_mps2", "1.0")),
 					idle_drain_w=str(rover_data.get("idle_drain_w", "10.0")),
+					max_cross_slope_deg=str(cross) if cross not in (None, "") else None,
 				)
 			except (ValueError, KeyError, TypeError):
 				self._rover_settings_override = None

@@ -288,6 +288,11 @@ The configurable parameters are:
        waypoints and on descents.
    * - ``Idle Drain``
      - Constant power draw (W) for computers, sensors, and avionics.
+   * - ``Max Cross-slope``
+     - Steepest side slope (degrees) the rover may drive across. Leave
+       blank to use the sideslip limit :math:`\arctan(\mu)`; enter 0 to
+       disable the check. The autopath avoids steeper side slopes and the
+       simulation fails where the rover would cross one.
 
 These map directly to the physics model described under :doc:`algorithms`.
 Access the full settings dialog from **Tools > Rover Settings** or click
@@ -394,7 +399,8 @@ suitable for external analysis in Excel, MATLAB, or pandas.
 Use **File > Export Settings...** to save all current configuration — rover
 preset and the full rover model (including the advanced parameters from the
 rover settings dialog: wheel radius, motor torque, track width, wheelbase,
-battery capacity, motor speed, cruise speed, braking, and idle drain),
+battery capacity, motor speed, cruise speed, braking, idle drain, and
+cross-slope limit),
 autopath weights/algorithm/strategy/path mode, bicubic flag, waypoints, and
 session info (site path, datetime, map type) — as a JSON file. This lets you
 restore a complete working session later.

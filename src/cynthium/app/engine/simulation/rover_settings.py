@@ -26,6 +26,9 @@ class RoverSettings:
     target_cruise_speed_mps: float = 2.0
     max_brake_decel_mps2: float = 1.0
     idle_drain_w: float = 10.0
+    # Maximum cross-slope (side tilt, roll) in degrees.  None derives it from
+    # the wheel friction (see cross_slope_limit_deg); a value <= 0 disables it.
+    max_cross_slope_deg: float | None = None
 
     @property
     def power_w(self) -> float:
@@ -60,6 +63,22 @@ class RoverSettings:
             torque = self._solve_slope(a_torque, crr) if a_torque > 0 else 0.0
 
         return float(min(traction, power, torque))
+
+    @property
+    def cross_slope_limit_deg(self) -> float:
+        """Steepest side slope (deg) the rover may drive across; 0 means no limit.
+
+        Uses ``max_cross_slope_deg`` when set.  Otherwise the limit is the
+        sideslip angle: on a side slope theta the downslope component of
+        gravity, m*g*sin(theta), must be held by lateral wheel friction,
+        mu*m*g*cos(theta), so the rover slides sideways once
+        tan(theta) > mu.  Static rollover usually happens later
+        (tan(theta) > track_width / (2 * centre-of-mass height)) and is not
+        modelled separately.
+        """
+        if self.max_cross_slope_deg is not None:
+            return float(self.max_cross_slope_deg) if self.max_cross_slope_deg > 0 else 0.0
+        return float(degrees(atan(max(0.001, self.wheel_friction_coeff))))
 
     @staticmethod
     def _solve_slope(a: float, crr: float) -> float:
@@ -99,6 +118,8 @@ class RoverSettings:
             raise ValueError("Track width must be > 0")
         if not (self.wheelbase_m > 0):
             raise ValueError("Wheelbase must be > 0")
+        if self.max_cross_slope_deg is not None and self.max_cross_slope_deg >= 90:
+            raise ValueError("Max cross-slope must be < 90 degrees (or <= 0 to disable)")
 
 
 ROVER_PRESETS: dict[str, RoverSettings] = {
@@ -153,6 +174,7 @@ def rover_settings_from_strings(
     target_cruise_speed_mps: str = "2.0",
     max_brake_decel_mps2: str = "1.0",
     idle_drain_w: str = "10.0",
+    max_cross_slope_deg: str | None = None,
 ) -> RoverSettings:
     """Parse string rover parameters into a validated RoverSettings."""
     m = float(mass_kg)
@@ -168,6 +190,7 @@ def rover_settings_from_strings(
     cruise = float(target_cruise_speed_mps)
     brake = float(max_brake_decel_mps2)
     idle = float(idle_drain_w)
+    cross = float(max_cross_slope_deg) if max_cross_slope_deg not in (None, "") else None
     settings = RoverSettings(
         mass_kg=m,
         power_hp=p,
@@ -182,6 +205,7 @@ def rover_settings_from_strings(
         target_cruise_speed_mps=cruise,
         max_brake_decel_mps2=brake,
         idle_drain_w=idle,
+        max_cross_slope_deg=cross,
     )
     settings.validate()
     return settings

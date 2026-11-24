@@ -4,6 +4,7 @@ import threading
 from typing import Any
 
 import numpy as np
+from scipy.ndimage import map_coordinates
 
 from cynthium.app.config import LUNAR_GRAVITY
 from cynthium.app.engine.simulation.path_sampling import (
@@ -13,6 +14,37 @@ from cynthium.app.engine.simulation.path_sampling import (
 )
 from cynthium.app.engine.simulation.rover_4wd import simulate_rover_4wd
 from cynthium.app.engine.simulation.rover_settings import RoverSettings
+
+
+def path_cross_slopes_deg(pts_xyz: np.ndarray, elevation_map: np.ndarray, transform) -> np.ndarray:
+	"""Side tilt (roll, deg) of the rover on each segment of a sampled path.
+
+	The elevation gradient (central differences, as for the sites' slope
+	rasters) is interpolated bilinearly at each segment's midpoint; for a
+	heading u and gradient G the roll is asin(|G . n| / sqrt(1 + |G|^2)),
+	with n perpendicular to u.  Returns one value per segment.
+	"""
+	n_seg = len(pts_xyz) - 1
+	if n_seg < 1 or elevation_map is None or min(elevation_map.shape) < 2:
+		return np.zeros(max(n_seg, 0))
+	g_row, g_col = np.gradient(np.asarray(elevation_map, dtype=np.float64))
+	gx_map = g_col / float(transform.a)  # dz/dx (m/m)
+	gy_map = g_row / float(transform.e)  # dz/dy (m/m); rows run along -y
+	inv = ~transform
+	mid = 0.5 * (pts_xyz[:-1, :2] + pts_xyz[1:, :2])
+	cols = inv.a * mid[:, 0] + inv.b * mid[:, 1] + inv.c
+	rows = inv.d * mid[:, 0] + inv.e * mid[:, 1] + inv.f
+	coords = [rows - 0.5, cols - 0.5]
+	gx = map_coordinates(gx_map, coords, order=1, mode="nearest")
+	gy = map_coordinates(gy_map, coords, order=1, mode="nearest")
+	d = np.diff(pts_xyz[:, :2], axis=0)
+	length = np.hypot(d[:, 0], d[:, 1])
+	with np.errstate(invalid="ignore", divide="ignore"):
+		ux, uy = d[:, 0] / length, d[:, 1] / length
+		lateral = np.abs(-gx * uy + gy * ux)
+		roll = np.degrees(np.arcsin(np.clip(lateral / np.sqrt(1.0 + gx * gx + gy * gy), 0.0, 1.0)))
+	roll[~np.isfinite(roll) | (length < 1e-9)] = 0.0
+	return roll
 
 
 def compute_traversal_dynamics(
@@ -39,6 +71,7 @@ def compute_traversal_dynamics(
 	mu = float(rover.wheel_friction_coeff)
 	crr = float(rover.rolling_resistance_coeff)
 	max_climbable = float(np.degrees(np.arctan(max(0.001, mu - crr))))
+	cross_limit = float(rover.cross_slope_limit_deg)
 
 	if waypoints_xyz.shape[0] < 2:
 		return {
@@ -49,6 +82,8 @@ def compute_traversal_dynamics(
 			"solar_energy_per_m2_j": 0.0,
 			"avg_solar_illumination_w_per_m2": 0.0,
 			"max_climbable_slope_deg": max_climbable,
+			"cross_slope_limit_deg": cross_limit,
+			"max_cross_slope_deg": 0.0,
 			"traverse_feasible": 1.0,
 			"failure_x": None,
 			"failure_y": None,
@@ -66,9 +101,11 @@ def compute_traversal_dynamics(
 	if elevation_map is not None and transform is not None:
 		pts = sample_path_elevations(waypoints_xyz, elevation_map, transform, use_bicubic=use_bicubic)
 		resolution_m = float(BICUBIC_RESOLUTION_M) if use_bicubic else float(get_pixel_resolution_m(transform))
+		cross_slopes = path_cross_slopes_deg(pts, elevation_map, transform)
 	else:
 		pts = waypoints_xyz.astype(np.float64, copy=False)
 		resolution_m = 0.0
+		cross_slopes = None
 
 	physics = simulate_rover_4wd(
 			pts_xyz=pts,
@@ -90,6 +127,8 @@ def compute_traversal_dynamics(
 			v_min_power_mps=0.001,
 			pause_durations=pause_durations,
 			cancel_event=cancel_event,
+			cross_slope_deg=cross_slopes,
+			max_cross_slope_deg=cross_limit,
 		)
 
 	return {
@@ -100,6 +139,8 @@ def compute_traversal_dynamics(
 		"solar_energy_per_m2_j": float(physics["solar_energy_per_m2_j"]),
 		"avg_solar_illumination_w_per_m2": float(physics["avg_solar_illumination_w_per_m2"]),
 		"max_climbable_slope_deg": max_climbable,
+		"cross_slope_limit_deg": cross_limit,
+		"max_cross_slope_deg": float(physics.get("max_cross_slope_deg", 0.0)),
 		"traverse_feasible": float(physics["traverse_feasible"]),
 		"failure_x": physics.get("failure_x"),
 		"failure_y": physics.get("failure_y"),

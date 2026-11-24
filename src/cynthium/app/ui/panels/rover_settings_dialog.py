@@ -19,6 +19,12 @@ from cynthium.app.engine.simulation.rover_settings import (
 )
 
 
+def _cross_slope_text(limit_deg: float) -> str:
+	if limit_deg <= 0:
+		return "cross-slope: no limit"
+	return f"max cross-slope: {limit_deg:.1f}\u00b0"
+
+
 class RoverSettingsDialog(QDialog):
 	"""Modal dialog for editing rover parameters."""
 
@@ -105,6 +111,18 @@ class RoverSettingsDialog(QDialog):
 		self._idle_drain_field.setPlaceholderText("W")
 		form.addRow("Idle power drain (W):", self._idle_drain_field)
 
+		form.addRow(QLabel(""))  # spacer
+
+		self._cross_slope_field = QLineEdit()
+		self._cross_slope_field.setPlaceholderText("blank = sideslip limit atan(\u03bc); 0 = no limit")
+		self._cross_slope_field.setToolTip(
+			"Steepest side slope the rover may drive across, in degrees.\n"
+			"Leave blank to use the sideslip limit atan(\u03bc) from the wheel friction;\n"
+			"enter 0 to disable the cross-slope check."
+		)
+		self._cross_slope_field.textChanged.connect(self._recompute_slope)
+		form.addRow("Max cross-slope (\u00b0):", self._cross_slope_field)
+
 		layout.addLayout(form)
 
 		self._max_slope_label = QLabel()
@@ -133,6 +151,8 @@ class RoverSettingsDialog(QDialog):
 			self._cruise_field.setText(str(current.target_cruise_speed_mps))
 			self._brake_field.setText(str(current.max_brake_decel_mps2))
 			self._idle_drain_field.setText(str(current.idle_drain_w))
+			if current.max_cross_slope_deg is not None:
+				self._cross_slope_field.setText(str(current.max_cross_slope_deg))
 			self._update_max_slope_direct(
 				current.wheel_friction_coeff,
 				current.rolling_resistance_coeff,
@@ -160,6 +180,10 @@ class RoverSettingsDialog(QDialog):
 		self._cruise_field.setText(str(preset.target_cruise_speed_mps))
 		self._brake_field.setText(str(preset.max_brake_decel_mps2))
 		self._idle_drain_field.setText(str(preset.idle_drain_w))
+		if preset.max_cross_slope_deg is not None:
+			self._cross_slope_field.setText(str(preset.max_cross_slope_deg))
+		else:
+			self._cross_slope_field.clear()
 		self._update_max_slope_direct(
 			preset.wheel_friction_coeff,
 			preset.rolling_resistance_coeff,
@@ -177,17 +201,25 @@ class RoverSettingsDialog(QDialog):
 				motor_peak_torque_nm=self._torque_field.text().strip() or None,
 				track_width_m=self._track_width_field.text().strip() or "1.0",
 				wheelbase_m=self._wheelbase_field.text().strip() or "1.5",
+				max_cross_slope_deg=self._cross_slope_field.text().strip() or None,
 			)
 			self._max_slope_label.setText(
-				f"Max climbable slope: {tmp.max_climbable_slope_deg:.1f}\u00b0"
+				f"Max climbable slope: {tmp.max_climbable_slope_deg:.1f}\u00b0; "
+				+ _cross_slope_text(tmp.cross_slope_limit_deg)
 			)
 		except (ValueError, TypeError, ZeroDivisionError):
 			self._max_slope_label.setText("Max climbable slope: \u2014")
 
 	def _update_max_slope_direct(self, mu: float, crr: float):
 		angle = degrees(atan(max(0.001, mu - crr)))
+		cross_txt = self._cross_slope_field.text().strip()
+		try:
+			cross = float(cross_txt) if cross_txt else degrees(atan(max(0.001, mu)))
+		except ValueError:
+			cross = degrees(atan(max(0.001, mu)))
 		self._max_slope_label.setText(
-			f"Max climbable slope: {angle:.1f}\u00b0 (traction only)"
+			f"Max climbable slope: {angle:.1f}\u00b0 (traction only); "
+			+ _cross_slope_text(max(0.0, cross))
 		)
 
 	def _on_accept(self):
@@ -207,6 +239,7 @@ class RoverSettingsDialog(QDialog):
 				target_cruise_speed_mps=self._cruise_field.text().strip() or "2.0",
 				max_brake_decel_mps2=self._brake_field.text().strip() or "1.0",
 				idle_drain_w=self._idle_drain_field.text().strip() or "10.0",
+				max_cross_slope_deg=self._cross_slope_field.text().strip() or None,
 			)
 			self._result = settings
 			self.accept()

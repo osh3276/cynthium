@@ -114,5 +114,7 @@ def format_simulation_stats(stats: dict[str, float]) -> str:
 		f"Solar Energy (per m²): {stats.get('solar_energy_per_m2_j', 0.0):.2f} J/m²\n"
 		f"Avg Solar Illum (time-weighted): {stats.get('avg_solar_illumination_w_per_m2', 0.0):.2f} W/m²\n"
 		f"Simulation Step: {stats.get('simulation_resolution_m', 0.0):.1f} m\n"
-		f"Max Climbable Slope: {stats.get('max_climbable_slope_deg', 0.0):.2f}°"
+		f"Max Climbable Slope: {stats.get('max_climbable_slope_deg', 0.0):.2f}°\n"
+		f"Cross-slope Limit: {stats.get('cross_slope_limit_deg', 0.0):.2f}° (0 = none)\n"
+		f"Max Cross-slope Crossed: {stats.get('max_cross_slope_deg', 0.0):.2f}°"
 	)

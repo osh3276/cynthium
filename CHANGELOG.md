@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Cross-slope (side tilt) limit.** The slope limit applied only along the
+  direction of travel, so routes could run along the contours of walls far
+  steeper than the rover could stand on. The rover now has a maximum
+  cross-slope, by default the sideslip angle atan(μ) (26.6° for the
+  Curiosity preset), editable in the rover settings dialog (0 disables
+  it). The autopath treats steps whose side tilt exceeds it as impassable,
+  and the simulation stops with "Cross-slope too steep" where a route
+  crosses such ground. The results report the limit and the largest side
+  tilt met, and the setting is included in settings and CSV exports.
+  Routes that contoured steep slopes will now take different, often
+  longer, paths.
+
 ### Fixed
 
 - **No more false "Insufficient traction" failures on side slopes.** With

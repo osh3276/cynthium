@@ -32,6 +32,7 @@ def compute_path_segment(
 	temperature_data: np.ndarray | None,
 	temperature_meta: dict | None,
 	max_slope_deg: float = 20.0,
+	max_cross_slope_deg: float = 0.0,
 	slope_weight: float = 1.0,
 	sun_weight: float = 0.5,
 	meteor_flux_weight: float = 0.2,
@@ -47,7 +48,8 @@ def compute_path_segment(
 	"""Plan a route between two world-coordinate points on the elevation grid.
 
 	Returns a list of ``(x, y)`` waypoints along the route, or ``None`` if
-	no path is found.
+	no path is found.  ``max_cross_slope_deg`` > 0 also forbids steps whose
+	side tilt exceeds it (see ``a_star``).
 	"""
 	if elevation_data is None or elevation_meta is None:
 		return None
@@ -179,6 +181,7 @@ def compute_path_segment(
 		res_y=res_y,
 		min_slope_deg=0.0,
 		max_slope_deg=float(max_slope_deg),
+		max_cross_slope_deg=max(0.0, float(max_cross_slope_deg)),
 		slope_weight=max(0.0, slope_weight),
 		grade_power=grade_power,
 		max_expanded=int(max_expanded),

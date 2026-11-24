@@ -73,6 +73,28 @@ def _midpoint_elevation(
 	return 0.5 * (a + b)
 
 
+def _cross_slope_deg(
+	grad_r: np.ndarray,
+	grad_c: np.ndarray,
+	rc: tuple[int, int],
+	ur: float,
+	uc: float,
+) -> float:
+	"""Side tilt (deg) of a rover at cell ``rc`` heading along unit vector (ur, uc).
+
+	``grad_r``/``grad_c`` are the elevation gradients (m/m) along rows and
+	columns.  On a plane with gradient G the roll angle for heading u is
+	asin(|G . n| / sqrt(1 + |G|^2)), with n perpendicular to u; for a pure
+	side slope this is the slope angle itself.
+	"""
+	gr = float(grad_r[rc[0], rc[1]])
+	gc = float(grad_c[rc[0], rc[1]])
+	if not (math.isfinite(gr) and math.isfinite(gc)):
+		return 0.0
+	lateral = abs(-gr * uc + gc * ur)
+	return float(math.degrees(math.asin(min(1.0, lateral / math.sqrt(1.0 + gr * gr + gc * gc)))))
+
+
 def _segment_cost(
 	*,
 	rc0: tuple[int, int],
@@ -84,6 +106,9 @@ def _segment_cost(
 	max_slope_deg: float,
 	slope_weight: float,
 	grade_power: float = 1.0,
+	max_cross_slope_deg: float = 0.0,
+	grad_r: np.ndarray | None = None,
+	grad_c: np.ndarray | None = None,
 ) -> float:
 	"""Cost of moving between two neighbouring cells (16-connected).
 
@@ -96,6 +121,12 @@ def _segment_cost(
 	cannot hold itself on (or climb back out of) descents that steep.
 	Long knight's-move steps are checked in two halves through their
 	midpoint so they cannot hop over a narrow steep rim.
+
+	With ``max_cross_slope_deg > 0`` and the elevation gradients
+	``grad_r``/``grad_c``, a step is also impassable when the side tilt
+	(roll) for the step's heading exceeds that limit at either end cell or
+	at the two cells a diagonal or knight's move passes between (the
+	simulator interpolates the gradient from those cells along the step).
 	"""
 	cc0 = float(cell_cost[rc0[0], rc0[1]])
 	cc1 = float(cell_cost[rc1[0], rc1[1]])
@@ -121,6 +152,21 @@ def _segment_cost(
 						return math.inf
 				if g > 0:
 					cost += float(slope_weight) * ((g / max_slope) ** float(grade_power)) * step
+		if max_cross_slope_deg > 0 and grad_r is not None and grad_c is not None:
+			ur = (rc1[0] - rc0[0]) * float(res_y) / step
+			uc = (rc1[1] - rc0[1]) * float(res_x) / step
+			cells = [rc0, rc1]
+			if dr == 1 and dc == 1:  # diagonal: also the two cells sharing the corner it crosses
+				cells += [(rc0[0], rc1[1]), (rc1[0], rc0[1])]
+			elif dr == 2 and dc == 1:  # knight's move: also the two cells it passes between
+				r = (rc0[0] + rc1[0]) // 2
+				cells += [(r, rc0[1]), (r, rc1[1])]
+			elif dr == 1 and dc == 2:
+				c = (rc0[1] + rc1[1]) // 2
+				cells += [(rc0[0], c), (rc1[0], c)]
+			for rc in cells:
+				if _cross_slope_deg(grad_r, grad_c, rc, ur, uc) > max_cross_slope_deg:
+					return math.inf
 
 	return float(cost)
 
@@ -142,6 +188,7 @@ def a_star(
 	blocked_pixels: set[tuple[int, int]] | None = None,
 	dijkstra: bool = False,
 	cancel_event: threading.Event | None = None,
+	max_cross_slope_deg: float = 0.0,
 ) -> PathResult | None:
 	"""A* over a 16-connected grid.
 
@@ -158,6 +205,8 @@ def a_star(
 	- `grade_power`: exponent applied to grade_norm.  1 = linear cost,
 	  higher values amplify steepness penalty (minimax behavior).
 	- `dijkstra`: if True, use zero heuristic (pure Dijkstra).
+	- `max_cross_slope_deg`: if > 0, steps whose side tilt (roll) exceeds it
+	  are impassable (see ``_segment_cost``); 0 disables the check.
 	"""
 	H, W = traversable.shape
 	sr, sc = int(start_rc[0]), int(start_rc[1])
@@ -169,6 +218,11 @@ def a_star(
 
 	N = int(H * W)
 	INF = float("inf")
+
+	grad_r = grad_c = None
+	if max_cross_slope_deg > 0 and min(H, W) >= 2:
+		# Central differences, as for the sites' slope rasters (m per m).
+		grad_r, grad_c = np.gradient(np.asarray(elev, dtype=np.float64), float(res_y), float(res_x))
 
 	g = np.full((H, W), INF, dtype=np.float64)
 	closed = np.zeros((H, W), dtype=bool)
@@ -238,9 +292,12 @@ def a_star(
 				max_slope_deg=max_slope_deg,
 				slope_weight=slope_weight,
 				grade_power=grade_power,
+				max_cross_slope_deg=max_cross_slope_deg,
+				grad_r=grad_r,
+				grad_c=grad_c,
 			)
 			if not math.isfinite(step_cost):
-				continue  # steeper than the rover's slope limit
+				continue  # beyond the rover's slope or cross-slope limit
 			new_g = g[r, c] + step_cost
 			if new_g < g[nr, nc]:
 				g[nr, nc] = float(new_g)
