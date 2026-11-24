@@ -84,6 +84,29 @@ no grade cost (gravity assists the rover).
 * :math:`w_{\text{slope}}` — slope weight (default 100.0).
 * :math:`p` — grade power exponent.
 
+Cross-slope limit
+-----------------
+
+The grade above is measured along the direction of travel. A rover
+driving across a slope also tilts sideways (rolls). With the elevation
+gradient :math:`\mathbf{G}` (central differences, as in the sites' slope
+rasters) and a unit vector :math:`\mathbf{n}` perpendicular to the
+heading, the roll angle is
+
+.. math::
+
+   \phi = \arcsin\left(\frac{|\mathbf{G}\cdot\mathbf{n}|}
+   {\sqrt{1 + |\mathbf{G}|^2}}\right),
+
+which equals the slope angle on a pure side slope and is zero along the
+fall line. Steps with :math:`\phi > \phi_{\max}` are impassable; the
+check uses the gradient at both end cells and, for diagonal and long
+diagonal steps, at the two cells the step passes between. By default
+:math:`\phi_{\max} = \arctan(\mu)`, the angle at which lateral wheel
+friction can no longer hold the rover against sliding sideways; a
+different value can be set in the rover settings, and 0 disables the
+check. Static rollover is not modelled separately.
+
 Cost strategy (minimax vs weighted cost)
 ----------------------------------------
 
@@ -372,7 +395,11 @@ Key outputs
    * - ``average_velocity_mps``
      - :math:`\text{distance} / \text{time}`
    * - ``failure_reason``
-     - Text description of why the traverse failed (traction, divergence, timeout)
+     - Text description of why the traverse failed (traction, cross-slope, battery, timeout)
+   * - ``cross_slope_limit_deg``
+     - Cross-slope limit used (deg; 0 = no limit)
+   * - ``max_cross_slope_deg``
+     - Largest side tilt (roll) the rover met along the route (deg)
    * - ``battery_energy_used_j``
      - Total energy drawn from battery (J)
    * - ``battery_remaining_pct``
@@ -396,6 +423,9 @@ Lunar parameters
    * - Max climbable slope
      - :math:`\arctan(\mu - C_{rr})`
      - Derived from rover friction & rolling resistance
+   * - Max cross-slope
+     - :math:`\arctan(\mu)` unless set
+     - Sideslip limit from rover friction
    * - Max wheel speed
      - :math:`\text{RPM} \cdot \pi / 30 \cdot r`
      - From motor max RPM and wheel radius

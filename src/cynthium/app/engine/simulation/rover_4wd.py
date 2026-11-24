@@ -93,8 +93,15 @@ def simulate_rover_4wd(
 	max_steps: int = 500000,
 	pause_durations: list[float] | None = None,
 	cancel_event: threading.Event | None = None,
+	cross_slope_deg: np.ndarray | None = None,
+	max_cross_slope_deg: float = 0.0,
 ) -> dict[str, Any]:
-	"""Simulate a 4-wheel skid-steer rover with simple brake model."""
+	"""Simulate a 4-wheel skid-steer rover with simple brake model.
+
+	``cross_slope_deg`` gives the side tilt (roll) on each segment of
+	``pts_xyz``.  When ``max_cross_slope_deg`` > 0 the traverse fails where
+	the tilt under the rover exceeds it (the rover would slide sideways).
+	"""
 	global step
 	t_start = time.perf_counter()
 
@@ -205,6 +212,8 @@ def simulate_rover_4wd(
 	completed = False
 	failure_reason: str | None = None
 	_pause_timer = 0.0  # seconds of pause remaining at waypoint
+	max_roll_deg = 0.0
+	_check_roll = cross_slope_deg is not None and len(cross_slope_deg) == len(pts_xyz) - 1
 
 	dt = DT_MIN
 	_pid = SpeedPIDController()
@@ -277,6 +286,15 @@ def simulate_rover_4wd(
 		)
 		cos_pitch = abs(cos(pitch))
 		sin_pitch = sin(pitch)
+
+		if _check_roll:
+			roll_deg = float(cross_slope_deg[_pitch_hint])
+			if roll_deg > max_roll_deg:
+				max_roll_deg = roll_deg
+			if max_cross_slope_deg > 0 and roll_deg > max_cross_slope_deg:
+				failure_reason = "Cross-slope too steep — rover would slide sideways"
+				speed = 0.0
+				break
 
 		if mode == 0:  # DRIVE
 			heading_err = _heading_error_to_waypoint(x, y, heading, tx, ty)
@@ -601,6 +619,7 @@ def simulate_rover_4wd(
 		"battery_remaining_pct": float(batt_remaining_pct),
 		"battery_capacity_wh": float(rover.battery_capacity_wh),
 		"simulation_steps": int(step + 1),
+		"max_cross_slope_deg": float(max_roll_deg),
 	}
 
 

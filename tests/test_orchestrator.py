@@ -70,6 +70,7 @@ class TestComputeTraversalDynamics:
 			"average_velocity_mps", "min_velocity_mps", "max_velocity_mps",
 			"traversal_time_s", "solar_energy_per_m2_j",
 			"avg_solar_illumination_w_per_m2", "max_climbable_slope_deg",
+			"cross_slope_limit_deg", "max_cross_slope_deg",
 			"traverse_feasible", "failure_x", "failure_y", "failure_reason",
 			"simulation_resolution_m", "rollover_occurred",
 			"max_lateral_accel_mps2", "braking_events", "max_braking_decel_mps2",
