@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 from cynthium.app.engine.simulation.rover_settings import (
 	RoverSettings,
-	rover_settings_from_strings,
+	rover_settings_from_preset,
 )
 from cynthium.app.ui.panels.sidebar.map_selection_panel import MapSelectionPanel
 from cynthium.app.ui.panels.sidebar.planning_panel import PlanningPanel
@@ -92,7 +92,8 @@ class AppSidebar(QWidget):
 
 	def get_rover_settings(self) -> RoverSettings:
 		mass, power, mu, crr = self._rover_settings_panel.get_values()
-		return rover_settings_from_strings(mass, power, mu, crr)
+		preset = self._rover_settings_panel.get_preset_name()
+		return rover_settings_from_preset(preset, mass, power, mu, crr)
 
 	def get_bicubic_enabled(self) -> bool:
 		return self._planning_panel.get_bicubic_enabled() if hasattr(self, "_planning_panel") else False

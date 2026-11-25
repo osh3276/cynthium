@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The default rover is now the full Curiosity preset.** The sidebar took
+  only mass, power, wheel friction and rolling resistance from the selected
+  preset; until the rover settings dialog was opened and accepted, the other
+  fields kept the generic defaults (wheel radius 0.5 m instead of 0.25 m,
+  cruise speed 2 m/s instead of 0.04 m/s, battery 500 Wh instead of
+  3,528 Wh). The remaining fields now come from the selected preset, so the
+  rover used at start-up, and shown when the dialog opens, is Curiosity's.
+  Results obtained with the old start-up settings will change.
+
 - **No more false "Insufficient traction" failures on side slopes.** With
   default settings the simulator took path elevations from the nearest
   pixel, and indexed pixels with `round()` on corner-based coordinates, so
