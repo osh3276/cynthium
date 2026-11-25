@@ -254,6 +254,12 @@ Curiosity's battery is an 84 Ah pack at 42 V (the MSL rover's
 rechargeable lithium-ion system), i.e. 3,528 Wh; the other presets use
 the 500 Wh default.
 
+Curiosity is selected when Cynthium starts. The sidebar shows only the
+mass, power, wheel friction and rolling resistance; the other parameters
+(wheel radius, cruise speed, battery, ...) are taken from the selected
+preset, so the default rover is the full Curiosity preset. Values entered
+in the rover settings dialog override them.
+
 The configurable parameters are:
 
 .. list-table::

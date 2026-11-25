@@ -6,6 +6,7 @@ from cynthium.app.engine.simulation.rover_settings import (
 	G_MPS2,
 	ROVER_PRESETS,
 	RoverSettings,
+	rover_settings_from_preset,
 	rover_settings_from_strings,
 )
 
@@ -210,3 +211,33 @@ class TestRoverSettingsFromStrings:
 		assert rs.target_cruise_speed_mps == 3.0
 		assert rs.max_brake_decel_mps2 == 0.8
 		assert rs.idle_drain_w == 20.0
+
+
+class TestRoverSettingsFromPreset:
+	"""The sidebar rover: selected preset plus its four editable fields."""
+
+	def test_curiosity_gives_full_preset(self):
+		c = ROVER_PRESETS["Curiosity"]
+		s = rover_settings_from_preset(
+			"Curiosity", str(c.mass_kg), str(c.power_hp),
+			str(c.wheel_friction_coeff), str(c.rolling_resistance_coeff),
+		)
+		assert s == c
+		assert s.wheel_radius_m == pytest.approx(0.25)
+		assert s.target_cruise_speed_mps == pytest.approx(0.04)
+		assert s.battery_capacity_wh == pytest.approx(3528.0)
+
+	def test_edited_fields_override_preset(self):
+		s = rover_settings_from_preset("Curiosity", "1000", "0.2", "0.6", "0.03")
+		assert (s.mass_kg, s.power_hp) == (1000.0, 0.2)
+		assert (s.wheel_friction_coeff, s.rolling_resistance_coeff) == (0.6, 0.03)
+		assert s.wheel_radius_m == pytest.approx(0.25)
+		assert s.target_cruise_speed_mps == pytest.approx(0.04)
+
+	def test_unknown_preset_uses_generic_defaults(self):
+		s = rover_settings_from_preset("Custom", "100", "1", "0.5", "0.02")
+		assert s == rover_settings_from_strings("100", "1", "0.5", "0.02")
+
+	def test_invalid_values_rejected(self):
+		with pytest.raises(ValueError):
+			rover_settings_from_preset("Curiosity", "-5", "0.13", "0.5", "0.02")

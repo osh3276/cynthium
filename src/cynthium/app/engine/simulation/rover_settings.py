@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import asin, atan, atan2, degrees, sqrt
 
 G_MPS2 = 1.625  # lunar gravity
@@ -206,6 +206,38 @@ def rover_settings_from_strings(
         max_brake_decel_mps2=brake,
         idle_drain_w=idle,
         max_cross_slope_deg=cross,
+    )
+    settings.validate()
+    return settings
+
+
+def rover_settings_from_preset(
+    preset_name: str,
+    mass_kg: str,
+    power_hp: str,
+    wheel_friction_coeff: str,
+    rolling_resistance_coeff: str,
+) -> RoverSettings:
+    """Rover settings for the sidebar: the named preset with its four editable fields.
+
+    The sidebar shows only mass, power, wheel friction and rolling resistance.
+    The other fields (wheel radius, cruise speed, battery, ...) come from the
+    selected preset, so choosing "Curiosity" gives the full Curiosity preset
+    rather than the generic RoverSettings defaults. An unknown preset name
+    falls back to those defaults.
+    """
+    base = rover_settings_from_strings(
+        mass_kg, power_hp, wheel_friction_coeff, rolling_resistance_coeff
+    )
+    preset = ROVER_PRESETS.get(preset_name)
+    if preset is None:
+        return base
+    settings = replace(
+        preset,
+        mass_kg=base.mass_kg,
+        power_hp=base.power_hp,
+        wheel_friction_coeff=base.wheel_friction_coeff,
+        rolling_resistance_coeff=base.rolling_resistance_coeff,
     )
     settings.validate()
     return settings
